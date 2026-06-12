@@ -1,5 +1,14 @@
-/** Default session inactivity timeout (5 minutes) */
-export const DEFAULT_INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
+/**
+ * Default session inactivity timeout (30 minutes).
+ *
+ * Deliberately generous: clients that never open a standalone SSE stream
+ * (or whose stream fails to attach, as happens with mcp-remote) cannot
+ * receive keep-alive pings, so their sessions are only refreshed by real
+ * requests. Chat clients like Claude Desktop routinely sit idle for many
+ * minutes between tool calls and cannot recover from an expired session
+ * without a full restart.
+ */
+export const DEFAULT_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 
 /** Default ping interval (30 seconds) - per MCP best practices */
 export const DEFAULT_PING_INTERVAL_MS = 30 * 1000;
@@ -142,22 +151,28 @@ class SessionManager {
   }
 
   /**
-   * Record a failed ping attempt
-   * @returns true if session was terminated due to max failed pings
+   * Record a failed ping attempt.
+   *
+   * Ping failures are diagnostic only and never terminate the session.
+   * Over Streamable HTTP a server→client ping is only deliverable when the
+   * client holds an open standalone SSE (GET) stream; clients without one
+   * (mcp-remote/Claude Desktop among them) are healthy yet can never pong.
+   * Killing their sessions on failed pings breaks them within minutes.
+   * Dead sessions are reaped by the inactivity timeout instead.
    */
-  recordPingFailed(sessionId: string): boolean {
+  recordPingFailed(sessionId: string): void {
     const session = this.sessions.get(sessionId);
-    if (!session) return false;
+    if (!session) return;
 
-    session.failedPings++;
-    console.log(`[MCP] Ping failed for session ${sessionId.slice(0, 8)}... (${session.failedPings}/${this.config.maxFailedPings})`);
-
-    if (session.failedPings >= this.config.maxFailedPings) {
-      console.log(`[MCP] Session ${sessionId.slice(0, 8)}... terminated: max failed pings reached`);
-      this.remove(sessionId);
-      return true;
+    // Cap the counter — for clients that can never pong it would otherwise
+    // grow with uptime and stop meaning "consecutive failures".
+    session.failedPings = Math.min(
+      session.failedPings + 1,
+      this.config.maxFailedPings
+    );
+    if (session.failedPings < this.config.maxFailedPings) {
+      console.log(`[MCP] Ping unanswered for session ${sessionId.slice(0, 8)}... (${session.failedPings}/${this.config.maxFailedPings}; informational only)`);
     }
-    return false;
   }
 
   updateClientInfo(sessionId: string, clientName?: string, clientVersion?: string): void {

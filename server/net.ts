@@ -1,4 +1,5 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
+import { EmptyResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import type { Server as NetServer, Socket } from 'node:net'
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
@@ -57,6 +58,7 @@ function getStatusText (status: number): string {
   const texts: Record<number, string> = {
     200: 'OK',
     201: 'Created',
+    202: 'Accepted',
     204: 'No Content',
     400: 'Bad Request',
     404: 'Not Found',
@@ -65,6 +67,27 @@ function getStatusText (status: number): string {
     500: 'Internal Server Error'
   }
   return texts[status] || 'Unknown'
+}
+
+/**
+ * Whether an HTTP request carries an MCP InitializeRequest. Only initialize
+ * requests may create a new session — anything else without a session ID is
+ * a client error, not a new connection. Per spec an InitializeRequest must
+ * not be part of a JSON-RPC batch, so only a sole non-batched message counts.
+ */
+function isInitializeRequestBody (method: string, body: string): boolean {
+  if (method !== 'POST' || !body) return false
+  try {
+    const parsed: unknown = JSON.parse(body)
+    if (Array.isArray(parsed)) return false
+    return (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      (parsed as { method?: unknown }).method === 'initialize'
+    )
+  } catch {
+    return false
+  }
 }
 
 export default function createNetServer (
@@ -99,12 +122,20 @@ export default function createNetServer (
     if (!session) return false
 
     try {
-      // Use the underlying Server's ping() method to send a JSON-RPC ping
-      // and wait for the client's response (pong).
-      await session.server.server.ping()
+      // Send a JSON-RPC ping and wait for the client's response (pong).
+      // Bounded by pingTimeoutMs: if the client has no open SSE stream, the
+      // SDK silently drops server→client requests and the ping would
+      // otherwise wait for the SDK's 60s default request timeout, stacking
+      // pending pings.
+      await session.server.server.request(
+        { method: 'ping' },
+        EmptyResultSchema,
+        { timeout: keepAliveConfig.pingTimeoutMs }
+      )
       return true
     } catch {
-      // Ping failed — transport is likely dead
+      // Ping was not answered — undeliverable (no SSE stream) or client gone.
+      // Either way this is informational only; the inactivity timeout reaps.
       return false
     }
   })
@@ -293,21 +324,23 @@ export default function createNetServer (
           const sessionId = headers['mcp-session-id']
           let session = sessionId ? sessionTransports.get(sessionId) : null
 
-          // If client provided a session ID but it's not found, reject with 409
-          // This happens when the session timed out or was closed
+          // Per MCP spec, an unknown or expired session ID gets 404 Not Found,
+          // signalling spec-compliant clients to transparently start a new
+          // session with a fresh InitializeRequest. (409 is not in the spec
+          // and leaves clients stuck until restart.)
           if (sessionId && !session) {
             console.log(
-              `[MCP] Invalid session ID: ${sessionId.slice(0, 8)}... (session expired or not found)`
+              `[MCP] Unknown session ID: ${sessionId.slice(0, 8)}... (session expired or not found)`
             )
             sendResponse(
               socket,
-              409,
+              404,
               { 'content-type': 'application/json' },
               JSON.stringify({
                 jsonrpc: '2.0',
                 error: {
-                  code: -32600,
-                  message: 'Session expired or not found. Please reconnect.'
+                  code: -32001,
+                  message: 'Session not found. Please reinitialize.'
                 },
                 id: null
               }),
@@ -316,7 +349,31 @@ export default function createNetServer (
             continue
           }
 
-          // If no session exists, create a new one with its own server and transport
+          // Only an InitializeRequest may create a new session. Clients
+          // (e.g., the SDK client inside mcp-remote) can send GETs,
+          // notifications, or DELETEs without a session header while an
+          // initialize is in flight — those must be rejected, not treated
+          // as new connections.
+          if (!session && !isInitializeRequestBody(method, body)) {
+            sendResponse(
+              socket,
+              400,
+              { 'content-type': 'application/json' },
+              JSON.stringify({
+                jsonrpc: '2.0',
+                error: {
+                  code: -32000,
+                  message: 'Bad Request: Mcp-Session-Id header is required'
+                },
+                id: null
+              }),
+              headers['connection']
+            )
+            continue
+          }
+
+          // No session yet and this is an initialize request: create a new
+          // session with its own server and transport
           if (!session) {
             const sessionServer = createMcpServer()
 
@@ -324,6 +381,15 @@ export default function createNetServer (
             registerToolsOnServer(sessionServer)
             registerResourcesOnServer(sessionServer)
             registerPromptsOnServer(sessionServer)
+
+            // Filled in below before handleRequest runs; onsessioninitialized
+            // (fired during handleRequest) closes over this object, which
+            // avoids a shared temporary map key that concurrent initialize
+            // requests could clobber.
+            const newSession = { server: sessionServer } as {
+              transport: WebStandardStreamableHTTPServerTransport
+              server: McpServer
+            }
 
             const transport = new WebStandardStreamableHTTPServerTransport({
               sessionIdGenerator: () => crypto.randomUUID(),
@@ -333,23 +399,18 @@ export default function createNetServer (
                   `[MCP] Session initialized: ${newSessionId.slice(0, 8)}...`
                 )
                 sessionManager.add(newSessionId)
-                // Update the map with the actual session ID
-                const sess = sessionTransports.get('__pending__')
-                if (sess) {
-                  sessionTransports.delete('__pending__')
-                  sessionTransports.set(newSessionId, sess)
+                sessionTransports.set(newSessionId, newSession)
 
-                  // Hook into oninitialized to capture client info
-                  const underlyingServer = sess.server.server
-                  underlyingServer.oninitialized = () => {
-                    const clientInfo = underlyingServer.getClientVersion()
-                    if (clientInfo) {
-                      sessionManager.updateClientInfo(
-                        newSessionId,
-                        clientInfo.name,
-                        clientInfo.version
-                      )
-                    }
+                // Hook into oninitialized to capture client info
+                const underlyingServer = sessionServer.server
+                underlyingServer.oninitialized = () => {
+                  const clientInfo = underlyingServer.getClientVersion()
+                  if (clientInfo) {
+                    sessionManager.updateClientInfo(
+                      newSessionId,
+                      clientInfo.name,
+                      clientInfo.version
+                    )
                   }
                 }
               },
@@ -367,12 +428,8 @@ export default function createNetServer (
             // Connect this session's server to its transport
             await sessionServer.connect(transport)
 
-            session = { transport, server: sessionServer }
-
-            // Store with a temporary key if no session ID yet (will be updated in callback)
-            if (!sessionId) {
-              sessionTransports.set('__pending__', session)
-            }
+            newSession.transport = transport
+            session = newSession
           }
 
           // Update session activity
