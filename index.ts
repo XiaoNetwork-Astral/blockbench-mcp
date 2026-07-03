@@ -25,8 +25,12 @@ BBPlugin.register("mcp", {
   version: VERSION,
   title: "MCP Server",
   author: "Jason J. Gardner",
+  contributors: ["jasonjgardner", "brokestar233"],
   description: "Create an MCP server inside Blockbench.",
   tags: ["MCP", "AI"],
+  website: "https://jasonjgardner.github.io/blockbench-mcp-plugin/",
+  repository: "https://github.com/jasonjgardner/blockbench-mcp-plugin",
+  bug_tracker: "https://github.com/jasonjgardner/blockbench-mcp-plugin/issues",
   icon: getIcon(),
   variant: "desktop",
   async onload() {
@@ -66,7 +70,7 @@ BBPlugin.register("mcp", {
     };
     const sessionTimeoutMin = toFiniteNumber(
       Settings.get("mcp_session_timeout"),
-      5
+      30
     );
     const sseHeartbeatSec = toFiniteNumber(
       Settings.get("mcp_sse_heartbeat"),

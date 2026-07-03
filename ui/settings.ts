@@ -42,7 +42,7 @@ export function settingsSetup() {
       name: tl("mcp.settings.session_timeout_name"),
       description: tl("mcp.settings.session_timeout_desc"),
       type: "number",
-      value: 5,
+      value: 30,
       min: 1,
       max: 1440,
       category,

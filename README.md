@@ -40,14 +40,27 @@ npx mcp-add --type http --url "http://localhost:3000/bb-mcp" --scope project
 
 #### Claude Desktop
 
-**`claude_desktop_config.json`**
+**`claude_desktop_config.json`** (macOS/Linux)
 
 ```json
 {
   "mcpServers": {
     "blockbench": {
       "command": "npx",
-      "args": ["mcp-remote", "http://localhost:3000/bb-mcp"]
+      "args": ["-y", "mcp-remote", "http://localhost:3000/bb-mcp"]
+    }
+  }
+}
+```
+
+**`claude_desktop_config.json`** (Windows)
+
+```json
+{
+  "mcpServers": {
+    "blockbench": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "mcp-remote", "http://localhost:3000/bb-mcp"]
     }
   }
 }
