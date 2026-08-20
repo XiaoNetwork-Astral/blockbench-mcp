@@ -1,0 +1,200 @@
+<div class="codex-audit-panel">
+    <div class="codex-audit-toolbar">
+        <div class="codex-audit-search-row">
+            <div class="codex-audit-search-wrap">
+                <i class="material-icons">search</i>
+                <input class="codex-audit-search" type="search" v-model="filters.search"
+                    :placeholder="tl('mcp.audit.search_placeholder')" @input="onSearchInput">
+            </div>
+            <button class="tool codex-audit-icon-button" :title="tl('mcp.audit.refresh')" @click="loadPage">
+                <i class="material-icons">refresh</i>
+            </button>
+            <button class="tool codex-audit-icon-button" :title="tl('mcp.audit.settings')" @click="openSettings">
+                <i class="material-icons">settings</i>
+            </button>
+            <button class="tool codex-audit-icon-button" :title="tl('mcp.audit.hide')" @click="hidePanel">
+                <i class="material-icons">visibility_off</i>
+            </button>
+        </div>
+
+        <div class="codex-audit-filter-grid">
+            <label>
+                <span>{{tl('mcp.audit.model')}}</span>
+                <select v-model="projectScope" @change="onFilterChanged">
+                    <option value="current">{{tl('mcp.audit.current_model')}}</option>
+                    <option value="all">{{tl('mcp.audit.all_models_search')}}</option>
+                    <option v-for="project in projects" :key="project.id" :value="project.id">
+                        {{project.name}}
+                    </option>
+                </select>
+            </label>
+            <label>
+                <span>{{tl('mcp.audit.source')}}</span>
+                <select v-model="filters.source" @change="onFilterChanged">
+                    <option value="mcp">{{tl('mcp.audit.source_mcp')}}</option>
+                    <option value="user">{{tl('mcp.audit.source_user')}}</option>
+                    <option value="panel">{{tl('mcp.audit.source_panel')}}</option>
+                    <option value="system">{{tl('mcp.audit.source_system')}}</option>
+                    <option value="all">{{tl('mcp.audit.all_sources')}}</option>
+                </select>
+            </label>
+            <label>
+                <span>{{tl('mcp.audit.status')}}</span>
+                <select v-model="filters.status" @change="onFilterChanged">
+                    <option value="all">{{tl('mcp.audit.all_statuses')}}</option>
+                    <option value="running">{{tl('mcp.audit.status_running')}}</option>
+                    <option value="success">{{tl('mcp.audit.status_success')}}</option>
+                    <option value="error">{{tl('mcp.audit.status_error')}}</option>
+                </select>
+            </label>
+            <label>
+                <span>{{tl('mcp.audit.tool')}}</span>
+                <select v-model="filters.toolName" @change="onFilterChanged">
+                    <option value="all">{{tl('mcp.audit.all_tools')}}</option>
+                    <option v-for="tool in toolOptions" :key="tool.name" :value="tool.name" :title="tool.title">
+                        {{tool.label}}
+                    </option>
+                </select>
+            </label>
+        </div>
+
+        <div class="codex-audit-context-row">
+            <span class="codex-audit-model-chip" :title="activeProjectName">
+                <i class="material-icons">view_in_ar</i>{{activeProjectName}}
+            </span>
+            <span class="codex-audit-storage-chip" :class="{temporary: !storagePersistent}"
+                :title="storageMessage || (storagePersistent ? tl('mcp.audit.persistent_storage') : tl('mcp.audit.session_storage'))">
+                <i class="material-icons">{{storagePersistent ? 'storage' : 'memory'}}</i>
+                {{storagePersistent ? tl('mcp.audit.saved_locally') : tl('mcp.audit.session_only')}}
+            </span>
+            <button class="tool codex-audit-clear" :title="tl('mcp.audit.clear_title')" @click="clearHistory">
+                <i class="material-icons">delete_sweep</i>
+            </button>
+        </div>
+
+        <div v-if="viewingAllProjects" class="codex-audit-notice">
+            <i class="material-icons">info</i>
+            <span>{{tl('mcp.audit.all_models_readonly')}}</span>
+        </div>
+    </div>
+
+    <div class="codex-audit-list" :aria-busy="loading ? 'true' : 'false'">
+        <div v-if="error" class="codex-audit-empty error">
+            <i class="material-icons">error</i>
+            <span>{{error}}</span>
+        </div>
+        <div v-else-if="loading && items.length === 0" class="codex-audit-empty">
+            <i class="material-icons codex-audit-spin">progress_activity</i>
+            <span>{{tl('mcp.audit.loading')}}</span>
+        </div>
+        <div v-else-if="items.length === 0" class="codex-audit-empty">
+            <i class="material-icons">history</i>
+            <span>{{tl('mcp.audit.no_operations')}}</span>
+        </div>
+
+        <article v-for="item in items" :key="item.id" class="codex-audit-entry"
+            :class="['source-' + item.source, 'status-' + item.status]">
+            <button class="codex-audit-entry-summary" @click="toggleDetails(item)">
+                <span class="codex-audit-status-dot" :title="statusLabel(item.status)"></span>
+                <span class="codex-audit-entry-main">
+                    <span class="codex-audit-entry-title">{{item.title}}</span>
+                    <span class="codex-audit-entry-subtitle">
+                        <code>{{item.toolName}}</code>
+                        <span>·</span>
+                        <span>{{item.projectName || tl('mcp.audit.no_model')}}</span>
+                        <span v-if="item.undoEntryCount > 0">· {{tl('mcp.audit.undo_entries', [item.undoEntryCount])}}</span>
+                    </span>
+                </span>
+                <span class="codex-audit-entry-side">
+                    <span class="codex-audit-source-badge">{{sourceLabel(item.source)}}</span>
+                    <span class="codex-audit-time" :title="formatTime(item.startedAt)">
+                        {{formatDuration(item.durationMs)}}
+                    </span>
+                </span>
+                <i class="material-icons codex-audit-chevron">{{expanded[item.id] ? 'expand_less' : 'expand_more'}}</i>
+            </button>
+
+            <div v-if="item.argumentsSummary || item.resultSummary || item.errorSummary" class="codex-audit-inline-summary">
+                <span v-if="item.argumentsSummary" :title="item.argumentsSummary">{{item.argumentsSummary}}</span>
+                <span v-if="item.errorSummary" class="error" :title="item.errorSummary">{{item.errorSummary}}</span>
+                <span v-else-if="item.resultSummary" :title="item.resultSummary">{{item.resultSummary}}</span>
+            </div>
+
+            <div v-if="expanded[item.id]" class="codex-audit-details">
+                <div v-if="details[item.id] === null" class="codex-audit-details-loading">
+                    <i class="material-icons codex-audit-spin">progress_activity</i>
+                    {{tl('mcp.audit.loading_details')}}
+                </div>
+                <template v-else-if="details[item.id]">
+                    <dl class="codex-audit-metadata">
+                        <dt>{{tl('mcp.audit.started')}}</dt>
+                        <dd>{{formatTime(item.startedAt)}}</dd>
+                        <dt>{{tl('mcp.audit.model')}}</dt>
+                        <dd>{{item.projectName || tl('mcp.audit.no_model')}} <code v-if="item.projectId">{{item.projectId}}</code></dd>
+                        <dt>{{tl('mcp.audit.undo_position')}}</dt>
+                        <dd>{{item.before.index}} → {{item.after.index}} / {{item.after.total}}</dd>
+                        <dt v-if="item.clientName">{{tl('mcp.audit.client')}}</dt>
+                        <dd v-if="item.clientName">{{item.clientName}}</dd>
+                    </dl>
+
+                    <details v-if="details[item.id].argumentsText && details[item.id].argumentsText !== '{}'">
+                        <summary>{{tl('mcp.audit.arguments')}}</summary>
+                        <pre>{{details[item.id].argumentsText}}</pre>
+                    </details>
+                    <details v-if="details[item.id].resultText">
+                        <summary>{{tl('mcp.audit.result')}}</summary>
+                        <pre>{{details[item.id].resultText}}</pre>
+                    </details>
+                    <details v-if="details[item.id].errorText">
+                        <summary class="error">{{tl('mcp.audit.error')}}</summary>
+                        <pre class="error">{{details[item.id].errorText}}</pre>
+                    </details>
+                    <details v-if="details[item.id].undoEntries.length > 0">
+                        <summary>{{tl('mcp.audit.native_undo_entries', [details[item.id].undoEntries.length])}}</summary>
+                        <ol class="codex-audit-undo-list">
+                            <li v-for="entry in details[item.id].undoEntries" :key="entry.id">
+                                <span>{{entry.action}}</span>
+                                <small>{{entry.type}} · {{sourceLabel(entry.ownerSource)}}</small>
+                            </li>
+                        </ol>
+                    </details>
+
+                    <div class="codex-audit-history-actions">
+                        <button class="tool" :disabled="!canRestore(item)" @click.stop="restore(item, 'before')"
+                            :title="viewingAllProjects ? tl('mcp.audit.choose_model_first') : tl('mcp.audit.restore_before_help')">
+                            <i class="material-icons">undo</i>
+                            {{tl('mcp.audit.restore_before')}}
+                        </button>
+                        <button class="tool" :disabled="!canRestore(item)" @click.stop="restore(item, 'after')"
+                            :title="viewingAllProjects ? tl('mcp.audit.choose_model_first') : tl('mcp.audit.restore_after_help')">
+                            <i class="material-icons">redo</i>
+                            {{tl('mcp.audit.restore_after')}}
+                        </button>
+                        <span v-if="!item.reversible" class="codex-audit-not-reversible">
+                            <i class="material-icons">lock_clock</i>{{tl('mcp.audit.not_reversible')}}
+                        </span>
+                    </div>
+                </template>
+            </div>
+        </article>
+    </div>
+
+    <div class="codex-audit-pagination">
+        <button class="tool" :disabled="!hasPrevious || loading" @click="previousPage" :title="tl('mcp.audit.previous_page')">
+            <i class="material-icons">chevron_left</i>
+        </button>
+        <span>{{tl('mcp.audit.page', [page + 1])}}</span>
+        <button class="tool" :disabled="!hasNext || loading" @click="nextPage" :title="tl('mcp.audit.next_page')">
+            <i class="material-icons">chevron_right</i>
+        </button>
+        <label>
+            <span>{{tl('mcp.audit.per_page')}}</span>
+            <select v-model.number="pageSize" @change="onFilterChanged">
+                <option :value="25">25</option>
+                <option :value="50">50</option>
+                <option :value="100">100</option>
+            </select>
+        </label>
+        <i v-if="loading" class="material-icons codex-audit-spin">progress_activity</i>
+    </div>
+</div>
