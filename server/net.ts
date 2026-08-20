@@ -8,7 +8,8 @@ import {
 } from '@/lib/factories'
 import { createServer as createMcpServer } from '@/server/server'
 import { sessionManager, type SessionConfig } from '@/lib/sessions'
-import { isAuthorizedMcpRequest, MCP_LOOPBACK_HOST } from '@/lib/security'
+import { isAuthorizedMcpRequest } from '@/lib/security'
+import { formatMcpHostForUrl } from '@/lib/pluginSettings'
 
 export type { NetServer }
 
@@ -144,12 +145,14 @@ export default function createNetServer (
   }: { createServer: (callback: (socket: Socket) => void) => NetServer },
   {
     port,
+    host,
     endpoint,
     authToken,
     keepAlive = DEFAULT_KEEP_ALIVE,
     sessionConfig
   }: {
     endpoint: string
+    host: string
     port: number
     authToken: string
     keepAlive?: Partial<KeepAliveConfig>
@@ -302,7 +305,7 @@ export default function createNetServer (
         buffer = buffer.subarray(requestEnd)
 
         // Build Web Standard Request
-        const url = `http://${MCP_LOOPBACK_HOST}:${port}${path}`
+        const url = `http://${formatMcpHostForUrl(host)}:${port}${path}`
         const webHeaders = new Headers()
         for (const [key, value] of Object.entries(headers)) {
           webHeaders.set(key, value)
@@ -436,7 +439,7 @@ export default function createNetServer (
           // No session yet and this is an initialize request: create a new
           // session with its own server and transport
           if (!session) {
-            const sessionServer = createMcpServer(true)
+            const sessionServer = createMcpServer()
 
             // Register the private fork's tools and resources on this session.
             registerToolsOnServer(sessionServer)
@@ -669,8 +672,11 @@ export default function createNetServer (
   })
 
   serverSockets.set(httpServer, sockets)
-  httpServer.listen(port, MCP_LOOPBACK_HOST, () => {
-    Blockbench.showStatusMessage(`Codex MCP: http://${MCP_LOOPBACK_HOST}:${port}${endpoint}`, 3500)
+  httpServer.listen(port, host, () => {
+    Blockbench.showStatusMessage(
+      `Codex MCP: http://${formatMcpHostForUrl(host)}:${port}${endpoint}`,
+      3500
+    )
   })
 
   httpServer.on('error', (err: Error) => {

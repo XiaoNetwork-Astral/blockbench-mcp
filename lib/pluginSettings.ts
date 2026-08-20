@@ -1,6 +1,8 @@
 export const DEFAULT_MCP_PORT = 3000;
 export const MIN_MCP_PORT = 1024;
 export const MAX_MCP_PORT = 65_535;
+export const DEFAULT_MCP_BIND_HOST = "127.0.0.1";
+export const MCP_BIND_HOST_SETTING = "codex_mcp_bind_host";
 export const DEFAULT_MCP_ENDPOINT = "/bb-mcp";
 export const MCP_AUTH_TOKEN_SETTING = "codex_mcp_auth_token";
 export const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
@@ -40,8 +42,32 @@ export function getMcpAuthToken(): string {
   return replacement;
 }
 
-export function getMcpInstructions(): string {
-  return String(Settings.get("codex_mcp_instructions") || "").trim();
+export function normalizeMcpBindHost(value: unknown): string {
+  let host = String(value ?? "").trim();
+  if (host === "*") return "0.0.0.0";
+  if (host.startsWith("[") && host.endsWith("]")) host = host.slice(1, -1);
+
+  // The setting accepts a host/address only, not a URL or host:port pair.
+  // Node's net.Server handles DNS names and IPv4/IPv6 literals for us.
+  const colonCount = (host.match(/:/g) ?? []).length;
+  if (
+    !host ||
+    host.length > 253 ||
+    /[\s/?#@]/.test(host) ||
+    (colonCount === 1 && /:\d+$/.test(host))
+  ) {
+    return DEFAULT_MCP_BIND_HOST;
+  }
+  return host;
+}
+
+export function getMcpBindHost(): string {
+  return normalizeMcpBindHost(Settings.get(MCP_BIND_HOST_SETTING));
+}
+
+export function formatMcpHostForUrl(host: string): string {
+  const normalized = normalizeMcpBindHost(host);
+  return normalized.includes(":") ? `[${normalized}]` : normalized;
 }
 
 export function getMcpPort(): number {

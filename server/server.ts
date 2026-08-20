@@ -1,22 +1,24 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { VERSION } from "@/lib/constants";
-import { getMcpInstructions } from "@/lib/pluginSettings";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 let serverInstance: McpServer | null = null;
+const MCP_INSTRUCTIONS =
+  "Follow the YSM three-tab workflow: compare legacy and new baselines, edit only working_copy, " +
+  "self-check before asking the user, and merge only after explicit approval. Never switch " +
+  "animation or pose unless the user asks.";
 
 /**
  * Creates a new MCP server instance using the official SDK
  */
-export function createServer(useConfiguredInstructions = false) {
-  const configured = useConfiguredInstructions ? getMcpInstructions() : "";
+export function createServer() {
   return new McpServer(
     {
       name: "Codex Blockbench MCP",
       version: VERSION,
     },
-    configured ? { instructions: configured } : undefined
+    { instructions: MCP_INSTRUCTIONS }
   );
 }
 

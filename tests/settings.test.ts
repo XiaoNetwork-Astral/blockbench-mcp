@@ -13,6 +13,9 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
   const dialogReady = options.dialogReady ?? true;
   let sidebarBuilds = 0;
   let addCategoryCalls = 0;
+  let reactiveSets = 0;
+  let reactiveDeletes = 0;
+  let forceUpdates = 0;
   let addedAction: FakeAction | undefined;
 
   const sidebar = {
@@ -28,7 +31,19 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
       string,
       { name: string; open: boolean; items: Record<string, FakeSetting> }
     >,
-    dialog: dialogReady ? { sidebar } : null as { sidebar: typeof sidebar } | null,
+    dialog: dialogReady
+      ? {
+          sidebar,
+          content_vue: {
+            $forceUpdate: () => {
+              forceUpdates += 1;
+            },
+          },
+        }
+      : null as {
+          sidebar: typeof sidebar;
+          content_vue: { $forceUpdate: () => void };
+        } | null,
     addCategory(id: string, data: { name: string; open: boolean }) {
       addCategoryCalls += 1;
       this.structure[id] = { ...data, items: {} };
@@ -80,6 +95,20 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
   }
 
   replaceGlobal("Settings", settingsApi);
+  replaceGlobal("Vue", {
+    set(target: Record<string, unknown>, key: string, value: unknown) {
+      reactiveSets += 1;
+      target[key] = value;
+    },
+    delete(target: Record<string, unknown>, key: string) {
+      reactiveDeletes += 1;
+      delete target[key];
+    },
+    nextTick(callback: () => void) {
+      callback();
+      return Promise.resolve();
+    },
+  });
   replaceGlobal("Setting", FakeSetting);
   replaceGlobal("Action", FakeAction);
   replaceGlobal("MenuBar", {
@@ -99,6 +128,9 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
     settingsApi,
     getSidebarBuilds: () => sidebarBuilds,
     getAddCategoryCalls: () => addCategoryCalls,
+    getReactiveSets: () => reactiveSets,
+    getReactiveDeletes: () => reactiveDeletes,
+    getForceUpdates: () => forceUpdates,
     getAddedAction: () => addedAction,
   };
 }
@@ -124,12 +156,19 @@ describe("Blockbench settings integration", () => {
 
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
-    expect(Object.keys(category.items)).toHaveLength(13);
+    expect(Object.keys(category.items)).toHaveLength(11);
+    expect(category.items.codex_mcp_bind_host).toBeDefined();
     expect(category.items.codex_mcp_port).toBeDefined();
     expect(category.items.codex_mcp_auth_token).toBeDefined();
+    expect(category.items.codex_mcp_instructions).toBeUndefined();
+    expect(category.items.codex_mcp_copy_connection).toBeUndefined();
+    expect(category.items.codex_mcp_regenerate_auth_token).toBeUndefined();
+    expect((category.items.codex_mcp_auth_token as any).plugin).toBeUndefined();
     expect(mock.settingsApi.dialog!.sidebar.pages[CATEGORY_ID]).toBe(
       "mcp.settings.category_name"
     );
+    expect(mock.getReactiveSets()).toBeGreaterThan(0);
+    expect(mock.getForceUpdates()).toBeGreaterThan(0);
     expect(mock.getAddedAction()?.id).toBe("codex_blockbench_mcp_open_settings");
 
     settingsTeardown();
@@ -138,19 +177,25 @@ describe("Blockbench settings integration", () => {
     expect(mock.settingsApi.dialog!.sidebar.pages[CATEGORY_ID]).toBeUndefined();
     expect(mock.getAddedAction()?.deleted).toBe(true);
     expect(mock.getSidebarBuilds()).toBeGreaterThanOrEqual(2);
+    expect(mock.getReactiveDeletes()).toBeGreaterThan(0);
 
     // Also cover the inverse stale state: an empty structure entry left by an
     // interrupted load. Setup must populate it instead of leaving a blank page.
     mock.settingsApi.structure[CATEGORY_ID] = {
       name: "Old name",
       open: false,
-      items: {},
+      items: {
+        codex_mcp_instructions: { id: "codex_mcp_instructions" } as FakeSetting,
+      },
     };
     mock.settingsApi.dialog!.sidebar.pages[CATEGORY_ID] = "Old name";
 
     settingsSetup();
 
-    expect(Object.keys(mock.settingsApi.structure[CATEGORY_ID].items)).toHaveLength(13);
+    expect(Object.keys(mock.settingsApi.structure[CATEGORY_ID].items)).toHaveLength(11);
+    expect(
+      mock.settingsApi.structure[CATEGORY_ID].items.codex_mcp_instructions
+    ).toBeUndefined();
     expect(mock.settingsApi.dialog!.sidebar.pages[CATEGORY_ID]).toBe(
       "mcp.settings.category_name"
     );
@@ -163,7 +208,8 @@ describe("Blockbench settings integration", () => {
 
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
-    expect(Object.keys(category.items)).toHaveLength(13);
+    expect(Object.keys(category.items)).toHaveLength(11);
+    expect(category.items.codex_mcp_bind_host).toBeDefined();
     expect(category.items.codex_mcp_port).toBeDefined();
     expect(category.items.codex_mcp_auth_token).toBeDefined();
     expect(mock.getAddCategoryCalls()).toBe(0);

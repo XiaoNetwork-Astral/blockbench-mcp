@@ -1,0 +1,28 @@
+dialog#settings #setting_codex_mcp_auth_token {
+  width: calc(96% - 56px) !important;
+}
+
+dialog#settings .codex-mcp-token-regenerate {
+  display: inline-flex;
+  width: 24px;
+  height: 32px;
+  margin-left: 4px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  vertical-align: bottom;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+dialog#settings .codex-mcp-token-regenerate:hover,
+dialog#settings .codex-mcp-token-regenerate:focus-visible {
+  color: var(--color-light);
+  background-color: var(--color-button);
+  outline: none;
+}
+
+dialog#settings .codex-mcp-token-regenerate > i {
+  font-size: 20px;
+  pointer-events: none;
+}

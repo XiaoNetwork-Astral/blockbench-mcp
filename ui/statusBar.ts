@@ -1,13 +1,19 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { sessionManager, type Session } from "@/lib/sessions";
 import statusBarCSS from "@/ui/statusBar.css";
-import { getMcpEndpoint, getMcpPort } from "@/lib/pluginSettings";
+import {
+  formatMcpHostForUrl,
+  getMcpBindHost,
+  getMcpEndpoint,
+  getMcpPort,
+} from "@/lib/pluginSettings";
 
 let statusBarElement: HTMLDivElement | undefined;
 let unsubscribe: (() => void) | undefined;
 
 export function statusBarSetup(server: McpServer): void {
   const port = getMcpPort();
+  const host = formatMcpHostForUrl(getMcpBindHost());
   const endpoint = getMcpEndpoint();
 
   // Add CSS for the status bar
@@ -31,7 +37,7 @@ export function statusBarSetup(server: McpServer): void {
 
   const serverInfo = document.createElement("span");
   serverInfo.className = "mcp-server-info";
-  serverInfo.textContent = `(${port}${endpoint})`;
+  serverInfo.textContent = `(${host}:${port}${endpoint})`;
 
   statusIndicator.appendChild(statusDot);
   statusIndicator.appendChild(statusText);

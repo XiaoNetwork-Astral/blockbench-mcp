@@ -1,11 +1,23 @@
-export const MCP_LOOPBACK_HOST = "127.0.0.1";
-
 const blockedToolNames = new Set([
   "risky_eval",
   "trigger_action",
   "emulate_clicks",
   "fill_dialog",
 ]);
+
+/** Whether a configured bind host is unambiguously local-only. */
+export function isLoopbackMcpHost(host: string): boolean {
+  const normalized = host
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.$/, "");
+
+  if (normalized === "localhost" || normalized === "localhost.localdomain") return true;
+  if (normalized === "::1" || normalized === "0:0:0:0:0:0:0:1") return true;
+  if (/^127(?:\.\d{1,3}){3}$/.test(normalized)) return true;
+  return /^::ffff:127(?:\.\d{1,3}){3}$/.test(normalized);
+}
 
 /**
  * Reject tools that deliberately expose arbitrary code execution. Keeping the

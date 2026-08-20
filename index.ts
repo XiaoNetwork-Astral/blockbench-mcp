@@ -21,10 +21,12 @@ import { setupProjectProtection, teardownProjectProtection } from "@/lib/project
 import {
   getMcpEndpoint,
   getMcpAuthToken,
+  getMcpBindHost,
   getMcpPort,
   getSessionTimeoutMinutes,
   getSseHeartbeatSeconds,
 } from "@/lib/pluginSettings";
+import { isLoopbackMcpHost } from "@/lib/security";
 import { getIcon } from "@/macros/getIcon" with { type: "macro" };
 
 let httpServer: NetServer | null = null;
@@ -42,7 +44,7 @@ BBPlugin.register(PLUGIN_ID, {
   variant: "desktop",
   async onload() {
     // Initialize Blockbench-native UI and audit storage before opening the
-    // loopback server. The operations panel remains available even when the
+    // MCP server. The operations panel remains available even when the
     // user declines network permission or the port cannot be opened.
     setupI18n();
     settingsSetup();
@@ -71,9 +73,18 @@ BBPlugin.register(PLUGIN_ID, {
     }
 
     // Create TCP server to handle HTTP requests
+    const host = getMcpBindHost();
     const sessionTimeoutMin = getSessionTimeoutMinutes();
     const sseHeartbeatSec = getSseHeartbeatSeconds();
+    if (!isLoopbackMcpHost(host)) {
+      console.warn(
+        `[Codex MCP] Listening on non-loopback address "${host}". ` +
+        "The server may be reachable from other devices; Bearer authentication remains required."
+      );
+      Blockbench.showQuickMessage(tl("mcp.settings.bind_host_active_warning", [host]), 7000);
+    }
     [httpServer, sessionTransports] = createNetServer(net, {
+      host,
       port: getMcpPort(),
       endpoint: getMcpEndpoint(),
       authToken: getMcpAuthToken(),
