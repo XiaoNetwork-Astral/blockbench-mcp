@@ -226,14 +226,38 @@
     border: 0;
     border-radius: 0;
     background: transparent;
-    color: inherit;
+    color: var(--color-text) !important;
+    -webkit-text-fill-color: var(--color-text) !important;
     text-align: left;
+    text-decoration: none !important;
     font: inherit;
     cursor: pointer;
+    user-select: none;
 }
 
-.codex-mcp-client-toggle:hover {
+.codex-mcp-client-toggle:hover,
+.codex-mcp-client-toggle:focus,
+.codex-mcp-client-toggle:focus-visible,
+.codex-mcp-client-toggle:active {
     background: var(--color-button);
+    color: var(--color-text) !important;
+    -webkit-text-fill-color: var(--color-text) !important;
+    text-decoration: none !important;
+}
+
+.codex-mcp-client-toggle:focus {
+    outline: 0;
+}
+
+.codex-mcp-client-toggle:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.codex-mcp-client-toggle *,
+.codex-mcp-client-toggle:hover *,
+.codex-mcp-client-toggle:focus *,
+.codex-mcp-client-toggle:active * {
+    text-decoration: none !important;
 }
 
 .codex-mcp-client-chevron {
@@ -257,6 +281,9 @@
     width: 100%;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--color-text) !important;
+    -webkit-text-fill-color: var(--color-text) !important;
+    text-decoration: none !important;
 }
 
 .codex-mcp-client-meta {
@@ -271,10 +298,13 @@
     border-radius: 10px;
     background: var(--color-button);
     color: var(--color-subtle_text);
+    -webkit-text-fill-color: var(--color-subtle_text) !important;
     font-size: 0.78em;
 }
 
 .codex-mcp-client-last-activity {
+    color: var(--color-subtle_text);
+    -webkit-text-fill-color: var(--color-subtle_text) !important;
     font-size: 0.78em;
     white-space: nowrap;
 }

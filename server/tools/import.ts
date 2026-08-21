@@ -16,7 +16,8 @@ export const fromGeoJsonParameters = z.object({
 export const importToolDocs: ToolSpec[] = [
   {
     name: "from_geo_json",
-    description: "Imports a model from a GeoJSON file.",
+    description:
+      "Imports existing Bedrock geometry from serialized JSON. Use add_group/place_cube/modify_cube when constructing a new model from scratch instead of using this as a shortcut.",
     annotations: {
       title: "Import GeoJSON",
       destructiveHint: true,

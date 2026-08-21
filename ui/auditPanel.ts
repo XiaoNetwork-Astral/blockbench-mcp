@@ -21,6 +21,8 @@ let panel: Panel | undefined;
 let showAction: Action | undefined;
 let cssHandle: Deletable | undefined;
 let rawDataDialog: Dialog | undefined;
+let movedToListener: Deletable | undefined;
+let layoutTimer: ReturnType<typeof setTimeout> | undefined;
 
 type ProjectScope = "current" | "all" | string;
 const NO_PROJECT_SCOPE = "__codex_no_project__";
@@ -29,6 +31,42 @@ interface AuditPanelProject {
   id: string;
   name: string;
   role: string;
+}
+
+export type AuditTimelineState = "applied" | "current" | "undone";
+
+export function buildAuditTimelineStates(
+  items: AuditOperationSummary[],
+  projectId: string | null,
+  currentUndoIndex: number | null
+): Record<string, AuditTimelineState> {
+  const states: Record<string, AuditTimelineState> = {};
+  let foundCurrent = false;
+
+  for (const item of items) {
+    if (!projectId || currentUndoIndex === null || item.projectId !== projectId) {
+      states[item.id] = "applied";
+      continue;
+    }
+
+    // Use the state after each operation. This also puts read-only and failed
+    // operations on the same visual timeline as reversible edits: if they ran
+    // beyond the current native Undo cursor, they are shown as undone too.
+    if (item.after.index > currentUndoIndex) {
+      states[item.id] = "undone";
+      continue;
+    }
+
+    if (!foundCurrent) {
+      states[item.id] = "current";
+      foundCurrent = true;
+      continue;
+    }
+
+    states[item.id] = "applied";
+  }
+
+  return states;
 }
 
 function selectedProject(): ModelProject | null {
@@ -62,6 +100,48 @@ function configuredPageSize(): number {
 
 function configuredProjectScope(): ProjectScope {
   return getAuditDefaultScope();
+}
+
+function timelineCursor(scope: ProjectScope): { projectId: string | null; undoIndex: number | null } {
+  const scopeId = selectedScopeProjectId(scope);
+  if (scopeId === "all" || scopeId === NO_PROJECT_SCOPE) {
+    return { projectId: null, undoIndex: null };
+  }
+  const project = ModelProject.all.find((candidate) => candidate.uuid === scopeId);
+  return {
+    projectId: project?.uuid ?? null,
+    undoIndex: project?.undo?.index ?? null,
+  };
+}
+
+function normalizeAuditPanelHeight(): void {
+  if (!panel || !panel.isInSidebar() || panel.attached_to || panel.folded) return;
+  const sidebar = panel.container.parentElement;
+  if (!sidebar || !sidebar.clientHeight) return;
+
+  const sidebarRect = sidebar.getBoundingClientRect();
+  const panelRect = panel.container.getBoundingClientRect();
+  const availableHeight = Math.floor(sidebarRect.bottom - panelRect.top);
+  if (availableHeight <= 0) return;
+
+  const minimum = Math.min(panel.min_height ?? 180, availableHeight);
+  const requested = panel.position_data.height || 430;
+  const height = Math.max(minimum, Math.min(requested, availableHeight));
+  if (panel.fixed_height && Math.abs(panel.position_data.height - height) < 2) return;
+
+  // Blockbench clears fixed_height while moving a panel. A non-growable list
+  // then uses its complete content height, so restore a native resizable height
+  // once the panel has reached its new sidebar position.
+  panel.customizePosition({ height, fixed_height: true });
+  panel.update();
+}
+
+function scheduleAuditPanelLayout(): void {
+  if (layoutTimer) clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(() => {
+    layoutTimer = undefined;
+    normalizeAuditPanelHeight();
+  }, 0);
 }
 
 function showPanel(): void {
@@ -214,6 +294,7 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
     resizable: true,
     min_height: 180,
     expand_button: true,
+    onResize: scheduleAuditPanelLayout,
     component: {
       name: "codex_mcp_audit_panel",
       data: () => ({
@@ -244,6 +325,8 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         searchTimer: null as ReturnType<typeof setTimeout> | null,
         refreshTimer: null as ReturnType<typeof setTimeout> | null,
         unsubscribeAudit: null as (() => void) | null,
+        timelineProjectId: null as string | null,
+        timelineUndoIndex: null as number | null,
       }),
       computed: {
         viewingAllProjects(): boolean {
@@ -255,6 +338,10 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
           return project?.name
             ? tl("mcp.audit.current_model_named", [project.name])
             : tl("mcp.audit.current_model");
+        },
+        timelineStates(): Record<string, AuditTimelineState> {
+          // @ts-ignore - Vue component context
+          return buildAuditTimelineStates(this.items, this.timelineProjectId, this.timelineUndoIndex);
         },
       },
       mounted() {
@@ -277,6 +364,7 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
           if (vm.page === 0) vm.scheduleRefresh(120);
         });
         void vm.loadPage();
+        vm.$nextTick(scheduleAuditPanelLayout);
       },
       beforeDestroy() {
         // @ts-ignore - Vue component context
@@ -371,6 +459,8 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
             // @ts-ignore - Vue component context
             this.items = result.items;
             // @ts-ignore - Vue component context
+            this.refreshTimelineCursor();
+            // @ts-ignore - Vue component context
             this.hasPrevious = result.hasPrevious;
             // @ts-ignore - Vue component context
             this.hasNext = result.hasNext;
@@ -433,6 +523,25 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         statusLabel(status: AuditStatus): string {
           return tl(`mcp.audit.status_${status}`);
         },
+        refreshTimelineCursor(): void {
+          // @ts-ignore - Vue component context
+          const cursor = timelineCursor(this.projectScope);
+          // @ts-ignore - Vue component context
+          this.timelineProjectId = cursor.projectId;
+          // @ts-ignore - Vue component context
+          this.timelineUndoIndex = cursor.undoIndex;
+        },
+        timelineState(item: AuditOperationSummary): AuditTimelineState {
+          // @ts-ignore - Vue component context
+          return this.timelineStates[item.id] ?? "applied";
+        },
+        timelineLabel(item: AuditOperationSummary): string {
+          // @ts-ignore - Vue component context
+          const state = this.timelineState(item);
+          if (state === "current") return tl("mcp.audit.timeline_current");
+          if (state === "undone") return tl("mcp.audit.timeline_undone");
+          return this.statusLabel(item.status);
+        },
         canRestore(item: AuditOperationSummary): boolean {
           // The all-model view is intentionally search-only: every history
           // action must occur inside one explicitly selected model timeline.
@@ -489,8 +598,6 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
             // @ts-ignore - Vue component context
             this.projects = projectOptions();
             // @ts-ignore - Vue component context
-            this.page = 0;
-            // @ts-ignore - Vue component context
             await this.loadPage();
           }
         },
@@ -533,6 +640,9 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
     },
   });
 
+  movedToListener = panel.on("moved_to", scheduleAuditPanelLayout);
+  scheduleAuditPanelLayout();
+
   showAction = new Action("codex_blockbench_mcp_show_audit_panel", {
     name: tl("mcp.audit.show_panel"),
     description: tl("mcp.audit.show_panel_description"),
@@ -544,6 +654,10 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
 }
 
 export function auditPanelTeardown(): void {
+  movedToListener?.delete();
+  movedToListener = undefined;
+  if (layoutTimer) clearTimeout(layoutTimer);
+  layoutTimer = undefined;
   rawDataDialog?.delete();
   rawDataDialog = undefined;
   showAction?.delete();

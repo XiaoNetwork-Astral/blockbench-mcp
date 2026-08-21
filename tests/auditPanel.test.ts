@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
+  buildAuditTimelineStates,
   buildAuditRawData,
   showAuditPanel,
 } from "@/ui/auditPanel";
@@ -81,6 +82,8 @@ describe("operations panel presentation", () => {
     expect(styles).toContain("opacity: 1 !important");
     expect(source).toContain("growable: false");
     expect(source).toContain("resizable: true");
+    expect(source).toContain('panel.on("moved_to", scheduleAuditPanelLayout)');
+    expect(source).toContain("fixed_height: true");
     expect(source).not.toContain("storagePersistent");
     expect(translations).not.toContain("No live native Undo state");
     expect(translations).not.toContain("Sanitized result");
@@ -92,8 +95,33 @@ describe("operations panel presentation", () => {
     expect(styles).toContain("button:not(:disabled):focus");
     expect(translations).toContain('"mcp.audit.restore_before": "Undo to here"');
     expect(translations).toContain('"mcp.audit.restore_after": "Redo to here"');
+    expect(template).toContain("'timeline-' + timelineState(item)");
+    expect(styles).toContain(".codex-audit-entry.timeline-undone .codex-audit-status-dot");
+    expect(styles).toContain(".codex-audit-entry.timeline-current .codex-audit-status-dot");
     expect(uiSetup).not.toContain("mcp_panel");
     expect(uiSetup).not.toContain("new Panel");
+  });
+
+  test("colors non-reversible records as part of the Undo timeline", () => {
+    const item = (id: string, afterIndex: number) =>
+      ({
+        id,
+        projectId: "project",
+        after: { index: afterIndex },
+      }) as unknown as AuditOperationSummary;
+
+    const states = buildAuditTimelineStates(
+      [item("new-query", 4), item("undone-edit", 3), item("current-query", 2), item("older-edit", 1)],
+      "project",
+      2
+    );
+
+    expect(states).toEqual({
+      "new-query": "undone",
+      "undone-edit": "undone",
+      "current-query": "current",
+      "older-edit": "applied",
+    });
   });
 
   test("builds readable JSON data from the stored sanitized payloads", () => {

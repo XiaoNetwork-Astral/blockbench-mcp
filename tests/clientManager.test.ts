@@ -42,6 +42,9 @@ describe("MCP client manager presentation", () => {
     expect(styles).toContain("max-height: 34px");
     expect(styles).toContain(".codex-mcp-client-expand-button:not(:disabled):focus");
     expect(styles).toContain("-webkit-text-fill-color: var(--color-text) !important");
+    expect(styles).toContain(".codex-mcp-client-toggle:focus-visible");
+    expect(styles).toContain("text-decoration: none !important");
+    expect(styles).toContain("user-select: none");
     expect(styles).toContain(".codex-mcp-client-expand-button:disabled:focus");
     expect(styles).toContain("max-height: min(280px, 36vh)");
     expect(styles.match(/overflow-y: auto/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
