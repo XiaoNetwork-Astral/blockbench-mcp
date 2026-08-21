@@ -34,12 +34,15 @@ export function getInitialMcpAuthToken(): string {
   return isValidMcpAuthToken(stored) ? stored : createMcpAuthToken();
 }
 
+export function normalizeMcpAuthToken(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
 export function getMcpAuthToken(): string {
-  const configured = String(Settings.get(MCP_AUTH_TOKEN_SETTING) || "").trim();
-  if (isValidMcpAuthToken(configured)) return configured;
-  const replacement = createMcpAuthToken();
-  settings[MCP_AUTH_TOKEN_SETTING]?.set(replacement);
-  return replacement;
+  // An empty value explicitly disables HTTP authentication. New installs
+  // still receive a generated default, but clearing the field is respected
+  // instead of silently creating and persisting a replacement token.
+  return normalizeMcpAuthToken(Settings.get(MCP_AUTH_TOKEN_SETTING));
 }
 
 export function normalizeMcpBindHost(value: unknown): string {

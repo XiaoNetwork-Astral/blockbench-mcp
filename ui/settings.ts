@@ -28,14 +28,23 @@ const settings: Setting[] = [];
 let openSettingsAction: Action | undefined;
 let settingsStyle: Deletable | undefined;
 let settingsObserver: MutationObserver | undefined;
+let settingsReadyTimer: ReturnType<typeof setInterval> | undefined;
+let hookedSidebar: SettingsSidebar | undefined;
+let originalPageSwitch: SettingsSidebar["onPageSwitch"] | undefined;
 
 type SettingsSidebar = {
   pages: Record<string, string>;
   build?: () => void;
+  node?: HTMLElement;
+  page_menu?: Record<string, HTMLElement>;
+  onPageSwitch?: (page: string) => unknown;
+  setPage?: (page: string) => void;
 };
 
 type SettingsContentVue = {
   $forceUpdate?: () => void;
+  open_category?: string;
+  search_term?: string;
 };
 
 type SettingsDialogState = {
@@ -83,6 +92,24 @@ function reactiveDelete(target: object, key: string): void {
   }
 }
 
+function rebuildSettingsSidebar(sidebar: SettingsSidebar): void {
+  // DialogSidebar.build() appends a new node but does not remove the previous
+  // one. Remove it first when a reload adds the category to an open dialog.
+  sidebar.node?.remove();
+  sidebar.build?.();
+}
+
+function syncSettingsSidebar(): void {
+  const category = Settings.structure[CATEGORY_ID];
+  const sidebar = getSettingsSidebar();
+  if (!category || !sidebar) return;
+
+  reactiveSet(sidebar.pages, CATEGORY_ID, category.name);
+  if (sidebar.node?.isConnected && !sidebar.page_menu?.[CATEGORY_ID]) {
+    rebuildSettingsSidebar(sidebar);
+  }
+}
+
 /**
  * Reconcile Blockbench's structure and sidebar state without relying on
  * Settings.addCategory(). That method assumes the dialog already exists and
@@ -105,10 +132,7 @@ function ensureSettingsCategory(): void {
   if (sidebar) reactiveSet(Settings.structure, CATEGORY_ID, category);
   else Settings.structure[CATEGORY_ID] = category;
 
-  if (sidebar) {
-    reactiveSet(sidebar.pages, CATEGORY_ID, name);
-    sidebar.build?.();
-  }
+  if (sidebar) syncSettingsSidebar();
 }
 
 /** Make all newly registered items visible to an already-mounted Vue list. */
@@ -116,25 +140,96 @@ function refreshSettingsCategory(): void {
   const category = Settings.structure[CATEGORY_ID];
   if (!category) return;
 
-  // Setting's constructor inserts item keys with plain assignment. Replacing
-  // the complete object through Vue.set invalidates the cached `list`
-  // computed property, fixing the empty-until-page-switch symptom.
-  reactiveSet(category, "items", { ...category.items });
+  // Reconstruct the category from this plugin's live Setting objects. During
+  // a cold start Blockbench may mount its settings Vue instance after the
+  // plugin registered them; during a reload it may retain a stale category.
+  // Vue.set covers both orders.
+  reactiveSet(
+    category,
+    "items",
+    Object.fromEntries(settings.map((setting) => [setting.id, setting]))
+  );
+  syncSettingsSidebar();
+}
 
-  const dialog = getSettingsDialog();
-  const sidebar = dialog?.sidebar;
-  if (sidebar) {
-    reactiveSet(sidebar.pages, CATEGORY_ID, category.name);
-    sidebar.build?.();
-  }
+/**
+ * Invalidate Blockbench's cached `list` computed property without showing a
+ * different category to the user. Both assignments happen in the same Vue
+ * tick, so only the requested category is painted.
+ */
+function invalidateVisibleSettingsList(): void {
+  const content = getSettingsDialog()?.content_vue;
+  if (!content || content.open_category !== CATEGORY_ID) return;
 
-  const update = () => dialog?.content_vue?.$forceUpdate?.();
+  const current = content.open_category;
+  const alternate = Object.keys(Settings.structure).find((id) => id !== current) ?? "general";
+  content.open_category = alternate;
+  content.open_category = current;
+  content.$forceUpdate?.();
+
+  const finish = () => ensureInlineTokenAction();
   const vue = getVueReactivity();
-  if (vue && typeof vue.nextTick === "function") {
-    void vue.nextTick(update);
-  } else {
-    update();
+  if (vue && typeof vue.nextTick === "function") void vue.nextTick(finish);
+  else finish();
+}
+
+function hookSettingsSidebar(sidebar: SettingsSidebar): void {
+  if (hookedSidebar === sidebar) return;
+  if (hookedSidebar) hookedSidebar.onPageSwitch = originalPageSwitch;
+
+  hookedSidebar = sidebar;
+  originalPageSwitch = sidebar.onPageSwitch;
+  sidebar.onPageSwitch = function onCodexSettingsPageSwitch(page: string): unknown {
+    const result = originalPageSwitch?.call(this, page);
+    if (page === CATEGORY_ID && result !== false) {
+      refreshSettingsCategory();
+      invalidateVisibleSettingsList();
+    }
+    return result;
+  };
+}
+
+/**
+ * Reconcile the settings dialog once Blockbench's Vue setup has completed.
+ * This is intentionally public so the cold-start order can be regression
+ * tested without relying on timing.
+ */
+export function reconcileSettingsDialog(): boolean {
+  const dialog = getSettingsDialog();
+  if (!dialog?.sidebar || !dialog.content_vue) return false;
+
+  refreshSettingsCategory();
+  hookSettingsSidebar(dialog.sidebar);
+  invalidateVisibleSettingsList();
+  return true;
+}
+
+function scheduleSettingsDialogReconciliation(): void {
+  if (reconcileSettingsDialog() || settingsReadyTimer) return;
+
+  let attempts = 0;
+  settingsReadyTimer = setInterval(() => {
+    attempts += 1;
+    if (reconcileSettingsDialog() || attempts >= 300) {
+      clearInterval(settingsReadyTimer);
+      settingsReadyTimer = undefined;
+    }
+  }, 100);
+}
+
+function repairSettingsUiFromDom(): void {
+  const dialog = getSettingsDialog();
+  if (dialog?.sidebar && hookedSidebar !== dialog.sidebar) {
+    reconcileSettingsDialog();
+  } else if (
+    dialog?.content_vue?.open_category === CATEGORY_ID &&
+    typeof document !== "undefined" &&
+    !document.querySelector("dialog#settings #settingslist li")
+  ) {
+    refreshSettingsCategory();
+    invalidateVisibleSettingsList();
   }
+  ensureInlineTokenAction();
 }
 
 function removeSettingsCategory(): void {
@@ -143,7 +238,7 @@ function removeSettingsCategory(): void {
   const sidebar = getSettingsSidebar();
   if (sidebar?.pages[CATEGORY_ID]) {
     reactiveDelete(sidebar.pages, CATEGORY_ID);
-    sidebar.build?.();
+    if (sidebar.node?.isConnected) rebuildSettingsSidebar(sidebar);
   }
 }
 
@@ -200,20 +295,32 @@ function ensureInlineTokenAction(): void {
 }
 
 function settingsUiSetup(): void {
+  scheduleSettingsDialogReconciliation();
   if (typeof document === "undefined") return;
 
   if (!settingsStyle && typeof Blockbench !== "undefined" && Blockbench.addCSS) {
     settingsStyle = Blockbench.addCSS(settingsCSS);
   }
+  reconcileSettingsDialog();
   ensureInlineTokenAction();
 
   if (!settingsObserver && typeof MutationObserver !== "undefined") {
-    settingsObserver = new MutationObserver(ensureInlineTokenAction);
-    settingsObserver.observe(document.body, { childList: true, subtree: true });
+    settingsObserver = new MutationObserver(repairSettingsUiFromDom);
+    settingsObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "style", "open"],
+    });
   }
 }
 
 function settingsUiTeardown(): void {
+  if (settingsReadyTimer) clearInterval(settingsReadyTimer);
+  settingsReadyTimer = undefined;
+  if (hookedSidebar) hookedSidebar.onPageSwitch = originalPageSwitch;
+  hookedSidebar = undefined;
+  originalPageSwitch = undefined;
   settingsObserver?.disconnect();
   settingsObserver = undefined;
   settingsStyle?.delete();
@@ -226,9 +333,31 @@ function settingsUiTeardown(): void {
 function warnForNonLoopbackHost(value: unknown): void {
   const host = normalizeMcpBindHost(value);
   if (isLoopbackMcpHost(host)) return;
+  const hasToken = Boolean(String(Settings.get(MCP_AUTH_TOKEN_SETTING) ?? "").trim());
   Blockbench.showMessageBox({
     title: tl("mcp.settings.bind_host_warning_title"),
-    message: tl("mcp.settings.bind_host_warning_message", [host]),
+    message: tl(
+      hasToken
+        ? "mcp.settings.bind_host_warning_message"
+        : "mcp.settings.bind_host_without_auth_warning_message",
+      [host]
+    ),
+    icon: "warning",
+    buttons: ["dialog.ok"],
+  });
+}
+
+function warnForMissingAuthToken(value: unknown): void {
+  if (String(value ?? "").trim()) return;
+  const host = normalizeMcpBindHost(Settings.get(MCP_BIND_HOST_SETTING));
+  Blockbench.showMessageBox({
+    title: tl("mcp.settings.auth_disabled_warning_title"),
+    message: tl(
+      isLoopbackMcpHost(host)
+        ? "mcp.settings.auth_disabled_warning_message"
+        : "mcp.settings.auth_disabled_network_warning_message",
+      [host]
+    ),
     icon: "warning",
     buttons: ["dialog.ok"],
   });
@@ -244,7 +373,6 @@ export function settingsSetup(): void {
     type: "text",
     value: DEFAULT_MCP_BIND_HOST,
     icon: "lan",
-    requires_restart: true,
     onChange: warnForNonLoopbackHost,
   });
   addSetting("codex_mcp_port", {
@@ -256,7 +384,6 @@ export function settingsSetup(): void {
     max: MAX_MCP_PORT,
     step: 1,
     icon: "numbers",
-    requires_restart: true,
   });
   addSetting("codex_mcp_endpoint", {
     name: tl("mcp.settings.endpoint_name"),
@@ -264,7 +391,6 @@ export function settingsSetup(): void {
     type: "text",
     value: DEFAULT_MCP_ENDPOINT,
     icon: "webhook",
-    requires_restart: true,
   });
   addSetting(MCP_AUTH_TOKEN_SETTING, {
     name: tl("mcp.settings.auth_token_name"),
@@ -272,7 +398,7 @@ export function settingsSetup(): void {
     type: "password",
     value: getInitialMcpAuthToken(),
     icon: "key",
-    requires_restart: true,
+    onChange: warnForMissingAuthToken,
   });
   addSetting("codex_mcp_session_timeout", {
     name: tl("mcp.settings.session_timeout_name"),
@@ -283,7 +409,6 @@ export function settingsSetup(): void {
     max: MAX_SESSION_TIMEOUT_MINUTES,
     step: 1,
     icon: "timer",
-    requires_restart: true,
   });
   addSetting("codex_mcp_sse_heartbeat", {
     name: tl("mcp.settings.sse_heartbeat_name"),
@@ -294,7 +419,6 @@ export function settingsSetup(): void {
     max: MAX_SSE_HEARTBEAT_SECONDS,
     step: 1,
     icon: "favorite",
-    requires_restart: true,
   });
 
   addSetting("codex_mcp_audit_retention", {
@@ -365,8 +489,8 @@ export function settingsSetup(): void {
       const category = Settings.structure[CATEGORY_ID];
       if (category) category.open = true;
       Settings.openDialog();
-      refreshSettingsCategory();
-      ensureInlineTokenAction();
+      reconcileSettingsDialog();
+      getSettingsSidebar()?.setPage?.(CATEGORY_ID);
     },
   });
   MenuBar.menus.tools.addAction(openSettingsAction);

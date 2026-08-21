@@ -9,6 +9,7 @@ import {
   createMcpAuthToken,
   formatMcpHostForUrl,
   isValidMcpAuthToken,
+  normalizeMcpAuthToken,
   normalizeMcpBindHost,
 } from "@/lib/pluginSettings";
 
@@ -37,6 +38,12 @@ describe("local MCP security policy", () => {
     expect(isAuthorizedMcpRequest({ authorization: "Bearer wrong" }, token)).toBe(false);
     expect(isAuthorizedMcpRequest({ authorization: `Bearer ${token} trailing` }, token)).toBe(false);
     expect(isAuthorizedMcpRequest({ authorization: `Bearer ${token}` }, token)).toBe(true);
+  });
+
+  test("allows requests when the user explicitly disables bearer authentication", () => {
+    expect(normalizeMcpAuthToken("   ")).toBe("");
+    expect(isAuthorizedMcpRequest({}, "")).toBe(true);
+    expect(isAuthorizedMcpRequest({ authorization: "Bearer anything" }, "")).toBe(true);
   });
 
   test("generates a strong setting-safe token", () => {

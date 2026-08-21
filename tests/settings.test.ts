@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { settingsSetup, settingsTeardown } from "@/ui/settings";
+import {
+  reconcileSettingsDialog,
+  settingsSetup,
+  settingsTeardown,
+} from "@/ui/settings";
 
 const CATEGORY_ID = "codex_blockbench_mcp";
 const originalGlobals = new Map<string, unknown>();
@@ -16,13 +20,44 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
   let reactiveSets = 0;
   let reactiveDeletes = 0;
   let forceUpdates = 0;
+  let openCategoryWrites = 0;
   let addedAction: FakeAction | undefined;
+
+  let openCategory = "general";
+  const contentVue = {
+    get open_category() {
+      return openCategory;
+    },
+    set open_category(value: string) {
+      openCategoryWrites += 1;
+      openCategory = value;
+    },
+    search_term: "",
+    $forceUpdate: () => {
+      forceUpdates += 1;
+    },
+  };
 
   const sidebar = {
     pages: { [CATEGORY_ID]: "Stale Codex page" } as Record<string, string>,
+    page: "general",
+    onPageSwitch(page: string): unknown {
+      contentVue.open_category = page;
+      contentVue.search_term = "";
+      return undefined;
+    },
+    setPage(page: string) {
+      const result = this.onPageSwitch(page);
+      if (result !== false) this.page = page;
+    },
     build: () => {
       sidebarBuilds += 1;
     },
+  };
+
+  const dialog = {
+    sidebar,
+    content_vue: contentVue,
   };
 
   const settingsApi = {
@@ -31,19 +66,7 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
       string,
       { name: string; open: boolean; items: Record<string, FakeSetting> }
     >,
-    dialog: dialogReady
-      ? {
-          sidebar,
-          content_vue: {
-            $forceUpdate: () => {
-              forceUpdates += 1;
-            },
-          },
-        }
-      : null as {
-          sidebar: typeof sidebar;
-          content_vue: { $forceUpdate: () => void };
-        } | null,
+    dialog: dialogReady ? dialog : null as typeof dialog | null,
     addCategory(id: string, data: { name: string; open: boolean }) {
       addCategoryCalls += 1;
       this.structure[id] = { ...data, items: {} };
@@ -131,7 +154,12 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
     getReactiveSets: () => reactiveSets,
     getReactiveDeletes: () => reactiveDeletes,
     getForceUpdates: () => forceUpdates,
+    getOpenCategoryWrites: () => openCategoryWrites,
     getAddedAction: () => addedAction,
+    mountDialog: () => {
+      settingsApi.dialog = dialog;
+      return dialog;
+    },
   };
 }
 
@@ -168,15 +196,20 @@ describe("Blockbench settings integration", () => {
       "mcp.settings.category_name"
     );
     expect(mock.getReactiveSets()).toBeGreaterThan(0);
-    expect(mock.getForceUpdates()).toBeGreaterThan(0);
     expect(mock.getAddedAction()?.id).toBe("codex_blockbench_mcp_open_settings");
+
+    mock.settingsApi.dialog!.sidebar.setPage(CATEGORY_ID);
+    expect(mock.getForceUpdates()).toBeGreaterThan(0);
+    expect(mock.getOpenCategoryWrites()).toBeGreaterThanOrEqual(3);
 
     settingsTeardown();
 
     expect(mock.settingsApi.structure[CATEGORY_ID]).toBeUndefined();
     expect(mock.settingsApi.dialog!.sidebar.pages[CATEGORY_ID]).toBeUndefined();
     expect(mock.getAddedAction()?.deleted).toBe(true);
-    expect(mock.getSidebarBuilds()).toBeGreaterThanOrEqual(2);
+    // An unmounted sidebar only needs its page map updated. Rebuilding it
+    // here would append duplicate sidebar DOM once the dialog opens.
+    expect(mock.getSidebarBuilds()).toBe(0);
     expect(mock.getReactiveDeletes()).toBeGreaterThan(0);
 
     // Also cover the inverse stale state: an empty structure entry left by an
@@ -185,7 +218,7 @@ describe("Blockbench settings integration", () => {
       name: "Old name",
       open: false,
       items: {
-        codex_mcp_instructions: { id: "codex_mcp_instructions" } as FakeSetting,
+        codex_mcp_instructions: { id: "codex_mcp_instructions" } as any,
       },
     };
     mock.settingsApi.dialog!.sidebar.pages[CATEGORY_ID] = "Old name";
@@ -213,5 +246,16 @@ describe("Blockbench settings integration", () => {
     expect(category.items.codex_mcp_port).toBeDefined();
     expect(category.items.codex_mcp_auth_token).toBeDefined();
     expect(mock.getAddCategoryCalls()).toBe(0);
+
+    // Simulate Blockbench mounting its settings dialog after plugin startup,
+    // with a stale empty category list cached by Vue.
+    category.items = {};
+    const dialog = mock.mountDialog();
+    expect(reconcileSettingsDialog()).toBe(true);
+    dialog.sidebar.setPage(CATEGORY_ID);
+
+    expect(Object.keys(category.items)).toHaveLength(11);
+    expect(dialog.content_vue.open_category).toBe(CATEGORY_ID);
+    expect(mock.getForceUpdates()).toBeGreaterThan(0);
   });
 });

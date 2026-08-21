@@ -39,12 +39,16 @@ function constantTimeEqual(left: string, right: string): boolean {
   return difference === 0;
 }
 
-/** Accept exactly one standard Bearer credential for every local HTTP request. */
+/**
+ * Accept exactly one standard Bearer credential when authentication is
+ * configured. An intentionally empty token leaves the local server open;
+ * callers surface a warning before starting it in that mode.
+ */
 export function isAuthorizedMcpRequest(
   headers: Readonly<Record<string, string>>,
   expectedToken: string
 ): boolean {
-  if (!expectedToken) return false;
+  if (!expectedToken) return true;
   const authorization = headers.authorization?.trim() ?? "";
   const match = /^Bearer\s+([^\s]+)$/i.exec(authorization);
   return Boolean(match && constantTimeEqual(match[1], expectedToken));

@@ -69,6 +69,15 @@ export async function stopNetServer (
   timeoutMs = 5000
 ): Promise<void> {
   const deadline = Date.now() + Math.max(0, timeoutMs)
+  // Stop accepting new connections first. Otherwise a client can reconnect
+  // while existing transports are being drained and keep shutdown alive.
+  const closed = new Promise<void>((resolve) => {
+    try {
+      server.close(() => resolve())
+    } catch {
+      resolve()
+    }
+  })
   const sessions = Array.from(sessionTransports.values())
   sessionTransports.clear()
   const closeSessions = Promise.allSettled(
@@ -83,13 +92,6 @@ export async function stopNetServer (
   sessionManager.clear()
 
   const sockets = serverSockets.get(server) ?? new Set<Socket>()
-  const closed = new Promise<void>((resolve) => {
-    try {
-      server.close(() => resolve())
-    } catch {
-      resolve()
-    }
-  })
   const remaining = Math.max(0, deadline - Date.now())
   await Promise.race([
     closed,
