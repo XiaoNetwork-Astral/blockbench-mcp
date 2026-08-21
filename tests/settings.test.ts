@@ -199,6 +199,8 @@ afterEach(() => {
 describe("Blockbench settings integration", () => {
   test("uses Blockbench's label contract to attach both inline setting buttons", () => {
     installBlockbenchSettingsMock();
+    let observerOptions: MutationObserverInit | undefined;
+    let observerCallback: MutationCallback | undefined;
 
     class FakeElement {
       className = "";
@@ -306,6 +308,17 @@ describe("Blockbench settings integration", () => {
       },
       querySelectorAll: () => [],
     });
+    replaceGlobal("MutationObserver", class FakeMutationObserver {
+      constructor(callback: MutationCallback) {
+        observerCallback = callback;
+      }
+
+      observe(_target: Node, options: MutationObserverInit): void {
+        observerOptions = options;
+      }
+
+      disconnect(): void {}
+    });
 
     settingsSetup();
 
@@ -317,6 +330,13 @@ describe("Blockbench settings integration", () => {
     expect(token.row.children.indexOf(regenerate!)).toBeLessThan(
       token.row.children.indexOf(token.visibility!)
     );
+    expect(observerOptions).toEqual({ childList: true, subtree: true });
+
+    const directoryChildCount = directory.row.children.length;
+    const tokenChildCount = token.row.children.length;
+    observerCallback?.([], {} as MutationObserver);
+    expect(directory.row.children).toHaveLength(directoryChildCount);
+    expect(token.row.children).toHaveLength(tokenChildCount);
   });
 
   test("repairs a stale category, registers settings, and removes both category entries", () => {

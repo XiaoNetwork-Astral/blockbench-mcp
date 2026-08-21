@@ -291,12 +291,17 @@ function decorateVisibleSettingRows(): void {
     const row = getVisibleSettingRow(setting.id);
     if (!row) continue;
 
-    row.classList.add(SETTING_ROW_CLASS);
-    row.classList.toggle(NUMBER_SETTING_ROW_CLASS, setting.type === "number");
-    row.classList.toggle(
-      STACKED_SETTING_ROW_CLASS,
-      setting.type === "text" || setting.type === "password" || setting.type === "number"
-    );
+    if (!row.classList.contains(SETTING_ROW_CLASS)) row.classList.add(SETTING_ROW_CLASS);
+
+    const isNumber = setting.type === "number";
+    if (row.classList.contains(NUMBER_SETTING_ROW_CLASS) !== isNumber) {
+      row.classList.toggle(NUMBER_SETTING_ROW_CLASS, isNumber);
+    }
+
+    const isStacked = setting.type === "text" || setting.type === "password" || isNumber;
+    if (row.classList.contains(STACKED_SETTING_ROW_CLASS) !== isStacked) {
+      row.classList.toggle(STACKED_SETTING_ROW_CLASS, isStacked);
+    }
     if (row.dataset.codexMcpSetting !== setting.id) {
       row.dataset.codexMcpSetting = setting.id;
     }
@@ -392,11 +397,13 @@ function settingsUiSetup(): void {
 
   if (!settingsObserver && typeof MutationObserver !== "undefined") {
     settingsObserver = new MutationObserver(repairSettingsUiFromDom);
+    // The decorator above adds classes to setting rows. Observing attributes
+    // here would let the observer react to its own class changes forever and
+    // lock Blockbench's renderer. Category switches replace list children, so
+    // child-list observation is sufficient to reapply the inline controls.
     settingsObserver.observe(document.body, {
       childList: true,
       subtree: true,
-      attributes: true,
-      attributeFilter: ["class", "style", "open"],
     });
   }
 }
