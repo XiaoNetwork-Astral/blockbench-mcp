@@ -14,6 +14,7 @@ export type McpServerControlHandlers = {
 };
 
 const actions: Action[] = [];
+let statusDialog: Dialog | undefined;
 
 function addToolsAction(id: string, options: ConstructorParameters<typeof Action>[1]): void {
   const action = new Action(id, options);
@@ -40,6 +41,25 @@ function runControl(operation: () => void | Promise<void>): void {
   }
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function statusRow(label: string, value: string, code = false): string {
+  const content = code
+    ? `<code style="font-family: var(--font-code); word-break: break-all; user-select: text;">${escapeHtml(value)}</code>`
+    : `<span>${escapeHtml(value)}</span>`;
+  return [
+    `<div style="font-weight: 600; color: var(--color-subtle_text);">${escapeHtml(label)}</div>`,
+    `<div style="min-width: 0; color: var(--color-text);">${content}</div>`,
+  ].join("");
+}
+
 function showStatus(status: McpServerStatus): void {
   const state = tl(`mcp.server_controls.state_${status.state}`);
   const authentication = tl(
@@ -47,17 +67,24 @@ function showStatus(status: McpServerStatus): void {
       ? "mcp.server_controls.authentication_enabled"
       : "mcp.server_controls.authentication_disabled"
   );
-  Blockbench.showMessageBox({
+  statusDialog?.delete();
+  statusDialog = new Dialog({
+    id: "codex_blockbench_mcp_server_status",
     title: tl("mcp.server_controls.status_title"),
-    message: [
-      `${tl("mcp.server_controls.status_state")}: ${state}`,
-      `${tl("mcp.server_controls.status_address")}: ${status.url}`,
-      `${tl("mcp.server_controls.status_authentication")}: ${authentication}`,
-      `${tl("mcp.server_controls.status_clients")}: ${status.connectedClients}`,
-    ].join("\n"),
     icon: status.state === "running" ? "check_circle" : "info",
-    buttons: ["dialog.ok"],
+    width: 540,
+    lines: [
+      `<div style="display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 18px; align-items: start; padding: 6px 2px;">${[
+        statusRow(tl("mcp.server_controls.status_state"), state),
+        statusRow(tl("mcp.server_controls.status_address"), status.url, true),
+        statusRow(tl("mcp.server_controls.status_authentication"), authentication),
+        statusRow(tl("mcp.server_controls.status_clients"), String(status.connectedClients)),
+      ].join("")}</div>`,
+    ],
+    singleButton: true,
+    buttons: [tl("mcp.audit.ok")],
   });
+  statusDialog.show();
 }
 
 export function serverControlsSetup(handlers: McpServerControlHandlers): void {
@@ -85,4 +112,6 @@ export function serverControlsSetup(handlers: McpServerControlHandlers): void {
 
 export function serverControlsTeardown(): void {
   actions.splice(0).forEach((action) => action.delete());
+  statusDialog?.delete();
+  statusDialog = undefined;
 }

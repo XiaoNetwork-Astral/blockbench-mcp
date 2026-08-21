@@ -5,6 +5,7 @@ export const DEFAULT_MCP_BIND_HOST = "127.0.0.1";
 export const MCP_BIND_HOST_SETTING = "codex_mcp_bind_host";
 export const DEFAULT_MCP_ENDPOINT = "/bb-mcp";
 export const MCP_AUTH_TOKEN_SETTING = "codex_mcp_auth_token";
+export const YSM_WORKSPACE_SETTING = "codex_mcp_temporary_directory";
 export const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
 export const MAX_SESSION_TIMEOUT_MINUTES = 1_440;
 export const DEFAULT_SSE_HEARTBEAT_SECONDS = 15;

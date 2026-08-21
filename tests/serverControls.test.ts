@@ -21,6 +21,27 @@ class FakeAction {
   }
 }
 
+class FakeDialog {
+  shown = false;
+  deleted = false;
+
+  constructor(public readonly options: Record<string, unknown>) {}
+
+  show(): this {
+    this.shown = true;
+    return this;
+  }
+
+  hide(): this {
+    this.shown = false;
+    return this;
+  }
+
+  delete(): void {
+    this.deleted = true;
+  }
+}
+
 afterEach(() => {
   serverControlsTeardown();
   for (const [name, value] of originalGlobals) {
@@ -33,11 +54,17 @@ afterEach(() => {
 describe("Blockbench Tools menu server controls", () => {
   test("registers start, stop, and status actions and removes them on teardown", async () => {
     const actions: FakeAction[] = [];
-    const messages: Array<Record<string, unknown>> = [];
+    const dialogs: FakeDialog[] = [];
     let starts = 0;
     let stops = 0;
 
     replaceGlobal("Action", FakeAction);
+    replaceGlobal("Dialog", class extends FakeDialog {
+      constructor(options: Record<string, unknown>) {
+        super(options);
+        dialogs.push(this);
+      }
+    });
     replaceGlobal("MenuBar", {
       menus: {
         tools: {
@@ -49,9 +76,7 @@ describe("Blockbench Tools menu server controls", () => {
     });
     replaceGlobal("tl", (key: string) => key);
     replaceGlobal("Blockbench", {
-      showMessageBox(options: Record<string, unknown>) {
-        messages.push(options);
-      },
+      showMessageBox() {},
     });
 
     serverControlsSetup({
@@ -82,10 +107,15 @@ describe("Blockbench Tools menu server controls", () => {
 
     expect(starts).toBe(1);
     expect(stops).toBe(1);
-    expect(String(messages[0].message)).toContain("http://127.0.0.1:3000/bb-mcp");
-    expect(String(messages[0].message)).toContain("mcp.server_controls.authentication_disabled");
+    expect(dialogs).toHaveLength(1);
+    expect(dialogs[0].shown).toBe(true);
+    const lines = (dialogs[0].options.lines as string[]).join("\n");
+    expect(lines).toContain("http://127.0.0.1:3000/bb-mcp");
+    expect(lines).toContain("mcp.server_controls.authentication_disabled");
+    expect(lines).toContain("display: grid");
 
     serverControlsTeardown();
     expect(actions.every((action) => action.deleted)).toBe(true);
+    expect(dialogs[0].deleted).toBe(true);
   });
 });

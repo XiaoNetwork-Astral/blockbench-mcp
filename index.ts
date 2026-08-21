@@ -21,7 +21,7 @@ import {
 import { sessionManager } from "@/lib/sessions";
 import type { NetServer, SessionTransports } from "@/server/net";
 import createNetServer, { stopNetServer } from "@/server/net";
-import { setupYsmWorkspaceUi, teardownYsmWorkspaceUi } from "@/lib/ysmWorkspace";
+import { teardownYsmWorkspace } from "@/lib/ysmWorkspace";
 import { auditManager } from "@/lib/audit";
 import { setupProjectProtection, teardownProjectProtection } from "@/lib/projectProtection";
 import {
@@ -119,7 +119,15 @@ async function startMcpServer(showFeedback = true): Promise<void> {
     activeAuthenticationEnabled = Boolean(authToken);
 
     server.once("listening", () => {
-      if (httpServer === server) serverState = "running";
+      if (httpServer === server) {
+        serverState = "running";
+        if (showFeedback && pluginLoaded) {
+          Blockbench.showQuickMessage(
+            tl("mcp.server_controls.started", [activeServerUrl ?? currentServerUrl()]),
+            3500
+          );
+        }
+      }
     });
     server.once("close", () => {
       if (httpServer === server) {
@@ -196,7 +204,6 @@ BBPlugin.register(PLUGIN_ID, {
     // user declines network permission or the port cannot be opened.
     setupI18n();
     settingsSetup();
-    setupYsmWorkspaceUi();
     auditManager.setup();
     setupProjectProtection();
     const referenceServer = createServer();
@@ -240,7 +247,7 @@ BBPlugin.register(PLUGIN_ID, {
 
     uiTeardown();
     settingsTeardown();
-    teardownYsmWorkspaceUi();
+    teardownYsmWorkspace();
   },
 
   oninstall() {
@@ -251,6 +258,6 @@ BBPlugin.register(PLUGIN_ID, {
     Blockbench.showQuickMessage("Uninstalled Codex Blockbench MCP", 2000);
     settingsTeardown();
     serverControlsTeardown();
-    teardownYsmWorkspaceUi();
+    teardownYsmWorkspace();
   },
 });

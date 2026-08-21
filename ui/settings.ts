@@ -15,17 +15,23 @@ import {
   MCP_BIND_HOST_SETTING,
   MIN_AUDIT_RETENTION,
   MIN_MCP_PORT,
+  YSM_WORKSPACE_SETTING,
   createMcpAuthToken,
   getInitialMcpAuthToken,
   normalizeMcpBindHost,
 } from "@/lib/pluginSettings";
 import { isLoopbackMcpHost } from "@/lib/security";
+import {
+  chooseYsmWorkspace,
+  getInitialYsmWorkspaceRoot,
+  syncYsmWorkspaceRootFromSetting,
+} from "@/lib/ysmWorkspace";
 import settingsCSS from "@/ui/settings.css";
 
 const CATEGORY_ID = PLUGIN_ID;
 const TOKEN_ACTION_CLASS = "codex-mcp-token-regenerate";
+const DIRECTORY_ACTION_CLASS = "codex-mcp-directory-browse";
 const settings: Setting[] = [];
-let openSettingsAction: Action | undefined;
 let settingsStyle: Deletable | undefined;
 let settingsObserver: MutationObserver | undefined;
 let settingsReadyTimer: ReturnType<typeof setInterval> | undefined;
@@ -167,7 +173,7 @@ function invalidateVisibleSettingsList(): void {
   content.open_category = current;
   content.$forceUpdate?.();
 
-  const finish = () => ensureInlineTokenAction();
+  const finish = () => ensureInlineSettingActions();
   const vue = getVueReactivity();
   if (vue && typeof vue.nextTick === "function") void vue.nextTick(finish);
   else finish();
@@ -229,7 +235,7 @@ function repairSettingsUiFromDom(): void {
     refreshSettingsCategory();
     invalidateVisibleSettingsList();
   }
-  ensureInlineTokenAction();
+  ensureInlineSettingActions();
 }
 
 function removeSettingsCategory(): void {
@@ -294,6 +300,43 @@ function ensureInlineTokenAction(): void {
   else row.appendChild(action);
 }
 
+function ensureInlineDirectoryAction(): void {
+  if (typeof document === "undefined") return;
+  const input = document.getElementById(`setting_${YSM_WORKSPACE_SETTING}`);
+  const row = input?.closest("li");
+  if (!input || !row || row.querySelector(`.${DIRECTORY_ACTION_CLASS}`)) return;
+
+  const action = document.createElement("div");
+  action.className = `tool ${DIRECTORY_ACTION_CLASS}`;
+  action.setAttribute("role", "button");
+  action.setAttribute("tabindex", "0");
+  action.setAttribute("aria-label", tl("mcp.settings.temporary_directory_browse_name"));
+  action.title = tl("mcp.settings.temporary_directory_browse_desc");
+
+  const icon = document.createElement("i");
+  icon.className = "material-icons";
+  icon.textContent = "folder_open";
+  action.appendChild(icon);
+
+  const activate = (event: Event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    chooseYsmWorkspace();
+  };
+  action.addEventListener("click", activate);
+  action.addEventListener("keydown", (event) => {
+    const keyboardEvent = event as KeyboardEvent;
+    if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") activate(event);
+  });
+
+  row.appendChild(action);
+}
+
+function ensureInlineSettingActions(): void {
+  ensureInlineTokenAction();
+  ensureInlineDirectoryAction();
+}
+
 function settingsUiSetup(): void {
   scheduleSettingsDialogReconciliation();
   if (typeof document === "undefined") return;
@@ -302,7 +345,7 @@ function settingsUiSetup(): void {
     settingsStyle = Blockbench.addCSS(settingsCSS);
   }
   reconcileSettingsDialog();
-  ensureInlineTokenAction();
+  ensureInlineSettingActions();
 
   if (!settingsObserver && typeof MutationObserver !== "undefined") {
     settingsObserver = new MutationObserver(repairSettingsUiFromDom);
@@ -326,7 +369,9 @@ function settingsUiTeardown(): void {
   settingsStyle?.delete();
   settingsStyle = undefined;
   if (typeof document !== "undefined") {
-    document.querySelectorAll(`.${TOKEN_ACTION_CLASS}`).forEach((element) => element.remove());
+    document
+      .querySelectorAll(`.${TOKEN_ACTION_CLASS}, .${DIRECTORY_ACTION_CLASS}`)
+      .forEach((element) => element.remove());
   }
 }
 
@@ -364,9 +409,17 @@ function warnForMissingAuthToken(value: unknown): void {
 }
 
 export function settingsSetup(): void {
-  if (settings.length > 0 || openSettingsAction) return;
+  if (settings.length > 0) return;
   ensureSettingsCategory();
 
+  addSetting(YSM_WORKSPACE_SETTING, {
+    name: tl("mcp.settings.temporary_directory_name"),
+    description: tl("mcp.settings.temporary_directory_desc"),
+    type: "text",
+    value: getInitialYsmWorkspaceRoot(),
+    icon: "folder_special",
+    onChange: syncYsmWorkspaceRootFromSetting,
+  });
   addSetting(MCP_BIND_HOST_SETTING, {
     name: tl("mcp.settings.bind_host_name"),
     description: tl("mcp.settings.bind_host_desc"),
@@ -480,26 +533,10 @@ export function settingsSetup(): void {
 
   refreshSettingsCategory();
   settingsUiSetup();
-
-  openSettingsAction = new Action("codex_blockbench_mcp_open_settings", {
-    name: tl("mcp.settings.open_action"),
-    description: tl("mcp.settings.open_action_desc"),
-    icon: "settings",
-    click: () => {
-      const category = Settings.structure[CATEGORY_ID];
-      if (category) category.open = true;
-      Settings.openDialog();
-      reconcileSettingsDialog();
-      getSettingsSidebar()?.setPage?.(CATEGORY_ID);
-    },
-  });
-  MenuBar.menus.tools.addAction(openSettingsAction);
 }
 
 export function settingsTeardown(): void {
   settingsUiTeardown();
-  openSettingsAction?.delete();
-  openSettingsAction = undefined;
   settings.splice(0).forEach((setting) => setting.delete());
   removeSettingsCategory();
 }

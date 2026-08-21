@@ -63,6 +63,15 @@ function configuredSource(): AuditSource | "all" {
 }
 
 function showPanel(): void {
+  if (typeof Project === "undefined" || !Project) {
+    Blockbench.showMessageBox({
+      title: tl("mcp.audit.open_project_title"),
+      message: tl("mcp.audit.open_project_message"),
+      icon: "info",
+      buttons: ["dialog.ok"],
+    });
+    return;
+  }
   if (!panel) return;
   if (panel.slot === "hidden") {
     const previous = panel.previous_slot;

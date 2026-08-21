@@ -184,7 +184,8 @@ describe("Blockbench settings integration", () => {
 
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
-    expect(Object.keys(category.items)).toHaveLength(11);
+    expect(Object.keys(category.items)).toHaveLength(12);
+    expect(category.items.codex_mcp_temporary_directory).toBeDefined();
     expect(category.items.codex_mcp_bind_host).toBeDefined();
     expect(category.items.codex_mcp_port).toBeDefined();
     expect(category.items.codex_mcp_auth_token).toBeDefined();
@@ -196,7 +197,7 @@ describe("Blockbench settings integration", () => {
       "mcp.settings.category_name"
     );
     expect(mock.getReactiveSets()).toBeGreaterThan(0);
-    expect(mock.getAddedAction()?.id).toBe("codex_blockbench_mcp_open_settings");
+    expect(mock.getAddedAction()).toBeUndefined();
 
     mock.settingsApi.dialog!.sidebar.setPage(CATEGORY_ID);
     expect(mock.getForceUpdates()).toBeGreaterThan(0);
@@ -206,7 +207,7 @@ describe("Blockbench settings integration", () => {
 
     expect(mock.settingsApi.structure[CATEGORY_ID]).toBeUndefined();
     expect(mock.settingsApi.dialog!.sidebar.pages[CATEGORY_ID]).toBeUndefined();
-    expect(mock.getAddedAction()?.deleted).toBe(true);
+    expect(mock.getAddedAction()).toBeUndefined();
     // An unmounted sidebar only needs its page map updated. Rebuilding it
     // here would append duplicate sidebar DOM once the dialog opens.
     expect(mock.getSidebarBuilds()).toBe(0);
@@ -225,7 +226,7 @@ describe("Blockbench settings integration", () => {
 
     settingsSetup();
 
-    expect(Object.keys(mock.settingsApi.structure[CATEGORY_ID].items)).toHaveLength(11);
+    expect(Object.keys(mock.settingsApi.structure[CATEGORY_ID].items)).toHaveLength(12);
     expect(
       mock.settingsApi.structure[CATEGORY_ID].items.codex_mcp_instructions
     ).toBeUndefined();
@@ -241,7 +242,8 @@ describe("Blockbench settings integration", () => {
 
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
-    expect(Object.keys(category.items)).toHaveLength(11);
+    expect(Object.keys(category.items)).toHaveLength(12);
+    expect(category.items.codex_mcp_temporary_directory).toBeDefined();
     expect(category.items.codex_mcp_bind_host).toBeDefined();
     expect(category.items.codex_mcp_port).toBeDefined();
     expect(category.items.codex_mcp_auth_token).toBeDefined();
@@ -254,7 +256,7 @@ describe("Blockbench settings integration", () => {
     expect(reconcileSettingsDialog()).toBe(true);
     dialog.sidebar.setPage(CATEGORY_ID);
 
-    expect(Object.keys(category.items)).toHaveLength(11);
+    expect(Object.keys(category.items)).toHaveLength(12);
     expect(dialog.content_vue.open_category).toBe(CATEGORY_ID);
     expect(mock.getForceUpdates()).toBeGreaterThan(0);
   });

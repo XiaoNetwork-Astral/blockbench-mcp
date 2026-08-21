@@ -1,4 +1,6 @@
-const STORAGE_KEY = "codex_blockbench_mcp.ysm_workspace";
+import { YSM_WORKSPACE_SETTING } from "@/lib/pluginSettings";
+
+const LEGACY_STORAGE_KEY = "codex_blockbench_mcp.ysm_workspace";
 
 type ScopedFs = typeof import("node:fs");
 type CryptoModule = typeof import("node:crypto");
@@ -6,36 +8,69 @@ type CryptoModule = typeof import("node:crypto");
 let workspaceRoot = "";
 let scopedFs: ScopedFs | null = null;
 let cryptoModule: CryptoModule | null = null;
-const actions: Action[] = [];
 
-function normalizedRoot(value: string): string {
-  return PathModule.resolve(value);
+function normalizedRoot(value: unknown): string {
+  const candidate = String(value ?? "").trim();
+  return candidate ? PathModule.resolve(candidate) : "";
+}
+
+export function getInitialYsmWorkspaceRoot(): string {
+  const stored = String(Settings.stored?.[YSM_WORKSPACE_SETTING] ?? "").trim();
+  if (stored) {
+    workspaceRoot = normalizedRoot(stored);
+    return workspaceRoot;
+  }
+
+  // Migrate the path selected by older builds from localStorage into the new
+  // native Setting. Once migrated, clearing the Setting must not resurrect it.
+  const legacy = typeof localStorage === "undefined"
+    ? ""
+    : String(localStorage.getItem(LEGACY_STORAGE_KEY) ?? "").trim();
+  if (legacy && typeof localStorage !== "undefined") {
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  }
+  workspaceRoot = normalizedRoot(legacy);
+  return workspaceRoot;
 }
 
 export function getYsmWorkspaceRoot(): string {
-  if (!workspaceRoot) {
-    workspaceRoot = localStorage.getItem(STORAGE_KEY) || "";
+  if (typeof Settings !== "undefined") {
+    const configured = Settings.get(YSM_WORKSPACE_SETTING);
+    if (configured !== undefined) workspaceRoot = normalizedRoot(configured);
   }
   return workspaceRoot;
 }
 
-export function setYsmWorkspaceRoot(value: string, requestPermission = true): boolean {
+export function syncYsmWorkspaceRootFromSetting(value: unknown): void {
   workspaceRoot = normalizedRoot(value);
-  localStorage.setItem(STORAGE_KEY, workspaceRoot);
   scopedFs = null;
+}
+
+export function setYsmWorkspaceRoot(value: string, requestPermission = true): boolean {
+  const normalized = normalizedRoot(value);
+  if (typeof settings !== "undefined") {
+    settings[YSM_WORKSPACE_SETTING]?.set(normalized);
+  }
+  // Keep the runtime scope synchronized even if Setting.set() does not invoke
+  // onChange in the current Blockbench version.
+  syncYsmWorkspaceRootFromSetting(normalized);
+  if (!workspaceRoot) return !requestPermission;
   return requestPermission ? ensureYsmWorkspaceAccess(true) : true;
 }
 
 export function chooseYsmWorkspace(): boolean {
   const selected = Blockbench.pickDirectory({
-    title: "Choose the Codex/YSM writable workspace",
+    title: tl("mcp.settings.temporary_directory_picker_title"),
     startpath: getYsmWorkspaceRoot() || undefined,
     resource_id: "codex_blockbench_mcp_ysm_workspace",
   });
   if (!selected) return false;
   const ok = setYsmWorkspaceRoot(selected, true);
   if (ok) {
-    Blockbench.showQuickMessage(`Codex/YSM workspace: ${workspaceRoot}`, 4500);
+    Blockbench.showQuickMessage(
+      tl("mcp.settings.temporary_directory_selected", [workspaceRoot]),
+      4500
+    );
   }
   return ok;
 }
@@ -59,7 +94,7 @@ function requireWorkspace(): ScopedFs {
     throw new Error(
       getYsmWorkspaceRoot()
         ? "Folder-scoped access to the configured YSM workspace was denied."
-        : "No YSM workspace is configured. Use ysm_set_workspace or the Tools menu first."
+        : "No temporary model directory is configured. Set it in Codex Blockbench MCP settings or use ysm_set_workspace."
     );
   }
   return scopedFs;
@@ -156,36 +191,7 @@ export function atomicWriteWorkspaceBytes(relativePath: string, value: Uint8Arra
   atomicWrite(relativePath, value);
 }
 
-function addAction(id: string, options: ConstructorParameters<typeof Action>[1]): void {
-  const action = new Action(id, options);
-  actions.push(action);
-  MenuBar.menus.tools.addAction(action);
-}
-
-export function setupYsmWorkspaceUi(): void {
-  getYsmWorkspaceRoot();
-  addAction("codex_blockbench_mcp_choose_ysm_workspace", {
-    name: "Codex Blockbench MCP: Choose YSM Workspace",
-    description: "Choose the only folder where Codex may synchronize YSM model files",
-    icon: "folder_open",
-    click: chooseYsmWorkspace,
-  });
-  addAction("codex_blockbench_mcp_show_ysm_workspace", {
-    name: "Codex Blockbench MCP: Show YSM Workspace",
-    description: "Show the current folder-scoped YSM workspace",
-    icon: "info",
-    click: () => {
-      Blockbench.showMessageBox({
-        title: "Codex Blockbench MCP",
-        message: getYsmWorkspaceRoot() || "No YSM workspace is configured.",
-        buttons: ["OK"],
-      });
-    },
-  });
-}
-
-export function teardownYsmWorkspaceUi(): void {
-  actions.splice(0).forEach((action) => action.delete());
+export function teardownYsmWorkspace(): void {
   scopedFs = null;
   cryptoModule = null;
 }

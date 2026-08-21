@@ -2,7 +2,12 @@ dialog#settings #setting_codex_mcp_auth_token {
   width: calc(96% - 56px) !important;
 }
 
-dialog#settings .codex-mcp-token-regenerate {
+dialog#settings #setting_codex_mcp_temporary_directory {
+  width: calc(96% - 28px) !important;
+}
+
+dialog#settings .codex-mcp-token-regenerate,
+dialog#settings .codex-mcp-directory-browse {
   display: inline-flex;
   width: 24px;
   height: 32px;
@@ -16,13 +21,16 @@ dialog#settings .codex-mcp-token-regenerate {
 }
 
 dialog#settings .codex-mcp-token-regenerate:hover,
-dialog#settings .codex-mcp-token-regenerate:focus-visible {
+dialog#settings .codex-mcp-token-regenerate:focus-visible,
+dialog#settings .codex-mcp-directory-browse:hover,
+dialog#settings .codex-mcp-directory-browse:focus-visible {
   color: var(--color-light);
   background-color: var(--color-button);
   outline: none;
 }
 
-dialog#settings .codex-mcp-token-regenerate > i {
+dialog#settings .codex-mcp-token-regenerate > i,
+dialog#settings .codex-mcp-directory-browse > i {
   font-size: 20px;
   pointer-events: none;
 }
