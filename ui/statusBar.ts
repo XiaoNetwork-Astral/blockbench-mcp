@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { sessionManager, type Session } from "@/lib/sessions";
+import { sessionManager } from "@/lib/sessions";
 import statusBarCSS from "@/ui/statusBar.css";
 import {
   formatMcpHostForUrl,
@@ -46,8 +46,8 @@ export function statusBarSetup(server: McpServer): void {
   statusBarElement.appendChild(statusIndicator);
 
   // Function to update status based on sessions
-  const updateStatus = (sessions: Session[]) => {
-    const count = sessions.length;
+  const updateStatus = () => {
+    const count = sessionManager.getClientCount();
     if (count > 0) {
       statusDot.classList.remove("disconnected");
       statusDot.classList.add("connected");

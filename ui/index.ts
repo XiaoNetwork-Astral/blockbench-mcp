@@ -39,12 +39,17 @@ export function uiSetup({
         unsubscribe = sessionManager.subscribe((sessions: Session[]) => {
           vm.sessions = sessions.map((s: Session) => ({
             id: s.id,
+            clientKey: s.clientKey,
             connectedAt: s.connectedAt,
             lastActivity: s.lastActivity,
             clientName: s.clientName,
             clientVersion: s.clientVersion,
+            remoteAddress: s.remoteAddress,
+            userAgent: s.userAgent,
+            requestCount: s.requestCount,
           }));
           vm.server.connected = sessions.length > 0;
+          vm.server.connectedClients = sessionManager.getClientCount();
         });
       },
       beforeDestroy() {
@@ -54,9 +59,20 @@ export function uiSetup({
         }
       },
       data: () => ({
-        sessions: [] as Array<{ id: string; connectedAt: Date; lastActivity: Date; clientName?: string; clientVersion?: string }>,
+        sessions: [] as Array<{
+          id: string;
+          clientKey: string;
+          connectedAt: Date;
+          lastActivity: Date;
+          clientName?: string;
+          clientVersion?: string;
+          remoteAddress?: string;
+          userAgent?: string;
+          requestCount: number;
+        }>,
         server: {
           connected: false,
+          connectedClients: 0,
           name: "Blockbench MCP",
           version: VERSION,
         },

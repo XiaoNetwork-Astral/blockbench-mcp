@@ -54,7 +54,8 @@ function getServerStatus(): McpServerStatus {
     state: serverState,
     url: activeServerUrl ?? currentServerUrl(),
     authenticationEnabled: activeAuthenticationEnabled ?? Boolean(getMcpAuthToken()),
-    connectedClients: sessionTransports?.size ?? 0,
+    connectedClients: sessionManager.getClientCount(),
+    connectedSessions: sessionManager.getCount(),
   };
 }
 

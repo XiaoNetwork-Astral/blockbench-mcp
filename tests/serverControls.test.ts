@@ -52,11 +52,12 @@ afterEach(() => {
 });
 
 describe("Blockbench Tools menu server controls", () => {
-  test("registers start, stop, and status actions and removes them on teardown", async () => {
+  test("registers server and client-management actions and removes them on teardown", async () => {
     const actions: FakeAction[] = [];
     const dialogs: FakeDialog[] = [];
     let starts = 0;
     let stops = 0;
+    let cssDeleted = false;
 
     replaceGlobal("Action", FakeAction);
     replaceGlobal("Dialog", class extends FakeDialog {
@@ -76,6 +77,10 @@ describe("Blockbench Tools menu server controls", () => {
     });
     replaceGlobal("tl", (key: string) => key);
     replaceGlobal("Blockbench", {
+      addCSS() {
+        return { delete: () => { cssDeleted = true; } };
+      },
+      showQuickMessage() {},
       showMessageBox() {},
     });
 
@@ -91,6 +96,7 @@ describe("Blockbench Tools menu server controls", () => {
         url: "http://127.0.0.1:3000/bb-mcp",
         authenticationEnabled: false,
         connectedClients: 2,
+        connectedSessions: 6,
       }),
     });
 
@@ -98,24 +104,31 @@ describe("Blockbench Tools menu server controls", () => {
       "codex_blockbench_mcp_start_server",
       "codex_blockbench_mcp_stop_server",
       "codex_blockbench_mcp_show_server_status",
+      "codex_blockbench_mcp_manage_clients",
     ]);
 
     (actions[0].options.click as () => void)();
     (actions[1].options.click as () => void)();
     (actions[2].options.click as () => void)();
+    (actions[3].options.click as () => void)();
     await Promise.resolve();
 
     expect(starts).toBe(1);
     expect(stops).toBe(1);
-    expect(dialogs).toHaveLength(1);
+    expect(dialogs).toHaveLength(2);
     expect(dialogs[0].shown).toBe(true);
+    expect(dialogs[1].shown).toBe(true);
     const lines = (dialogs[0].options.lines as string[]).join("\n");
     expect(lines).toContain("http://127.0.0.1:3000/bb-mcp");
     expect(lines).toContain("mcp.server_controls.authentication_disabled");
+    expect(lines).toContain("mcp.server_controls.status_sessions");
+    expect(lines).toContain(">6<");
     expect(lines).toContain("display: grid");
 
     serverControlsTeardown();
     expect(actions.every((action) => action.deleted)).toBe(true);
     expect(dialogs[0].deleted).toBe(true);
+    expect(dialogs[1].deleted).toBe(true);
+    expect(cssDeleted).toBe(true);
   });
 });

@@ -1,0 +1,90 @@
+<div class="codex-mcp-client-manager">
+    <div class="codex-mcp-client-summary">
+        <div>
+            <strong>{{clients.length}}</strong>
+            <span>{{tl('mcp.client_manager.clients')}}</span>
+        </div>
+        <div>
+            <strong>{{sessionCount}}</strong>
+            <span>{{tl('mcp.client_manager.sessions')}}</span>
+        </div>
+    </div>
+
+    <p class="codex-mcp-client-explanation">
+        {{tl('mcp.client_manager.session_explanation')}}
+    </p>
+
+    <div v-if="clients.length" class="codex-mcp-client-list">
+        <section v-for="client in clients" :key="client.key" class="codex-mcp-client-card">
+            <header>
+                <div class="codex-mcp-client-identity">
+                    <strong>{{formatClientName(client)}}</strong>
+                    <span v-if="client.remoteAddress" class="codex-mcp-client-address">{{client.remoteAddress}}</span>
+                    <span class="codex-mcp-client-session-count">
+                        {{tl('mcp.client_manager.session_count', [client.sessions.length])}}
+                    </span>
+                </div>
+                <div class="codex-mcp-client-actions">
+                    <button type="button" @click="disconnectClient(client.key)">
+                        <i class="material-icons">link_off</i>
+                        {{tl('mcp.client_manager.disconnect_client')}}
+                    </button>
+                    <button type="button" class="danger" @click="confirmBlockClient(client)">
+                        <i class="material-icons">block</i>
+                        {{tl('mcp.client_manager.block_client')}}
+                    </button>
+                </div>
+            </header>
+
+            <div v-if="client.userAgent" class="codex-mcp-client-agent" :title="client.userAgent">
+                {{client.userAgent}}
+            </div>
+
+            <div class="codex-mcp-session-list">
+                <div class="codex-mcp-session-header">
+                    <span>{{tl('mcp.client_manager.session_id')}}</span>
+                    <span>{{tl('mcp.client_manager.connected_at')}}</span>
+                    <span>{{tl('mcp.client_manager.last_activity')}}</span>
+                    <span>{{tl('mcp.client_manager.request_count')}}</span>
+                    <span></span>
+                </div>
+                <div v-for="session in client.sessions" :key="session.id" class="codex-mcp-session-row">
+                    <code :title="session.id">{{formatSessionId(session.id)}}</code>
+                    <span :title="tl('mcp.client_manager.connected_at')">
+                        {{formatTime(session.connectedAt)}}
+                    </span>
+                    <span :title="tl('mcp.client_manager.last_activity')">
+                        {{formatTime(session.lastActivity)}}
+                    </span>
+                    <span :title="tl('mcp.client_manager.request_count')">
+                        {{session.requestCount}}
+                    </span>
+                    <button type="button" class="icon" :title="tl('mcp.client_manager.disconnect_session')"
+                        :aria-label="tl('mcp.client_manager.disconnect_session')" @click="disconnectSession(session.id)">
+                        <i class="material-icons">close</i>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+    <div v-else class="codex-mcp-client-empty">
+        {{tl('mcp.client_manager.no_clients')}}
+    </div>
+
+    <section v-if="blockedClients.length" class="codex-mcp-blocked-clients">
+        <h3>{{tl('mcp.client_manager.blocked_clients')}}</h3>
+        <div v-for="client in blockedClients" :key="client.key" class="codex-mcp-blocked-row">
+            <div>
+                <strong>{{formatClientName(client)}}</strong>
+                <span v-if="client.remoteAddress">{{client.remoteAddress}}</span>
+            </div>
+            <button type="button" @click="unblockClient(client.key)">
+                {{tl('mcp.client_manager.unblock_client')}}
+            </button>
+        </div>
+    </section>
+
+    <p class="codex-mcp-client-warning">
+        {{tl('mcp.client_manager.block_warning')}}
+    </p>
+</div>

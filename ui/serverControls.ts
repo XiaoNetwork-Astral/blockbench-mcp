@@ -1,3 +1,5 @@
+import { clientManagerTeardown, showClientManager } from "@/ui/clientManager";
+
 export type McpServerRuntimeState = "stopped" | "starting" | "running" | "stopping";
 
 export type McpServerStatus = {
@@ -5,6 +7,7 @@ export type McpServerStatus = {
   url: string;
   authenticationEnabled: boolean;
   connectedClients: number;
+  connectedSessions: number;
 };
 
 export type McpServerControlHandlers = {
@@ -79,6 +82,7 @@ function showStatus(status: McpServerStatus): void {
         statusRow(tl("mcp.server_controls.status_address"), status.url, true),
         statusRow(tl("mcp.server_controls.status_authentication"), authentication),
         statusRow(tl("mcp.server_controls.status_clients"), String(status.connectedClients)),
+        statusRow(tl("mcp.server_controls.status_sessions"), String(status.connectedSessions)),
       ].join("")}</div>`,
     ],
     singleButton: true,
@@ -108,10 +112,17 @@ export function serverControlsSetup(handlers: McpServerControlHandlers): void {
     icon: "info",
     click: () => showStatus(handlers.getStatus()),
   });
+  addToolsAction("codex_blockbench_mcp_manage_clients", {
+    name: tl("mcp.server_controls.manage_clients"),
+    description: tl("mcp.server_controls.manage_clients_desc"),
+    icon: "devices",
+    click: () => showClientManager(),
+  });
 }
 
 export function serverControlsTeardown(): void {
   actions.splice(0).forEach((action) => action.delete());
   statusDialog?.delete();
   statusDialog = undefined;
+  clientManagerTeardown();
 }

@@ -7,7 +7,11 @@ import {
   registerResourcesOnServer
 } from '@/lib/factories'
 import { createServer as createMcpServer } from '@/server/server'
-import { sessionManager, type SessionConfig } from '@/lib/sessions'
+import {
+  sessionManager,
+  type SessionClientMetadata,
+  type SessionConfig
+} from '@/lib/sessions'
 import { isAuthorizedMcpRequest } from '@/lib/security'
 import { formatMcpHostForUrl } from '@/lib/pluginSettings'
 
@@ -89,7 +93,7 @@ export async function stopNetServer (
     closeSessions,
     new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, timeoutMs)))
   ])
-  sessionManager.clear()
+  sessionManager.clear({ keepListeners: true })
 
   const sockets = serverSockets.get(server) ?? new Set<Socket>()
   const remaining = Math.max(0, deadline - Date.now())
@@ -112,6 +116,7 @@ function getStatusText (status: number): string {
     204: 'No Content',
     400: 'Bad Request',
     401: 'Unauthorized',
+    403: 'Forbidden',
     404: 'Not Found',
     405: 'Method Not Allowed',
     409: 'Conflict',
@@ -126,18 +131,27 @@ function getStatusText (status: number): string {
  * a client error, not a new connection. Per spec an InitializeRequest must
  * not be part of a JSON-RPC batch, so only a sole non-batched message counts.
  */
-function isInitializeRequestBody (method: string, body: string): boolean {
-  if (method !== 'POST' || !body) return false
+function parseInitializeRequestBody (
+  method: string,
+  body: string
+): Pick<SessionClientMetadata, 'clientName' | 'clientVersion'> | null {
+  if (method !== 'POST' || !body) return null
   try {
     const parsed: unknown = JSON.parse(body)
-    if (Array.isArray(parsed)) return false
-    return (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      (parsed as { method?: unknown }).method === 'initialize'
-    )
+    if (Array.isArray(parsed)) return null
+    if (typeof parsed !== 'object' || parsed === null) return null
+    const request = parsed as {
+      method?: unknown
+      params?: { clientInfo?: { name?: unknown; version?: unknown } }
+    }
+    if (request.method !== 'initialize') return null
+    const clientInfo = request.params?.clientInfo
+    return {
+      clientName: typeof clientInfo?.name === 'string' ? clientInfo.name : undefined,
+      clientVersion: typeof clientInfo?.version === 'string' ? clientInfo.version : undefined
+    }
   } catch {
-    return false
+    return null
   }
 }
 
@@ -199,12 +213,14 @@ export default function createNetServer (
   sessionManager.setRemovalCallback(async (sessionId: string) => {
     const session = sessionTransports.get(sessionId)
     if (session) {
+      // Make the session unreachable before awaiting transport shutdown so a
+      // concurrent request cannot slip through after the user disconnects or
+      // blocks it.
+      sessionTransports.delete(sessionId)
       try {
         await session.transport.close()
       } catch (error) {
         console.error('[MCP] Error closing transport:', error)
-      } finally {
-        sessionTransports.delete(sessionId)
       }
     }
   })
@@ -345,6 +361,9 @@ export default function createNetServer (
           const healthStatus = {
             status: 'ok',
             timestamp: new Date().toISOString(),
+            clients: {
+              active: sessionManager.getClientCount()
+            },
             sessions: {
               active: sessionManager.getCount(),
               config: sessionManager.getConfig()
@@ -392,6 +411,7 @@ export default function createNetServer (
           // Get or create transport for this session
           const sessionId = headers['mcp-session-id']
           let session = sessionId ? sessionTransports.get(sessionId) : null
+          const initializeRequest = parseInitializeRequestBody(method, body)
 
           // Per MCP spec, an unknown or expired session ID gets 404 Not Found,
           // signalling spec-compliant clients to transparently start a new
@@ -420,7 +440,7 @@ export default function createNetServer (
           // notifications, or DELETEs without a session header while an
           // initialize is in flight — those must be rejected, not treated
           // as new connections.
-          if (!session && !isInitializeRequestBody(method, body)) {
+          if (!session && !initializeRequest) {
             sendResponse(
               socket,
               400,
@@ -441,6 +461,28 @@ export default function createNetServer (
           // No session yet and this is an initialize request: create a new
           // session with its own server and transport
           if (!session) {
+            const clientMetadata: SessionClientMetadata = {
+              ...initializeRequest,
+              remoteAddress: socket.remoteAddress,
+              userAgent: headers['user-agent']
+            }
+            if (sessionManager.isClientBlocked(clientMetadata)) {
+              sendResponse(
+                socket,
+                403,
+                { 'content-type': 'application/json' },
+                JSON.stringify({
+                  jsonrpc: '2.0',
+                  error: {
+                    code: -32003,
+                    message: 'This client identity is blocked until the MCP server restarts.'
+                  },
+                  id: null
+                }),
+                headers['connection']
+              )
+              continue
+            }
             const sessionServer = createMcpServer()
 
             // Register the private fork's tools and resources on this session.
@@ -460,7 +502,10 @@ export default function createNetServer (
               sessionIdGenerator: () => crypto.randomUUID(),
               enableJsonResponse: true,
               onsessioninitialized: (newSessionId: string) => {
-                sessionManager.add(newSessionId)
+                if (!sessionManager.add(newSessionId, clientMetadata)) {
+                  void newSession.transport.close().catch(() => {})
+                  return
+                }
                 sessionTransports.set(newSessionId, newSession)
 
                 // Hook into oninitialized to capture client info
@@ -493,7 +538,7 @@ export default function createNetServer (
 
           // Update session activity
           if (sessionId) {
-            sessionManager.updateActivity(sessionId)
+            sessionManager.recordRequest(sessionId)
           }
 
           // Let the transport handle the MCP protocol
