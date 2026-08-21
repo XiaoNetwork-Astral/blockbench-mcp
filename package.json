@@ -1,6 +1,6 @@
 {
   "name": "codex-blockbench-mcp",
-  "version": "1.7.0-codex.8",
+  "version": "1.7.0-codex.9",
   "description": "Local-first Blockbench MCP server with Codex/YSM workflow support",
   "keywords": [
     "Blockbench",

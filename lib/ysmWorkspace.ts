@@ -65,14 +65,7 @@ export function chooseYsmWorkspace(): boolean {
     resource_id: "codex_blockbench_mcp_ysm_workspace",
   });
   if (!selected) return false;
-  const ok = setYsmWorkspaceRoot(selected, true);
-  if (ok) {
-    Blockbench.showQuickMessage(
-      tl("mcp.settings.temporary_directory_selected", [workspaceRoot]),
-      4500
-    );
-  }
-  return ok;
+  return setYsmWorkspaceRoot(selected, true);
 }
 
 export function ensureYsmWorkspaceAccess(showPermissionDialog: boolean): boolean {

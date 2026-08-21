@@ -206,10 +206,16 @@ describe("Blockbench settings integration", () => {
       className = "";
       dataset: Record<string, string> = {};
       id = "";
+      checked = false;
+      disabled = false;
+      hidden = false;
+      tabIndex = 0;
       parent: FakeElement | undefined;
       children: FakeElement[] = [];
       textContent = "";
       title = "";
+      private attributes = new Map<string, string>();
+      private listeners = new Map<string, Set<(event: Event) => void>>();
       private extraClasses = new Set<string>();
       readonly classList = {
         add: (...names: string[]) => names.forEach((name) => this.extraClasses.add(name)),
@@ -243,16 +249,35 @@ describe("Blockbench settings integration", () => {
         return child;
       }
 
+      private findDescendant(predicate: (element: FakeElement) => boolean): FakeElement | null {
+        for (const child of this.children) {
+          if (predicate(child)) return child;
+          const nested = child.findDescendant(predicate);
+          if (nested) return nested;
+        }
+        return null;
+      }
+
       querySelector(selector: string): FakeElement | null {
         if (selector === "input.dark_bordered") {
-          return this.children.find((child) => child.tagName === "input" && child.hasClass("dark_bordered")) ?? null;
+          return this.findDescendant(
+            (child) => child.tagName === "input" && child.hasClass("dark_bordered")
+          );
+        }
+        if (selector === "input.toggle_switch") {
+          return this.findDescendant(
+            (child) => child.tagName === "input" && child.hasClass("toggle_switch")
+          );
         }
         if (selector === ":scope > .password_toggle") {
           return this.children.find((child) => child.hasClass("password_toggle")) ?? null;
         }
+        if (selector === ":scope > .setting_label") {
+          return this.children.find((child) => child.hasClass("setting_label")) ?? null;
+        }
         if (selector.startsWith(".")) {
           const className = selector.slice(1);
-          return this.children.find((child) => child.hasClass(className)) ?? null;
+          return this.findDescendant((child) => child.hasClass(className));
         }
         return null;
       }
@@ -267,36 +292,81 @@ describe("Blockbench settings integration", () => {
       }
 
       setAttribute(name: string, value: string): void {
+        this.attributes.set(name, value);
         if (name === "id") this.id = value;
+        if (name === "tabindex") this.tabIndex = Number(value);
+      }
+
+      getAttribute(name: string): string | null {
+        return this.attributes.get(name) ?? null;
       }
 
       removeAttribute(name: string): void {
+        this.attributes.delete(name);
         if (name === "id") this.id = "";
       }
 
-      addEventListener(): void {}
-      remove(): void {}
+      addEventListener(type: string, listener: (event: Event) => void): void {
+        const listeners = this.listeners.get(type) ?? new Set();
+        listeners.add(listener);
+        this.listeners.set(type, listeners);
+      }
+
+      removeEventListener(type: string, listener: (event: Event) => void): void {
+        this.listeners.get(type)?.delete(listener);
+      }
+
+      dispatch(type: string): void {
+        const event = {
+          currentTarget: this,
+          preventDefault() {},
+          stopPropagation() {},
+        } as unknown as Event;
+        this.listeners.get(type)?.forEach((listener) => listener(event));
+      }
+
+      remove(): void {
+        if (!this.parent) return;
+        const index = this.parent.children.indexOf(this);
+        if (index >= 0) this.parent.children.splice(index, 1);
+        this.parent = undefined;
+      }
     }
 
-    function createSettingRow(includeVisibilityButton = false) {
+    function createSettingRow(options: { password?: boolean; toggle?: boolean } = {}) {
       const row = new FakeElement("li");
+      const settingLabel = new FakeElement("div");
+      settingLabel.className = "setting_label";
       const label = new FakeElement("label");
       const input = new FakeElement("input");
-      input.className = "dark_bordered";
-      label.parent = row;
-      row.appendChild(input);
-      const visibility = includeVisibilityButton ? new FakeElement("div") : undefined;
+      settingLabel.appendChild(label);
+      if (options.toggle) {
+        const settingElement = new FakeElement("div");
+        settingElement.className = "setting_element";
+        input.className = "toggle_switch";
+        input.checked = true;
+        settingElement.appendChild(input);
+        row.appendChild(settingElement);
+        row.appendChild(settingLabel);
+      } else {
+        input.className = "dark_bordered";
+        row.appendChild(settingLabel);
+        row.appendChild(input);
+      }
+      const visibility = options.password ? new FakeElement("div") : undefined;
       if (visibility) {
         visibility.className = "password_toggle";
         row.appendChild(visibility);
       }
-      return { row, label, input, visibility };
+      return { row, settingLabel, label, input, visibility };
     }
 
     const directory = createSettingRow();
-    const token = createSettingRow(true);
+    const auth = createSettingRow({ toggle: true });
+    const token = createSettingRow({ password: true });
     const labels = new Map([
       ["codex_mcp_temporary_directory", directory.label],
+      ["codex_mcp_auth_enabled", auth.label],
       ["codex_mcp_auth_token", token.label],
     ]);
     replaceGlobal("document", {
@@ -330,12 +400,37 @@ describe("Blockbench settings integration", () => {
     expect(token.row.children.indexOf(regenerate!)).toBeLessThan(
       token.row.children.indexOf(token.visibility!)
     );
+    const warning = auth.settingLabel.querySelector(".codex-mcp-auth-inline-warning");
+    expect(warning).not.toBeNull();
+    expect(warning!.textContent).toBe("mcp.settings.auth_disabled_inline_warning");
+    expect(warning!.hidden).toBe(true);
+    expect(token.input.disabled).toBe(false);
+
+    auth.input.checked = false;
+    auth.input.dispatch("change");
+    expect(warning!.hidden).toBe(false);
+    expect(token.row.classList.contains("codex-mcp-setting-disabled")).toBe(true);
+    expect(token.row.getAttribute("aria-disabled")).toBe("true");
+    expect(token.input.disabled).toBe(true);
+    expect(regenerate!.getAttribute("aria-disabled")).toBe("true");
+    expect(regenerate!.tabIndex).toBe(-1);
+
+    auth.input.checked = true;
+    auth.input.dispatch("change");
+    expect(warning!.hidden).toBe(true);
+    expect(token.row.classList.contains("codex-mcp-setting-disabled")).toBe(false);
+    expect(token.row.getAttribute("aria-disabled")).toBeNull();
+    expect(token.input.disabled).toBe(false);
+    expect(regenerate!.getAttribute("aria-disabled")).toBeNull();
+    expect(regenerate!.tabIndex).toBe(0);
     expect(observerOptions).toEqual({ childList: true, subtree: true });
 
     const directoryChildCount = directory.row.children.length;
+    const authLabelChildCount = auth.settingLabel.children.length;
     const tokenChildCount = token.row.children.length;
     observerCallback?.([], {} as MutationObserver);
     expect(directory.row.children).toHaveLength(directoryChildCount);
+    expect(auth.settingLabel.children).toHaveLength(authLabelChildCount);
     expect(token.row.children).toHaveLength(tokenChildCount);
   });
 
@@ -356,12 +451,7 @@ describe("Blockbench settings integration", () => {
       Object.keys(category.items).indexOf("codex_mcp_auth_token")
     );
     category.items.codex_mcp_auth_enabled.onChange?.(false);
-    expect(mock.getMessageBoxes()).toEqual([
-      expect.objectContaining({
-        title: "mcp.settings.auth_disabled_warning_title",
-        icon: "warning",
-      }),
-    ]);
+    expect(mock.getMessageBoxes()).toEqual([]);
     expect(category.items.codex_mcp_instructions).toBeUndefined();
     expect(category.items.codex_mcp_copy_connection).toBeUndefined();
     expect(category.items.codex_mcp_regenerate_auth_token).toBeUndefined();

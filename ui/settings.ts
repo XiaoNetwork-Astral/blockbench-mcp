@@ -33,15 +33,19 @@ import settingsCSS from "@/ui/settings.css";
 const CATEGORY_ID = PLUGIN_ID;
 const TOKEN_ACTION_CLASS = "codex-mcp-token-regenerate";
 const DIRECTORY_ACTION_CLASS = "codex-mcp-directory-browse";
+const AUTH_WARNING_CLASS = "codex-mcp-auth-inline-warning";
 const SETTING_ROW_CLASS = "codex-mcp-setting-row";
 const STACKED_SETTING_ROW_CLASS = "codex-mcp-stacked-setting";
 const NUMBER_SETTING_ROW_CLASS = "codex-mcp-number-setting";
+const DISABLED_SETTING_ROW_CLASS = "codex-mcp-setting-disabled";
 const settings: Setting[] = [];
 let settingsStyle: Deletable | undefined;
 let settingsObserver: MutationObserver | undefined;
 let settingsReadyTimer: ReturnType<typeof setInterval> | undefined;
 let hookedSidebar: SettingsSidebar | undefined;
 let originalPageSwitch: SettingsSidebar["onPageSwitch"] | undefined;
+let authToggleInput: HTMLInputElement | undefined;
+let authToggleListener: ((event: Event) => void) | undefined;
 
 type SettingsSidebar = {
   pages: Record<string, string>;
@@ -315,6 +319,72 @@ function decorateVisibleSettingRows(): void {
   }
 }
 
+function detachAuthToggleListener(): void {
+  if (authToggleInput && authToggleListener) {
+    authToggleInput.removeEventListener("change", authToggleListener);
+  }
+  authToggleInput = undefined;
+  authToggleListener = undefined;
+}
+
+function updateAuthDependentControls(enabled: boolean): void {
+  const authRow = getVisibleSettingRow(MCP_AUTH_ENABLED_SETTING);
+  const warning = authRow?.querySelector<HTMLElement>(`.${AUTH_WARNING_CLASS}`);
+  if (warning) warning.hidden = enabled;
+
+  const tokenRow = getVisibleSettingRow(MCP_AUTH_TOKEN_SETTING);
+  if (!tokenRow) return;
+
+  const disabled = !enabled;
+  if (tokenRow.classList.contains(DISABLED_SETTING_ROW_CLASS) !== disabled) {
+    tokenRow.classList.toggle(DISABLED_SETTING_ROW_CLASS, disabled);
+  }
+  if (disabled) tokenRow.setAttribute("aria-disabled", "true");
+  else tokenRow.removeAttribute("aria-disabled");
+
+  const input = tokenRow.querySelector<HTMLInputElement>("input.dark_bordered");
+  if (input) input.disabled = disabled;
+
+  const regenerate = tokenRow.querySelector<HTMLElement>(`.${TOKEN_ACTION_CLASS}`);
+  if (regenerate) {
+    if (disabled) regenerate.setAttribute("aria-disabled", "true");
+    else regenerate.removeAttribute("aria-disabled");
+    regenerate.setAttribute("tabindex", disabled ? "-1" : "0");
+  }
+
+  const visibility = tokenRow.querySelector<HTMLElement>(":scope > .password_toggle");
+  if (visibility) {
+    if (disabled) visibility.setAttribute("aria-disabled", "true");
+    else visibility.removeAttribute("aria-disabled");
+  }
+}
+
+function ensureInlineAuthState(): void {
+  const row = getVisibleSettingRow(MCP_AUTH_ENABLED_SETTING);
+  if (!row) return;
+
+  const label = row.querySelector<HTMLElement>(":scope > .setting_label");
+  if (label && !label.querySelector(`.${AUTH_WARNING_CLASS}`)) {
+    const warning = document.createElement("div");
+    warning.className = AUTH_WARNING_CLASS;
+    warning.setAttribute("role", "status");
+    warning.textContent = tl("mcp.settings.auth_disabled_inline_warning");
+    label.appendChild(warning);
+  }
+
+  const toggle = row.querySelector<HTMLInputElement>("input.toggle_switch");
+  if (toggle && toggle !== authToggleInput) {
+    detachAuthToggleListener();
+    authToggleInput = toggle;
+    authToggleListener = (event: Event) => {
+      updateAuthDependentControls((event.currentTarget as HTMLInputElement).checked);
+    };
+    toggle.addEventListener("change", authToggleListener);
+  }
+
+  updateAuthDependentControls(toggle?.checked ?? getMcpAuthEnabled());
+}
+
 function ensureInlineTokenAction(): void {
   const row = getVisibleSettingRow(MCP_AUTH_TOKEN_SETTING);
   const input = row?.querySelector<HTMLInputElement>("input.dark_bordered");
@@ -335,6 +405,7 @@ function ensureInlineTokenAction(): void {
   const activate = (event: Event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (row.classList.contains(DISABLED_SETTING_ROW_CLASS)) return;
     regenerateMcpAuthToken();
   };
   action.addEventListener("click", activate);
@@ -383,6 +454,7 @@ function ensureInlineSettingActions(): void {
   decorateVisibleSettingRows();
   ensureInlineTokenAction();
   ensureInlineDirectoryAction();
+  ensureInlineAuthState();
 }
 
 function settingsUiSetup(): void {
@@ -416,20 +488,25 @@ function settingsUiTeardown(): void {
   originalPageSwitch = undefined;
   settingsObserver?.disconnect();
   settingsObserver = undefined;
+  detachAuthToggleListener();
   settingsStyle?.delete();
   settingsStyle = undefined;
   if (typeof document !== "undefined") {
     document
-      .querySelectorAll(`.${TOKEN_ACTION_CLASS}, .${DIRECTORY_ACTION_CLASS}`)
+      .querySelectorAll(`.${TOKEN_ACTION_CLASS}, .${DIRECTORY_ACTION_CLASS}, .${AUTH_WARNING_CLASS}`)
       .forEach((element) => element.remove());
     document.querySelectorAll<HTMLElement>(`.${SETTING_ROW_CLASS}`).forEach((row) => {
       const settingId = row.dataset.codexMcpSetting;
       const input = row.querySelector<HTMLInputElement>("input.dark_bordered");
       if (settingId && input?.id === `setting_${settingId}`) input.removeAttribute("id");
+      if (input) input.disabled = false;
+      row.removeAttribute("aria-disabled");
+      row.querySelector<HTMLElement>(":scope > .password_toggle")?.removeAttribute("aria-disabled");
       row.classList.remove(
         SETTING_ROW_CLASS,
         STACKED_SETTING_ROW_CLASS,
-        NUMBER_SETTING_ROW_CLASS
+        NUMBER_SETTING_ROW_CLASS,
+        DISABLED_SETTING_ROW_CLASS
       );
       delete row.dataset.codexMcpSetting;
     });
@@ -453,23 +530,12 @@ function warnForNonLoopbackHost(value: unknown): void {
   });
 }
 
-function warnForDisabledAuth(value: unknown): void {
-  if (value !== false) {
-    if (!String(Settings.get(MCP_AUTH_TOKEN_SETTING) ?? "").trim()) regenerateMcpAuthToken();
-    return;
+function handleAuthEnabledChange(value: unknown): void {
+  const enabled = value !== false;
+  updateAuthDependentControls(enabled);
+  if (enabled && !String(Settings.get(MCP_AUTH_TOKEN_SETTING) ?? "").trim()) {
+    regenerateMcpAuthToken();
   }
-  const host = normalizeMcpBindHost(Settings.get(MCP_BIND_HOST_SETTING));
-  Blockbench.showMessageBox({
-    title: tl("mcp.settings.auth_disabled_warning_title"),
-    message: tl(
-      isLoopbackMcpHost(host)
-        ? "mcp.settings.auth_disabled_warning_message"
-        : "mcp.settings.auth_disabled_network_warning_message",
-      [host]
-    ),
-    icon: "warning",
-    buttons: ["dialog.ok"],
-  });
 }
 
 function keepEnabledAuthTokenNonEmpty(value: unknown): void {
@@ -520,7 +586,7 @@ export function settingsSetup(): void {
     type: "toggle",
     value: true,
     icon: "verified_user",
-    onChange: warnForDisabledAuth,
+    onChange: handleAuthEnabledChange,
   });
   addSetting(MCP_AUTH_TOKEN_SETTING, {
     name: tl("mcp.settings.auth_token_name"),

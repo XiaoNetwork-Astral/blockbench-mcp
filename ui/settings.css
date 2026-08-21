@@ -10,6 +10,17 @@ dialog#settings #settingslist > li.codex-mcp-stacked-setting .setting_descriptio
   line-height: 1.35;
 }
 
+dialog#settings .codex-mcp-auth-inline-warning {
+  margin-top: 6px;
+  color: var(--color-error, #e57373);
+  font-size: 0.85em;
+  line-height: 1.35;
+}
+
+dialog#settings .codex-mcp-auth-inline-warning[hidden] {
+  display: none;
+}
+
 dialog#settings #settingslist > li.codex-mcp-number-setting {
   flex-wrap: wrap;
 }
@@ -94,5 +105,10 @@ dialog#settings .codex-mcp-directory-browse > i {
 
 dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"] > .password_toggle > i {
   font-size: 20px;
+  pointer-events: none;
+}
+
+dialog#settings #settingslist > li.codex-mcp-setting-disabled {
+  opacity: 0.48;
   pointer-events: none;
 }

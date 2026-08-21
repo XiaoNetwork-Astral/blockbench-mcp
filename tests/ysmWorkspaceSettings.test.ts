@@ -2,10 +2,12 @@ import { afterEach, describe, expect, test } from "bun:test";
 import path from "node:path";
 import { YSM_WORKSPACE_SETTING } from "@/lib/pluginSettings";
 import {
+  chooseYsmWorkspace,
   getInitialYsmWorkspaceRoot,
   getYsmWorkspaceRoot,
   setYsmWorkspaceRoot,
   syncYsmWorkspaceRootFromSetting,
+  teardownYsmWorkspace,
 } from "@/lib/ysmWorkspace";
 
 const originalGlobals = new Map<string, unknown>();
@@ -17,6 +19,7 @@ function replaceGlobal(name: string, value: unknown): void {
 
 afterEach(() => {
   syncYsmWorkspaceRootFromSetting("");
+  teardownYsmWorkspace();
   for (const [name, value] of originalGlobals) {
     if (value === undefined) delete (globalThis as any)[name];
     else (globalThis as any)[name] = value;
@@ -57,5 +60,39 @@ describe("YSM temporary directory setting", () => {
     expect(setYsmWorkspaceRoot("D:\\new-temp", false)).toBe(true);
     expect(configured).toBe("D:\\new-temp");
     expect(getYsmWorkspaceRoot()).toBe("D:\\new-temp");
+  });
+
+  test("updates the visible setting without showing a redundant success message", () => {
+    let configured: unknown;
+    let quickMessages = 0;
+    replaceGlobal("PathModule", path.win32);
+    replaceGlobal("Settings", {
+      stored: {},
+      get(id: string) {
+        return id === YSM_WORKSPACE_SETTING ? configured : undefined;
+      },
+    });
+    replaceGlobal("settings", {
+      [YSM_WORKSPACE_SETTING]: {
+        set(value: unknown) {
+          configured = value;
+        },
+      },
+    });
+    replaceGlobal("Blockbench", {
+      pickDirectory() {
+        return "D:\\selected-temp";
+      },
+      showQuickMessage() {
+        quickMessages += 1;
+      },
+    });
+    replaceGlobal("requireNativeModule", () => ({}));
+    replaceGlobal("tl", (key: string) => key);
+
+    expect(chooseYsmWorkspace()).toBe(true);
+    expect(configured).toBe("D:\\selected-temp");
+    expect(getYsmWorkspaceRoot()).toBe("D:\\selected-temp");
+    expect(quickMessages).toBe(0);
   });
 });
