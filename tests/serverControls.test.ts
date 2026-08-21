@@ -75,7 +75,9 @@ describe("Blockbench Tools menu server controls", () => {
         },
       },
     });
-    replaceGlobal("tl", (key: string) => key);
+    replaceGlobal("tl", (key: string) =>
+      key === "mcp.server_controls.authentication_disabled" ? "Disabled" : key
+    );
     replaceGlobal("Blockbench", {
       addCSS() {
         return { delete: () => { cssDeleted = true; } };
@@ -120,7 +122,9 @@ describe("Blockbench Tools menu server controls", () => {
     expect(dialogs[1].shown).toBe(true);
     const lines = (dialogs[0].options.lines as string[]).join("\n");
     expect(lines).toContain("http://127.0.0.1:3000/bb-mcp");
-    expect(lines).toContain("mcp.server_controls.authentication_disabled");
+    expect(lines).toContain(">Disabled</span>");
+    expect(lines).not.toContain("Disabled (warning)");
+    expect(lines).toContain("color: var(--color-warning, #f0a020)");
     expect(lines).toContain("mcp.server_controls.status_sessions");
     expect(lines).toContain(">6<");
     expect(lines).toContain("display: grid");

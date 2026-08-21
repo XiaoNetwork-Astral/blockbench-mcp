@@ -370,6 +370,11 @@ function decorateVisibleSettingRows(): void {
       if (input && input.id !== `setting_${setting.id}`) {
         input.id = `setting_${setting.id}`;
       }
+      if (input && setting.id === YSM_WORKSPACE_SETTING) {
+        // Upstream's text-setting template does not add a title. Clear any
+        // stale title so Chromium does not show a second white path tooltip.
+        input.removeAttribute("title");
+      }
     }
   }
 }

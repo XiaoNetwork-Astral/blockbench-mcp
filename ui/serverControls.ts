@@ -53,13 +53,19 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#039;");
 }
 
-function statusRow(label: string, value: string, code = false): string {
+function statusRow(
+  label: string,
+  value: string,
+  options: { code?: boolean; warning?: boolean } = {}
+): string {
+  const { code = false, warning = false } = options;
   const content = code
     ? `<code style="font-family: var(--font-code); word-break: break-all; user-select: text;">${escapeHtml(value)}</code>`
     : `<span>${escapeHtml(value)}</span>`;
+  const color = warning ? "var(--color-warning, #f0a020)" : "var(--color-text)";
   return [
     `<div style="font-weight: 600; color: var(--color-subtle_text);">${escapeHtml(label)}</div>`,
-    `<div style="min-width: 0; color: var(--color-text);">${content}</div>`,
+    `<div style="min-width: 0; color: ${color};">${content}</div>`,
   ].join("");
 }
 
@@ -79,8 +85,10 @@ function showStatus(status: McpServerStatus): void {
     lines: [
       `<div style="display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 18px; align-items: start; padding: 6px 2px;">${[
         statusRow(tl("mcp.server_controls.status_state"), state),
-        statusRow(tl("mcp.server_controls.status_address"), status.url, true),
-        statusRow(tl("mcp.server_controls.status_authentication"), authentication),
+        statusRow(tl("mcp.server_controls.status_address"), status.url, { code: true }),
+        statusRow(tl("mcp.server_controls.status_authentication"), authentication, {
+          warning: !status.authenticationEnabled,
+        }),
         statusRow(tl("mcp.server_controls.status_clients"), String(status.connectedClients)),
         statusRow(tl("mcp.server_controls.status_sessions"), String(status.connectedSessions)),
       ].join("")}</div>`,
