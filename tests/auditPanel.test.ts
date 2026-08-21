@@ -55,8 +55,12 @@ describe("operations panel presentation", () => {
     expect(template).not.toContain("filters.source");
     expect(template).not.toContain("filters.status");
     expect(template).toContain("mcp.audit.show_raw_data");
+    expect(template).toContain("codex-audit-page-controls");
+    expect(template).toContain("codex-audit-page-size");
     expect(styles).toContain("#panel_codex_mcp_audit_panel");
     expect(styles).toContain("justify-content: center !important");
+    expect(styles).toContain("grid-template-columns: 32px minmax(56px, auto) 32px");
+    expect(styles).toContain("grid-template-columns: 58px minmax(0, 1fr)");
     expect(translations).not.toContain("No live native Undo state");
     expect(translations).not.toContain("Sanitized result");
     expect(uiSetup).not.toContain("mcp_panel");

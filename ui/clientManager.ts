@@ -21,6 +21,28 @@ type ManagedClient = Omit<ClientSummary, "sessions"> & {
   sessions: ManagedSession[];
 };
 
+export interface ClientSearchRecord {
+  clientName?: string;
+  clientVersion?: string;
+  remoteAddress?: string;
+  userAgent?: string;
+  sessions?: ReadonlyArray<{ id: string }>;
+}
+
+export function clientMatchesSearch(client: ClientSearchRecord, query: string): boolean {
+  const needle = query.trim().toLocaleLowerCase();
+  if (!needle) return true;
+
+  const values: Array<string | undefined> = [
+    client.clientName,
+    client.clientVersion,
+    client.remoteAddress,
+    client.userAgent,
+    ...(client.sessions ?? []).map((session) => session.id),
+  ];
+  return values.some((value) => value?.toLocaleLowerCase().includes(needle));
+}
+
 function getManagedClients(): ManagedClient[] {
   // Never hand Vue the internal Session objects: they contain Node timer
   // handles, which are implementation details and can contain deep/circular
@@ -79,8 +101,22 @@ export function showClientManager(): void {
         clients: [] as ManagedClient[],
         blockedClients: [] as BlockedClient[],
         sessionCount: 0,
+        searchQuery: "",
+        expandedClients: {} as Record<string, boolean>,
         unsubscribeSessions: null as (() => void) | null,
       }),
+      computed: {
+        filteredClients(): ManagedClient[] {
+          // @ts-ignore - Vue component context
+          return this.clients.filter((client: ManagedClient) => clientMatchesSearch(client, this.searchQuery));
+        },
+        allVisibleExpanded(): boolean {
+          // @ts-ignore - Vue component context
+          return this.filteredClients.length > 0
+            // @ts-ignore - Vue component context
+            && this.filteredClients.every((client: ManagedClient) => Boolean(this.expandedClients[client.key]));
+        },
+      },
       mounted() {
         // @ts-ignore - Vue component context
         const vm = this;
@@ -97,12 +133,38 @@ export function showClientManager(): void {
           return tl(key, variables);
         },
         refresh(): void {
+          const clients = getManagedClients();
+          const activeKeys = new Set(clients.map((client) => client.key));
           // @ts-ignore - Vue component context
-          this.clients = getManagedClients();
+          this.clients = clients;
           // @ts-ignore - Vue component context
           this.blockedClients = sessionManager.getBlockedClients();
           // @ts-ignore - Vue component context
           this.sessionCount = sessionManager.getCount();
+          // @ts-ignore - Vue component context
+          for (const key of Object.keys(this.expandedClients)) {
+            if (!activeKeys.has(key)) {
+              // @ts-ignore - Vue component context
+              this.$delete(this.expandedClients, key);
+            }
+          }
+        },
+        isClientExpanded(clientKey: string): boolean {
+          // @ts-ignore - Vue component context
+          return Boolean(this.expandedClients[clientKey]);
+        },
+        toggleClient(clientKey: string): void {
+          // @ts-ignore - Vue component context
+          this.$set(this.expandedClients, clientKey, !this.expandedClients[clientKey]);
+        },
+        toggleAllVisible(): void {
+          // @ts-ignore - Vue component context
+          const expand = !this.allVisibleExpanded;
+          // @ts-ignore - Vue component context
+          for (const client of this.filteredClients as ManagedClient[]) {
+            // @ts-ignore - Vue component context
+            this.$set(this.expandedClients, client.key, expand);
+          }
         },
         formatClientName(client: SessionClientMetadata): string {
           return clientDisplayName(client);

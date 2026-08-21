@@ -2,14 +2,25 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-height: min(620px, 70vh);
-    overflow-y: auto;
+    min-height: 340px;
+    height: min(620px, 70vh);
     padding: 4px 2px 10px;
+    color: var(--color-text);
+}
+
+.codex-mcp-client-summary,
+.codex-mcp-client-toolbar,
+.codex-mcp-client-header,
+.codex-mcp-client-toggle,
+.codex-mcp-client-meta,
+.codex-mcp-client-actions,
+.codex-mcp-blocked-row {
+    display: flex;
+    align-items: center;
 }
 
 .codex-mcp-client-summary {
-    display: flex;
-    align-items: center;
+    flex: 0 0 auto;
     gap: 7px;
     min-height: 28px;
     padding: 2px 1px;
@@ -24,12 +35,14 @@
 .codex-mcp-client-summary-separator,
 .codex-mcp-client-explanation,
 .codex-mcp-client-agent,
-.codex-mcp-client-warning {
+.codex-mcp-client-warning,
+.codex-mcp-client-last-activity {
     color: var(--color-subtle_text);
 }
 
 .codex-mcp-client-explanation,
 .codex-mcp-client-warning {
+    flex: 0 0 auto;
     margin: 0;
     line-height: 1.4;
 }
@@ -38,59 +51,49 @@
     font-size: 0.88em;
 }
 
-.codex-mcp-client-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.codex-mcp-client-toolbar {
+    flex: 0 0 auto;
+    gap: 8px;
 }
 
-.codex-mcp-client-card {
-    border: 1px solid var(--color-border);
-    border-radius: 5px;
-    overflow: hidden;
-}
-
-.codex-mcp-client-header {
+.codex-mcp-client-search {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    min-height: 42px;
-    padding: 7px 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 34px;
+    margin: 0;
+    padding: 0 9px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
     background: var(--color-back);
 }
 
-.codex-mcp-client-identity {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 9px;
-    min-width: 0;
+.codex-mcp-client-search:focus-within {
+    border-color: var(--color-accent);
 }
 
-.codex-mcp-client-identity > strong {
-    overflow: hidden;
-    min-width: 120px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.codex-mcp-client-address,
-.codex-mcp-client-session-count {
-    padding: 2px 6px;
-    border-radius: 10px;
-    background: var(--color-button);
-    color: var(--color-subtle_text);
-    font-size: 0.8em;
-}
-
-.codex-mcp-client-actions {
-    display: flex;
+.codex-mcp-client-search > i {
     flex: 0 0 auto;
-    justify-content: flex-end;
-    gap: 6px;
+    margin-right: 7px;
+    color: var(--color-subtle_text);
+    font-size: 19px;
 }
 
+.codex-mcp-client-search > input {
+    width: 100%;
+    min-width: 0;
+    height: 30px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+}
+
+.codex-mcp-client-expand-all,
 .codex-mcp-client-actions .codex-mcp-client-action,
 .codex-mcp-blocked-row button,
 .codex-mcp-session-row .codex-mcp-session-disconnect {
@@ -101,8 +104,8 @@
     width: auto;
     min-width: 0;
     max-width: none;
-    height: 30px;
-    min-height: 30px;
+    height: 32px;
+    min-height: 32px;
     margin: 0;
     padding: 4px 9px;
     border: 1px solid var(--color-border);
@@ -115,24 +118,137 @@
     cursor: pointer;
 }
 
+.codex-mcp-client-expand-all:hover,
 .codex-mcp-client-actions .codex-mcp-client-action:hover,
 .codex-mcp-blocked-row button:hover,
 .codex-mcp-session-row .codex-mcp-session-disconnect:hover {
     background: var(--color-accent);
 }
 
+.codex-mcp-client-expand-all:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.codex-mcp-client-expand-all > i,
+.codex-mcp-client-actions .material-icons {
+    font-size: 17px;
+}
+
+.codex-mcp-client-scroll-region {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-right: 2px;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.codex-mcp-client-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.codex-mcp-client-card {
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 5px;
+    background: var(--color-ui);
+}
+
+.codex-mcp-client-header {
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 52px;
+    background: var(--color-ui);
+}
+
+.codex-mcp-client-card.expanded .codex-mcp-client-header {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.codex-mcp-client-toggle {
+    flex: 1 1 auto;
+    align-self: stretch;
+    min-width: 0;
+    min-height: 52px;
+    margin: 0;
+    padding: 7px 4px 7px 10px;
+    gap: 8px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+
+.codex-mcp-client-toggle:hover {
+    background: var(--color-button);
+}
+
+.codex-mcp-client-chevron {
+    flex: 0 0 20px;
+    width: 20px;
+    color: var(--color-subtle_text);
+    font-size: 20px;
+    text-align: center;
+}
+
+.codex-mcp-client-identity {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    gap: 4px;
+}
+
+.codex-mcp-client-identity > strong {
+    overflow: hidden;
+    width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.codex-mcp-client-meta {
+    flex-wrap: wrap;
+    gap: 5px 7px;
+    min-width: 0;
+}
+
+.codex-mcp-client-address,
+.codex-mcp-client-session-count {
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: var(--color-button);
+    color: var(--color-subtle_text);
+    font-size: 0.78em;
+}
+
+.codex-mcp-client-last-activity {
+    font-size: 0.78em;
+    white-space: nowrap;
+}
+
+.codex-mcp-client-actions {
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    gap: 6px;
+    padding-right: 8px;
+}
+
 .codex-mcp-client-actions .codex-mcp-client-action.danger {
     color: var(--color-error, #e57373);
 }
 
-.codex-mcp-client-actions .material-icons {
-    font-size: 17px;
+.codex-mcp-client-details {
+    background: color-mix(in srgb, var(--color-back) 72%, var(--color-ui));
 }
 
 .codex-mcp-client-agent {
     overflow: hidden;
     padding: 7px 12px;
-    border-top: 1px solid var(--color-border);
     font-family: var(--font-code);
     font-size: 0.78em;
     text-overflow: ellipsis;
@@ -140,7 +256,10 @@
 }
 
 .codex-mcp-session-list {
+    max-height: min(280px, 36vh);
+    overflow-y: auto;
     border-top: 1px solid var(--color-border);
+    scrollbar-gutter: stable;
 }
 
 .codex-mcp-session-header,
@@ -152,9 +271,13 @@
 }
 
 .codex-mcp-session-header {
+    position: sticky;
+    z-index: 1;
+    top: 0;
     min-height: 28px;
     padding: 3px 10px 3px 12px;
     border-bottom: 1px solid var(--color-border);
+    background: var(--color-ui);
     color: var(--color-subtle_text);
     font-size: 0.72em;
 }
@@ -206,7 +329,7 @@
 }
 
 .codex-mcp-client-empty {
-    padding: 24px 12px;
+    padding: 28px 12px;
     border: 1px dashed var(--color-border);
     color: var(--color-subtle_text);
     text-align: center;
@@ -216,7 +339,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding-top: 4px;
+    margin-top: 10px;
 }
 
 .codex-mcp-blocked-clients h3 {
@@ -225,8 +348,6 @@
 }
 
 .codex-mcp-blocked-row {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
     gap: 10px;
     padding: 8px 10px;
@@ -252,14 +373,28 @@
     font-size: 0.78em;
 }
 
-@media (max-width: 700px) {
-    .codex-mcp-client-header {
-        flex-direction: column;
-        align-items: stretch;
+@media (max-width: 760px) {
+    .codex-mcp-client-actions .codex-mcp-client-action {
+        width: 32px;
+        min-width: 32px;
+        padding: 0;
     }
 
-    .codex-mcp-client-actions {
-        justify-content: flex-start;
+    .codex-mcp-client-actions .codex-mcp-client-action > span {
+        display: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .codex-mcp-client-expand-all > span,
+    .codex-mcp-client-last-activity {
+        display: none;
+    }
+
+    .codex-mcp-client-expand-all {
+        width: 34px;
+        min-width: 34px;
+        padding: 0;
     }
 
     .codex-mcp-session-row {

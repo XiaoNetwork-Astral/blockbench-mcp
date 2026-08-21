@@ -24,8 +24,7 @@
 }
 
 .codex-audit-search-row,
-.codex-audit-context-row,
-.codex-audit-pagination {
+.codex-audit-context-row {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -96,30 +95,39 @@
     margin-top: 8px;
 }
 
-.codex-audit-filter-grid label,
-.codex-audit-pagination label {
-    display: flex;
+.codex-audit-filter-grid label {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr);
     align-items: center;
     min-width: 0;
     gap: 6px;
+    min-height: 32px;
+    margin: 0;
     color: var(--color-subtle_text);
 }
 
 .codex-audit-filter-grid label > span {
-    flex: 0 0 auto;
-    min-width: 32px;
+    width: 58px;
+    line-height: 1.2;
 }
 
 .codex-audit-filter-grid select,
 .codex-audit-pagination select {
-    flex: 1 1 auto;
     min-width: 0;
-    height: 27px;
+    height: 32px;
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
     border: 1px solid var(--color-border);
     border-radius: 3px;
     background: var(--color-back);
     color: var(--color-text);
     font: inherit;
+    box-sizing: border-box;
+}
+
+.codex-audit-filter-grid select {
+    width: 100%;
 }
 
 .codex-audit-context-row {
@@ -414,38 +422,101 @@
 }
 
 .codex-audit-pagination {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     flex: 0 0 auto;
-    justify-content: center;
-    min-height: 36px;
+    min-height: 42px;
     padding: 4px 7px;
+    gap: 8px;
     border-top: 1px solid var(--color-border);
     background: var(--color-ui);
     color: var(--color-subtle_text);
 }
 
-.codex-audit-pagination > button {
+.codex-audit-page-controls {
+    display: grid;
+    grid-template-columns: 32px minmax(56px, auto) 32px;
+    align-items: center;
+    justify-self: start;
+    gap: 4px;
+    height: 32px;
+}
+
+.codex-audit-page-controls > button {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    width: 28px !important;
-    min-width: 28px !important;
-    height: 27px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
     margin: 0 !important;
     padding: 0 !important;
+    box-sizing: border-box;
+    line-height: 1 !important;
 }
 
-.codex-audit-pagination > button > i {
+.codex-audit-page-controls > button > i {
+    display: block;
+    width: 20px;
+    height: 20px;
     font-size: 20px;
     line-height: 20px;
+    text-align: center;
 }
 
-.codex-audit-pagination > label {
-    margin-left: auto;
+.codex-audit-page-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 56px;
+    height: 32px;
+    padding: 0 4px;
+    line-height: 1;
+    text-align: center;
 }
 
-.codex-audit-pagination select {
-    flex: 0 0 50px;
-    width: 50px;
+.codex-audit-page-size {
+    display: grid;
+    grid-template-columns: auto 64px;
+    align-items: center;
+    justify-self: end;
+    gap: 6px;
+    height: 32px;
+    margin: 0;
+    color: var(--color-subtle_text);
+}
+
+.codex-audit-page-size > span {
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.codex-audit-page-size > select {
+    width: 64px;
+    min-width: 64px;
+    padding-left: 8px;
+}
+
+.codex-audit-page-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.codex-audit-page-loading > i {
+    font-size: 18px;
 }
 
 #codex_mcp_audit_raw_data .dialog_content > div {

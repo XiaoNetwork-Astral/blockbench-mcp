@@ -15,75 +15,112 @@
         {{tl('mcp.client_manager.session_explanation')}}
     </p>
 
-    <div v-if="clients.length" class="codex-mcp-client-list">
-        <section v-for="client in clients" :key="client.key" class="codex-mcp-client-card">
-            <div class="codex-mcp-client-header">
-                <div class="codex-mcp-client-identity">
+    <div class="codex-mcp-client-toolbar">
+        <label class="codex-mcp-client-search">
+            <i class="material-icons" aria-hidden="true">search</i>
+            <input type="search" v-model.trim="searchQuery"
+                :placeholder="tl('mcp.client_manager.search_placeholder')">
+        </label>
+        <button type="button" class="codex-mcp-client-expand-all" :disabled="filteredClients.length === 0"
+            :title="tl(allVisibleExpanded ? 'mcp.client_manager.collapse_all' : 'mcp.client_manager.expand_all')"
+            @click="toggleAllVisible">
+            <i class="material-icons">{{allVisibleExpanded ? 'unfold_less' : 'unfold_more'}}</i>
+            <span>{{tl(allVisibleExpanded ? 'mcp.client_manager.collapse_all' : 'mcp.client_manager.expand_all')}}</span>
+        </button>
+    </div>
+
+    <div class="codex-mcp-client-scroll-region">
+        <div v-if="filteredClients.length" class="codex-mcp-client-list">
+            <section v-for="client in filteredClients" :key="client.key" class="codex-mcp-client-card"
+                :class="{expanded: isClientExpanded(client.key)}">
+                <div class="codex-mcp-client-header">
+                    <button type="button" class="codex-mcp-client-toggle"
+                        :aria-expanded="isClientExpanded(client.key) ? 'true' : 'false'"
+                        :title="tl(isClientExpanded(client.key) ? 'mcp.client_manager.hide_sessions' : 'mcp.client_manager.show_sessions')"
+                        @click="toggleClient(client.key)">
+                        <i class="material-icons codex-mcp-client-chevron">
+                            {{isClientExpanded(client.key) ? 'expand_less' : 'expand_more'}}
+                        </i>
+                        <span class="codex-mcp-client-identity">
+                            <strong>{{formatClientName(client)}}</strong>
+                            <span class="codex-mcp-client-meta">
+                                <span v-if="client.remoteAddress" class="codex-mcp-client-address">{{client.remoteAddress}}</span>
+                                <span class="codex-mcp-client-session-count">
+                                    {{tl('mcp.client_manager.session_count', [client.sessions.length])}}
+                                </span>
+                                <span class="codex-mcp-client-last-activity">
+                                    {{tl('mcp.client_manager.last_activity')}}: {{formatTime(client.lastActivity)}}
+                                </span>
+                            </span>
+                        </span>
+                    </button>
+                    <div class="codex-mcp-client-actions">
+                        <button type="button" class="codex-mcp-client-action" @click.stop="disconnectClient(client.key)">
+                            <i class="material-icons">link_off</i>
+                            <span>{{tl('mcp.client_manager.disconnect_client')}}</span>
+                        </button>
+                        <button type="button" class="codex-mcp-client-action danger" @click.stop="confirmBlockClient(client)">
+                            <i class="material-icons">block</i>
+                            <span>{{tl('mcp.client_manager.block_client')}}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="isClientExpanded(client.key)" class="codex-mcp-client-details">
+                    <div v-if="client.userAgent" class="codex-mcp-client-agent" :title="client.userAgent">
+                        {{client.userAgent}}
+                    </div>
+
+                    <div class="codex-mcp-session-list">
+                        <div class="codex-mcp-session-header">
+                            <span>{{tl('mcp.client_manager.session_id')}}</span>
+                            <span>{{tl('mcp.client_manager.connected_at')}}</span>
+                            <span>{{tl('mcp.client_manager.last_activity')}}</span>
+                            <span>{{tl('mcp.client_manager.request_count')}}</span>
+                            <span></span>
+                        </div>
+                        <div v-for="session in client.sessions" :key="session.id" class="codex-mcp-session-row">
+                            <code :title="session.id">{{formatSessionId(session.id)}}</code>
+                            <span :title="tl('mcp.client_manager.connected_at')">
+                                {{formatTime(session.connectedAt)}}
+                            </span>
+                            <span :title="tl('mcp.client_manager.last_activity')">
+                                {{formatTime(session.lastActivity)}}
+                            </span>
+                            <span :title="tl('mcp.client_manager.request_count')">
+                                {{session.requestCount}}
+                            </span>
+                            <button type="button" class="codex-mcp-session-disconnect"
+                                :title="tl('mcp.client_manager.disconnect_session')"
+                                :aria-label="tl('mcp.client_manager.disconnect_session')"
+                                @click="disconnectSession(session.id)">
+                                <i class="material-icons">close</i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <div v-else-if="clients.length" class="codex-mcp-client-empty">
+            {{tl('mcp.client_manager.no_matching_clients')}}
+        </div>
+        <div v-else class="codex-mcp-client-empty">
+            {{tl('mcp.client_manager.no_clients')}}
+        </div>
+
+        <section v-if="blockedClients.length" class="codex-mcp-blocked-clients">
+            <h3>{{tl('mcp.client_manager.blocked_clients')}}</h3>
+            <div v-for="client in blockedClients" :key="client.key" class="codex-mcp-blocked-row">
+                <div>
                     <strong>{{formatClientName(client)}}</strong>
-                    <span v-if="client.remoteAddress" class="codex-mcp-client-address">{{client.remoteAddress}}</span>
-                    <span class="codex-mcp-client-session-count">
-                        {{tl('mcp.client_manager.session_count', [client.sessions.length])}}
-                    </span>
+                    <span v-if="client.remoteAddress">{{client.remoteAddress}}</span>
                 </div>
-                <div class="codex-mcp-client-actions">
-                    <button type="button" class="codex-mcp-client-action" @click="disconnectClient(client.key)">
-                        <i class="material-icons">link_off</i>
-                        {{tl('mcp.client_manager.disconnect_client')}}
-                    </button>
-                    <button type="button" class="codex-mcp-client-action danger" @click="confirmBlockClient(client)">
-                        <i class="material-icons">block</i>
-                        {{tl('mcp.client_manager.block_client')}}
-                    </button>
-                </div>
-            </div>
-
-            <div v-if="client.userAgent" class="codex-mcp-client-agent" :title="client.userAgent">
-                {{client.userAgent}}
-            </div>
-
-            <div class="codex-mcp-session-list">
-                <div class="codex-mcp-session-header">
-                    <span>{{tl('mcp.client_manager.session_id')}}</span>
-                    <span>{{tl('mcp.client_manager.connected_at')}}</span>
-                    <span>{{tl('mcp.client_manager.last_activity')}}</span>
-                    <span>{{tl('mcp.client_manager.request_count')}}</span>
-                    <span></span>
-                </div>
-                <div v-for="session in client.sessions" :key="session.id" class="codex-mcp-session-row">
-                    <code :title="session.id">{{formatSessionId(session.id)}}</code>
-                    <span :title="tl('mcp.client_manager.connected_at')">
-                        {{formatTime(session.connectedAt)}}
-                    </span>
-                    <span :title="tl('mcp.client_manager.last_activity')">
-                        {{formatTime(session.lastActivity)}}
-                    </span>
-                    <span :title="tl('mcp.client_manager.request_count')">
-                        {{session.requestCount}}
-                    </span>
-                    <button type="button" class="codex-mcp-session-disconnect" :title="tl('mcp.client_manager.disconnect_session')"
-                        :aria-label="tl('mcp.client_manager.disconnect_session')" @click="disconnectSession(session.id)">
-                        <i class="material-icons">close</i>
-                    </button>
-                </div>
+                <button type="button" @click="unblockClient(client.key)">
+                    {{tl('mcp.client_manager.unblock_client')}}
+                </button>
             </div>
         </section>
     </div>
-    <div v-else class="codex-mcp-client-empty">
-        {{tl('mcp.client_manager.no_clients')}}
-    </div>
-
-    <section v-if="blockedClients.length" class="codex-mcp-blocked-clients">
-        <h3>{{tl('mcp.client_manager.blocked_clients')}}</h3>
-        <div v-for="client in blockedClients" :key="client.key" class="codex-mcp-blocked-row">
-            <div>
-                <strong>{{formatClientName(client)}}</strong>
-                <span v-if="client.remoteAddress">{{client.remoteAddress}}</span>
-            </div>
-            <button type="button" @click="unblockClient(client.key)">
-                {{tl('mcp.client_manager.unblock_client')}}
-            </button>
-        </div>
-    </section>
 
     <p class="codex-mcp-client-warning">
         {{tl('mcp.client_manager.block_warning')}}

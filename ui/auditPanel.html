@@ -138,16 +138,18 @@
     </div>
 
     <div class="codex-audit-pagination">
-        <button type="button" class="tool" :disabled="!hasPrevious || loading" @click="previousPage"
-            :title="tl('mcp.audit.previous_page')">
-            <i class="material-icons">chevron_left</i>
-        </button>
-        <span>{{tl('mcp.audit.page', [page + 1])}}</span>
-        <button type="button" class="tool" :disabled="!hasNext || loading" @click="nextPage"
-            :title="tl('mcp.audit.next_page')">
-            <i class="material-icons">chevron_right</i>
-        </button>
-        <label>
+        <div class="codex-audit-page-controls">
+            <button type="button" class="tool" :disabled="!hasPrevious || loading" @click="previousPage"
+                :title="tl('mcp.audit.previous_page')">
+                <i class="material-icons">chevron_left</i>
+            </button>
+            <span class="codex-audit-page-label">{{tl('mcp.audit.page', [page + 1])}}</span>
+            <button type="button" class="tool" :disabled="!hasNext || loading" @click="nextPage"
+                :title="tl('mcp.audit.next_page')">
+                <i class="material-icons">chevron_right</i>
+            </button>
+        </div>
+        <label class="codex-audit-page-size">
             <span>{{tl('mcp.audit.per_page')}}</span>
             <select v-model.number="pageSize" @change="onFilterChanged">
                 <option :value="25">25</option>
@@ -155,6 +157,8 @@
                 <option :value="100">100</option>
             </select>
         </label>
-        <i v-if="loading" class="material-icons codex-audit-spin">progress_activity</i>
+        <span v-if="loading" class="codex-audit-page-loading">
+            <i class="material-icons codex-audit-spin">progress_activity</i>
+        </span>
     </div>
 </div>
