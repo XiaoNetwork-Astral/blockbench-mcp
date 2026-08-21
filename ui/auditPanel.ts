@@ -35,13 +35,43 @@ interface AuditPanelProject {
 
 export type AuditTimelineState = "applied" | "current" | "undone";
 
+export interface AuditTimelineAnchor {
+  id: string;
+  phase: "before" | "after";
+}
+
 export function buildAuditTimelineStates(
   items: AuditOperationSummary[],
   projectId: string | null,
-  currentUndoIndex: number | null
+  currentUndoIndex: number | null,
+  anchor: AuditTimelineAnchor | null = null
 ): Record<string, AuditTimelineState> {
   const states: Record<string, AuditTimelineState> = {};
   let foundCurrent = false;
+
+  const anchorIndex = anchor
+    ? items.findIndex((item) => item.id === anchor.id && item.projectId === projectId)
+    : -1;
+  if (anchorIndex >= 0) {
+    const currentIndex = anchor?.phase === "after"
+      ? anchorIndex
+      : items.findIndex((item, index) => index > anchorIndex && item.projectId === projectId);
+
+    for (const [index, item] of items.entries()) {
+      if (!projectId || item.projectId !== projectId) {
+        states[item.id] = "applied";
+      } else if (currentIndex >= 0 && index === currentIndex) {
+        states[item.id] = "current";
+      } else if (currentIndex < 0 || index < currentIndex) {
+        // Everything newer than the selected boundary is visually undone,
+        // including read-only, failed, and otherwise non-reversible records.
+        states[item.id] = "undone";
+      } else {
+        states[item.id] = "applied";
+      }
+    }
+    return states;
+  }
 
   for (const item of items) {
     if (!projectId || currentUndoIndex === null || item.projectId !== projectId) {
@@ -327,6 +357,8 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         unsubscribeAudit: null as (() => void) | null,
         timelineProjectId: null as string | null,
         timelineUndoIndex: null as number | null,
+        timelineAnchorId: null as string | null,
+        timelineAnchorPhase: null as "before" | "after" | null,
       }),
       computed: {
         viewingAllProjects(): boolean {
@@ -341,7 +373,12 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         },
         timelineStates(): Record<string, AuditTimelineState> {
           // @ts-ignore - Vue component context
-          return buildAuditTimelineStates(this.items, this.timelineProjectId, this.timelineUndoIndex);
+          const anchor = this.timelineAnchorId && this.timelineAnchorPhase
+            // @ts-ignore - Vue component context
+            ? { id: this.timelineAnchorId, phase: this.timelineAnchorPhase }
+            : null;
+          // @ts-ignore - Vue component context
+          return buildAuditTimelineStates(this.items, this.timelineProjectId, this.timelineUndoIndex, anchor);
         },
       },
       mounted() {
@@ -354,6 +391,8 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
             return;
           }
           if (change.type === "project") {
+            vm.timelineAnchorId = null;
+            vm.timelineAnchorPhase = null;
             vm.projects = projectOptions();
             if (vm.projectScope === "current") {
               vm.page = 0;
@@ -361,6 +400,8 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
             }
             return;
           }
+          vm.timelineAnchorId = null;
+          vm.timelineAnchorPhase = null;
           if (vm.page === 0) vm.scheduleRefresh(120);
         });
         void vm.loadPage();
@@ -389,6 +430,10 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
           this.pageSize = configuredPageSize();
           // @ts-ignore - Vue component context
           this.projectScope = configuredProjectScope();
+          // @ts-ignore - Vue component context
+          this.timelineAnchorId = null;
+          // @ts-ignore - Vue component context
+          this.timelineAnchorPhase = null;
           // @ts-ignore - Vue component context
           this.page = 0;
           // @ts-ignore - Vue component context
@@ -427,6 +472,10 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
           this.details = {};
           // @ts-ignore - Vue component context
           this.expanded = {};
+          // @ts-ignore - Vue component context
+          this.timelineAnchorId = null;
+          // @ts-ignore - Vue component context
+          this.timelineAnchorPhase = null;
           // @ts-ignore - Vue component context
           void this.loadPage();
         },
@@ -553,8 +602,10 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         async restore(item: AuditOperationSummary, phase: "before" | "after"): Promise<void> {
           // @ts-ignore - Vue component context
           if (!this.canRestore(item)) return;
+          let restored = false;
           try {
             const plan = await auditManager.applyTravel(item.id, phase, false);
+            restored = true;
             if (plan.steps === 0) {
               Blockbench.showQuickMessage(tl("mcp.audit.already_at_state"), 2200);
             } else {
@@ -574,6 +625,7 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
               if (!confirmed) return;
               try {
                 await auditManager.applyTravel(item.id, phase, true);
+                restored = true;
                 Blockbench.showQuickMessage(
                   tl("mcp.audit.restored_steps", [error.plan.projectName ?? "", error.plan.steps]),
                   3200
@@ -595,6 +647,15 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
               });
             }
           } finally {
+            if (restored) {
+              // Preserve the exact chronological boundary selected by the
+              // user; native Undo indices alone cannot order read-only calls
+              // that share an index with a reversible edit.
+              // @ts-ignore - Vue component context
+              this.timelineAnchorId = item.id;
+              // @ts-ignore - Vue component context
+              this.timelineAnchorPhase = phase;
+            }
             // @ts-ignore - Vue component context
             this.projects = projectOptions();
             // @ts-ignore - Vue component context

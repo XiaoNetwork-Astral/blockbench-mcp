@@ -288,6 +288,10 @@
     animation: codex-audit-pulse 1.1s ease-in-out infinite alternate;
 }
 
+.codex-audit-entry.timeline-applied .codex-audit-status-dot {
+    background: var(--color-accent);
+}
+
 .codex-audit-entry.timeline-undone .codex-audit-status-dot {
     background: #e58b2a;
 }

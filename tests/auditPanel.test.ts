@@ -98,6 +98,7 @@ describe("operations panel presentation", () => {
     expect(template).toContain("'timeline-' + timelineState(item)");
     expect(styles).toContain(".codex-audit-entry.timeline-undone .codex-audit-status-dot");
     expect(styles).toContain(".codex-audit-entry.timeline-current .codex-audit-status-dot");
+    expect(styles).toContain(".codex-audit-entry.timeline-applied .codex-audit-status-dot");
     expect(styles).toContain("background-color 180ms ease");
     expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
     expect(uiSetup).not.toContain("mcp_panel");
@@ -122,6 +123,34 @@ describe("operations panel presentation", () => {
       "new-query": "undone",
       "undone-edit": "undone",
       "current-query": "current",
+      "older-edit": "applied",
+    });
+
+    const chronologicalStates = buildAuditTimelineStates(
+      [item("new-query", 3), item("target-edit", 3), item("older-query", 2), item("older-edit", 2)],
+      "project",
+      2,
+      { id: "target-edit", phase: "before" }
+    );
+
+    expect(chronologicalStates).toEqual({
+      "new-query": "undone",
+      "target-edit": "undone",
+      "older-query": "current",
+      "older-edit": "applied",
+    });
+
+    const redoneStates = buildAuditTimelineStates(
+      [item("new-query", 3), item("target-edit", 3), item("older-query", 2), item("older-edit", 2)],
+      "project",
+      3,
+      { id: "target-edit", phase: "after" }
+    );
+
+    expect(redoneStates).toEqual({
+      "new-query": "undone",
+      "target-edit": "current",
+      "older-query": "applied",
       "older-edit": "applied",
     });
   });
