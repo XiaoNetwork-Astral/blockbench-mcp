@@ -116,6 +116,10 @@ export function showClientManager(): void {
             // @ts-ignore - Vue component context
             && this.filteredClients.every((client: ManagedClient) => Boolean(this.expandedClients[client.key]));
         },
+        anyVisibleExpanded(): boolean {
+          // @ts-ignore - Vue component context
+          return this.filteredClients.some((client: ManagedClient) => Boolean(this.expandedClients[client.key]));
+        },
       },
       mounted() {
         // @ts-ignore - Vue component context
@@ -157,9 +161,7 @@ export function showClientManager(): void {
           // @ts-ignore - Vue component context
           this.$set(this.expandedClients, clientKey, !this.expandedClients[clientKey]);
         },
-        toggleAllVisible(): void {
-          // @ts-ignore - Vue component context
-          const expand = !this.allVisibleExpanded;
+        setAllVisible(expand: boolean): void {
           // @ts-ignore - Vue component context
           for (const client of this.filteredClients as ManagedClient[]) {
             // @ts-ignore - Vue component context

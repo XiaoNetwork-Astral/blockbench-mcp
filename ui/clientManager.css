@@ -56,6 +56,13 @@
     gap: 8px;
 }
 
+.codex-mcp-client-expand-controls {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+}
+
 .codex-mcp-client-search {
     display: flex;
     align-items: center;
@@ -93,7 +100,7 @@
     font: inherit;
 }
 
-.codex-mcp-client-expand-all,
+.codex-mcp-client-expand-button,
 .codex-mcp-client-actions .codex-mcp-client-action,
 .codex-mcp-blocked-row button,
 .codex-mcp-session-row .codex-mcp-session-disconnect {
@@ -118,21 +125,33 @@
     cursor: pointer;
 }
 
-.codex-mcp-client-expand-all:hover,
+.codex-mcp-client-expand-button:hover,
 .codex-mcp-client-actions .codex-mcp-client-action:hover,
 .codex-mcp-blocked-row button:hover,
 .codex-mcp-session-row .codex-mcp-session-disconnect:hover {
     background: var(--color-accent);
 }
 
-.codex-mcp-client-expand-all:disabled {
+.codex-mcp-client-expand-button {
+    flex: 0 0 34px;
+    width: 34px;
+    min-width: 34px;
+    max-width: 34px;
+    height: 34px;
+    min-height: 34px;
+    max-height: 34px;
+    padding: 0;
+    line-height: 1;
+}
+
+.codex-mcp-client-expand-button:disabled {
     opacity: 0.5;
     cursor: default;
 }
 
-.codex-mcp-client-expand-all > i,
+.codex-mcp-client-expand-button > i,
 .codex-mcp-client-actions .material-icons {
-    font-size: 17px;
+    font-size: 19px;
 }
 
 .codex-mcp-client-scroll-region {
@@ -386,15 +405,8 @@
 }
 
 @media (max-width: 560px) {
-    .codex-mcp-client-expand-all > span,
     .codex-mcp-client-last-activity {
         display: none;
-    }
-
-    .codex-mcp-client-expand-all {
-        width: 34px;
-        min-width: 34px;
-        padding: 0;
     }
 
     .codex-mcp-session-row {

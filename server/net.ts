@@ -347,7 +347,7 @@ export default function createNetServer (
             401,
             {
               'content-type': 'application/json',
-              'www-authenticate': 'Bearer realm="Codex Blockbench MCP"'
+              'www-authenticate': 'Bearer realm="Blockbench MCP"'
             },
             JSON.stringify({ error: 'Unauthorized' }),
             headers['connection']
@@ -721,7 +721,7 @@ export default function createNetServer (
   serverSockets.set(httpServer, sockets)
   httpServer.listen(port, host, () => {
     Blockbench.showStatusMessage(
-      `Codex MCP: http://${formatMcpHostForUrl(host)}:${port}${endpoint}`,
+      `Blockbench MCP: http://${formatMcpHostForUrl(host)}:${port}${endpoint}`,
       3500
     )
   })

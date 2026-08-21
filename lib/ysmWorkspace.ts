@@ -77,7 +77,7 @@ export function ensureYsmWorkspaceAccess(showPermissionDialog: boolean): boolean
     optional: true,
     show_permission_dialog: showPermissionDialog,
     message:
-      "Codex Blockbench MCP only needs read/write access inside the selected .codex temporary model workspace.",
+      "The Blockbench MCP plugin only needs read/write access inside the selected .codex temporary model workspace.",
   }) as ScopedFs | undefined ?? null;
   return Boolean(scopedFs);
 }
@@ -87,7 +87,7 @@ function requireWorkspace(): ScopedFs {
     throw new Error(
       getYsmWorkspaceRoot()
         ? "Folder-scoped access to the configured YSM workspace was denied."
-        : "No temporary model directory is configured. Set it in Codex Blockbench MCP settings or use ysm_set_workspace."
+        : "No temporary model directory is configured. Set it in Blockbench MCP settings or use ysm_set_workspace."
     );
   }
   return scopedFs;

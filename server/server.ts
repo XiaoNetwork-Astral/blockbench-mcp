@@ -15,7 +15,7 @@ const MCP_INSTRUCTIONS =
 export function createServer() {
   return new McpServer(
     {
-      name: "Codex Blockbench MCP",
+      name: "Blockbench MCP",
       version: VERSION,
     },
     { instructions: MCP_INSTRUCTIONS }

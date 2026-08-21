@@ -32,8 +32,14 @@ describe("MCP client manager presentation", () => {
     expect(template).toContain('v-model.trim="searchQuery"');
     expect(template).toContain('v-for="client in filteredClients"');
     expect(template).toContain('v-if="isClientExpanded(client.key)"');
-    expect(template).toContain("toggleAllVisible");
+    expect(template).toContain("setAllVisible(true)");
+    expect(template).toContain("setAllVisible(false)");
+    expect(template).not.toContain("toggleAllVisible");
+    expect(template.match(/codex-mcp-client-expand-button/g)).toHaveLength(2);
     expect(styles).toContain(".codex-mcp-client-scroll-region");
+    expect(styles).toContain(".codex-mcp-client-expand-controls");
+    expect(styles).toContain("max-width: 34px");
+    expect(styles).toContain("max-height: 34px");
     expect(styles).toContain("max-height: min(280px, 36vh)");
     expect(styles.match(/overflow-y: auto/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });

@@ -71,9 +71,9 @@ export function registerCodexTextureTools() {
           }
           ctx.putImageData(image, 0, 0);
         },
-        { edit_name: "Codex exact texture pixel edit" }
+        { edit_name: "MCP exact texture pixel edit" }
       );
-      Undo.finishEdit("Codex applied exact texture pixels");
+      Undo.finishEdit("MCP applied exact texture pixels");
       texture.saved = false;
       if (Project) Project.saved = false;
       Canvas.updateAll();

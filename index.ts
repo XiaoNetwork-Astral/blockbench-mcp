@@ -65,8 +65,8 @@ function warnAboutServerExposure(host: string, authToken: string): void {
       : "mcp.settings.auth_disabled_network_active_warning";
     console.warn(
       loopback
-        ? "[Codex MCP] Bearer authentication is disabled. Keep the server bound to loopback unless unauthenticated network access is intentional."
-        : `[Codex MCP] Bearer authentication is disabled while listening on non-loopback address "${host}". The server may be reachable without credentials.`
+        ? "[Blockbench MCP] Bearer authentication is disabled. Keep the server bound to loopback unless unauthenticated network access is intentional."
+        : `[Blockbench MCP] Bearer authentication is disabled while listening on non-loopback address "${host}". The server may be reachable without credentials.`
     );
     Blockbench.showQuickMessage(tl(key, [host]), 8000);
     return;
@@ -74,7 +74,7 @@ function warnAboutServerExposure(host: string, authToken: string): void {
 
   if (!loopback) {
     console.warn(
-      `[Codex MCP] Listening on non-loopback address "${host}". ` +
+      `[Blockbench MCP] Listening on non-loopback address "${host}". ` +
       "The server may be reachable from other devices; Bearer authentication is enabled."
     );
     Blockbench.showQuickMessage(tl("mcp.settings.bind_host_active_warning", [host]), 7000);
@@ -188,7 +188,7 @@ async function stopMcpServer(showFeedback = true): Promise<void> {
 
 BBPlugin.register(PLUGIN_ID, {
   version: VERSION,
-  title: "Codex Blockbench MCP",
+  title: "Blockbench MCP",
   author: "Jason J. Gardner and OpenAI Codex",
   contributors: ["jasonjgardner", "brokestar233", "OpenAI Codex"],
   description:
@@ -234,7 +234,7 @@ BBPlugin.register(PLUGIN_ID, {
     auditManager.teardown();
     teardownProjectProtection();
     void stopMcpServer(false).catch((error) => {
-      console.error("[Codex MCP] Failed to stop server cleanly:", error);
+      console.error("[Blockbench MCP] Failed to stop server cleanly:", error);
     });
     netModule = null;
     if (!httpServer && !stoppingServer) sessionManager.clear();
@@ -245,11 +245,11 @@ BBPlugin.register(PLUGIN_ID, {
   },
 
   oninstall() {
-    Blockbench.showQuickMessage("Installed Codex Blockbench MCP", 2000);
+    Blockbench.showQuickMessage("Installed Blockbench MCP", 2000);
   },
 
   onuninstall() {
-    Blockbench.showQuickMessage("Uninstalled Codex Blockbench MCP", 2000);
+    Blockbench.showQuickMessage("Uninstalled Blockbench MCP", 2000);
     settingsTeardown();
     serverControlsTeardown();
     teardownYsmWorkspace();

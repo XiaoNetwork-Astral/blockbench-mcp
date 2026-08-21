@@ -6,7 +6,16 @@
     background-color: var(--color-dark);
     border-block-start: 1px solid var(--color-border);
     font-size: 0.85em;
-    user-select: none;
+    cursor: default !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+#mcp-status-bar * {
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
 }
 
 #mcp-status-bar .mcp-status-indicator {

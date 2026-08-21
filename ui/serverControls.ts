@@ -27,7 +27,7 @@ function addToolsAction(id: string, options: ConstructorParameters<typeof Action
 
 function reportControlError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("[Codex MCP] Server control failed:", error);
+  console.error("[Blockbench MCP] Server control failed:", error);
   Blockbench.showMessageBox({
     title: tl("mcp.server_controls.error_title"),
     message,

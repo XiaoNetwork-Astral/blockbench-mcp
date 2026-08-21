@@ -210,7 +210,7 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
       folded: false,
       sidebar_index: 10,
     },
-    growable: true,
+    growable: false,
     resizable: true,
     min_height: 180,
     expand_button: true,
@@ -222,8 +222,6 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         expanded: {} as Record<string, boolean>,
         loading: true,
         error: "",
-        storagePersistent: auditManager.isPersistent(),
-        storageMessage: "",
         page: 0,
         pageSize: configuredPageSize(),
         hasPrevious: false,
@@ -263,11 +261,7 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         // @ts-ignore - Vue component context
         const vm = this;
         vm.unsubscribeAudit = auditManager.subscribe((change: AuditChange) => {
-          if (change.type === "storage") {
-            vm.storagePersistent = change.persistent;
-            vm.storageMessage = change.message || "";
-            return;
-          }
+          if (change.type === "storage") return;
           if (change.type === "settings") {
             vm.applyAuditSettings();
             return;

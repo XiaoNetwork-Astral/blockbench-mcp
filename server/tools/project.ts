@@ -49,7 +49,7 @@ export const projectToolDocs: ToolSpec[] = [
   {
     name: "list_projects",
     description:
-      "Lists every open Blockbench project tab, its active state, persistent Codex role, and whether agent model mutations are allowed.",
+      "Lists every open Blockbench project tab, its active state, persistent workflow role, and whether MCP model mutations are allowed.",
     annotations: {
       title: "List Projects",
       readOnlyHint: true,
