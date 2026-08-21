@@ -183,7 +183,7 @@ export function checkUndoTravel(input: TravelCheckInput): TravelCheckResult {
       steps: 0,
       traversedEntryIds: [],
       unsafeEntryIds: [],
-      reason: "The requested Undo position no longer exists.",
+      reason: "The requested restore point is no longer available.",
     };
   }
 
@@ -194,7 +194,7 @@ export function checkUndoTravel(input: TravelCheckInput): TravelCheckResult {
       steps: 0,
       traversedEntryIds: [],
       unsafeEntryIds: [],
-      reason: "The native Undo branch has changed since this operation was recorded.",
+      reason: "The model history branch has changed since this operation was recorded.",
     };
   }
 

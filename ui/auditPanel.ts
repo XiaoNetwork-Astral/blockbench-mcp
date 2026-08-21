@@ -5,7 +5,6 @@ import {
   type AuditChange,
   type AuditOperationDetails,
   type AuditOperationSummary,
-  type AuditSource,
   type AuditStatus,
   type AuditTravelPlan,
 } from "@/lib/audit";
@@ -13,7 +12,6 @@ import type { IMCPTool } from "@/types";
 import { getProjectRole } from "@/lib/projectRoles";
 import {
   getAuditDefaultScope,
-  getAuditDefaultSource,
   getAuditPageSize,
 } from "@/lib/pluginSettings";
 import auditPanelCss from "@/ui/auditPanel.css";
@@ -22,6 +20,7 @@ import auditPanelTemplate from "@/ui/auditPanel.html";
 let panel: Panel | undefined;
 let showAction: Action | undefined;
 let cssHandle: Deletable | undefined;
+let rawDataDialog: Dialog | undefined;
 
 type ProjectScope = "current" | "all" | string;
 const NO_PROJECT_SCOPE = "__codex_no_project__";
@@ -32,12 +31,19 @@ interface AuditPanelProject {
   role: string;
 }
 
+function selectedProject(): ModelProject | null {
+  if (typeof Project !== "undefined" && Project) return Project;
+  if (typeof ModelProject === "undefined") return null;
+  return ModelProject.all.find((project) => project.selected) ?? null;
+}
+
 function currentProjectId(): string | null {
-  return Project?.uuid ?? null;
+  return selectedProject()?.uuid ?? null;
 }
 
 function projectOptions(): AuditPanelProject[] {
-  return ModelProject.all.map((project) => ({
+  const projects = typeof ModelProject === "undefined" ? [] : ModelProject.all;
+  return projects.map((project) => ({
     id: project.uuid,
     name: project.name || tl("mcp.audit.untitled"),
     role: getProjectRole(project),
@@ -58,12 +64,8 @@ function configuredProjectScope(): ProjectScope {
   return getAuditDefaultScope();
 }
 
-function configuredSource(): AuditSource | "all" {
-  return getAuditDefaultSource();
-}
-
 function showPanel(): void {
-  if (typeof Project === "undefined" || !Project) {
+  if (!selectedProject()) {
     Blockbench.showMessageBox({
       title: tl("mcp.audit.open_project_title"),
       message: tl("mcp.audit.open_project_message"),
@@ -115,6 +117,82 @@ function unsafeTravelMessage(plan: AuditTravelPlan): string {
     .join("\n\n");
 }
 
+function parseStoredAuditValue(value: string): unknown {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+export function buildAuditRawData(
+  item: AuditOperationSummary,
+  details: AuditOperationDetails
+): Record<string, unknown> {
+  return {
+    operation: {
+      id: item.id,
+      title: item.title,
+      toolName: item.toolName,
+      source: item.source,
+      status: item.status,
+      startedAt: new Date(item.startedAt).toISOString(),
+      finishedAt: item.finishedAt === null ? null : new Date(item.finishedAt).toISOString(),
+      durationMs: item.durationMs,
+      readOnly: item.readOnly,
+      sessionId: item.sessionId,
+      clientName: item.clientName,
+    },
+    model: item.projectId
+      ? {
+          id: item.projectId,
+          name: item.projectName,
+          role: item.projectRole,
+        }
+      : null,
+    sanitized: {
+      arguments: parseStoredAuditValue(details.argumentsText),
+      result: parseStoredAuditValue(details.resultText),
+      error: parseStoredAuditValue(details.errorText),
+    },
+    undo: {
+      reversible: item.reversible,
+      changedEntryCount: item.undoEntryCount,
+      before: item.before,
+      after: item.after,
+      entries: details.undoEntries,
+    },
+  };
+}
+
+function showRawDataDialog(item: AuditOperationSummary, details: AuditOperationDetails): void {
+  rawDataDialog?.delete();
+  rawDataDialog = new Dialog({
+    id: "codex_mcp_audit_raw_data",
+    title: tl("mcp.audit.raw_data_title"),
+    icon: "data_object",
+    width: 720,
+    resizable: "xy",
+    component: {
+      name: "codex_mcp_audit_raw_data",
+      data: () => ({
+        note: tl("mcp.audit.raw_data_note"),
+        jsonText: JSON.stringify(buildAuditRawData(item, details), null, 2),
+      }),
+      template: `
+        <div class="codex-audit-raw-dialog">
+          <p>{{note}}</p>
+          <pre>{{jsonText}}</pre>
+        </div>
+      `,
+    },
+    singleButton: true,
+    buttons: [tl("mcp.dialog.close")],
+  });
+  rawDataDialog.show();
+}
+
 export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
   if (panel) return panel;
   cssHandle = Blockbench.addCSS(auditPanelCss);
@@ -142,7 +220,7 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         items: [] as AuditOperationSummary[],
         details: {} as Record<string, AuditOperationDetails | null>,
         expanded: {} as Record<string, boolean>,
-        loading: false,
+        loading: true,
         error: "",
         storagePersistent: auditManager.isPersistent(),
         storageMessage: "",
@@ -154,22 +232,16 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         projects: projectOptions(),
         filters: {
           search: "",
-          source: configuredSource(),
-          status: "all" as AuditStatus | "all",
           toolName: "all",
         },
-        toolOptions: [
-          ...Object.values(tools).map((tool) => ({
+        toolOptions: Object.values(tools)
+          .map((tool) => ({
             name: tool.name,
             label: tool.name,
             title: tool.description || tool.name,
-          })),
-          { name: "blockbench_manual_edit", label: tl("mcp.audit.manual_edit"), title: tl("mcp.audit.manual_edit") },
-          { name: "blockbench_manual_undo", label: tl("mcp.audit.manual_undo"), title: tl("mcp.audit.manual_undo") },
-          { name: "blockbench_manual_redo", label: tl("mcp.audit.manual_redo"), title: tl("mcp.audit.manual_redo") },
-          { name: "audit_restore_before", label: tl("mcp.audit.restore_before"), title: tl("mcp.audit.restore_before_help") },
-          { name: "audit_restore_after", label: tl("mcp.audit.restore_after"), title: tl("mcp.audit.restore_after_help") },
-        ].sort((left, right) => left.name.localeCompare(right.name)),
+          }))
+          .sort((left, right) => left.name.localeCompare(right.name)),
+        rawDataLoading: {} as Record<string, boolean>,
         loadRevision: 0,
         searchTimer: null as ReturnType<typeof setTimeout> | null,
         refreshTimer: null as ReturnType<typeof setTimeout> | null,
@@ -180,13 +252,11 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
           // @ts-ignore - Vue component context
           return this.projectScope === "all";
         },
-        activeProjectName(): string {
-          // @ts-ignore - Vue component context
-          const scope = this.projectScope as ProjectScope;
-          if (scope === "all") return tl("mcp.audit.all_models");
-          if (scope === "current") return Project?.name || tl("mcp.audit.no_model");
-          // @ts-ignore - Vue component context
-          return this.projects.find((item: AuditPanelProject) => item.id === scope)?.name || scope;
+        currentProjectLabel(): string {
+          const project = selectedProject();
+          return project?.name
+            ? tl("mcp.audit.current_model_named", [project.name])
+            : tl("mcp.audit.current_model");
         },
       },
       mounted() {
@@ -237,8 +307,6 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
           this.pageSize = configuredPageSize();
           // @ts-ignore - Vue component context
           this.projectScope = configuredProjectScope();
-          // @ts-ignore - Vue component context
-          this.filters.source = configuredSource();
           // @ts-ignore - Vue component context
           this.page = 0;
           // @ts-ignore - Vue component context
@@ -297,9 +365,8 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
               // @ts-ignore - Vue component context
               search: this.filters.search,
               // @ts-ignore - Vue component context
-              source: this.filters.source,
-              // @ts-ignore - Vue component context
-              status: this.filters.status,
+              source: "mcp",
+              status: "all",
               // @ts-ignore - Vue component context
               toolName: this.filters.toolName,
               // @ts-ignore - Vue component context
@@ -323,24 +390,43 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
             if (revision === this.loadRevision) this.loading = false;
           }
         },
-        async toggleDetails(item: AuditOperationSummary): Promise<void> {
+        toggleDetails(item: AuditOperationSummary): void {
           // @ts-ignore - Vue component context
           const isOpen = !this.expanded[item.id];
           // @ts-ignore - Vue component context
           this.$set(this.expanded, item.id, isOpen);
+        },
+        async showRawData(item: AuditOperationSummary): Promise<void> {
           // @ts-ignore - Vue component context
-          if (!isOpen || this.details[item.id] !== undefined) return;
+          if (this.rawDataLoading[item.id]) return;
           // @ts-ignore - Vue component context
-          this.$set(this.details, item.id, null);
-          const details = await auditManager.getDetails(item.id);
-          // @ts-ignore - Vue component context
-          this.$set(this.details, item.id, details ?? {
-            id: item.id,
-            argumentsText: "",
-            resultText: "",
-            errorText: tl("mcp.audit.details_unavailable"),
-            undoEntries: [],
-          });
+          this.$set(this.rawDataLoading, item.id, true);
+          try {
+            // @ts-ignore - Vue component context
+            let details = this.details[item.id] as AuditOperationDetails | undefined;
+            if (!details) {
+              details = (await auditManager.getDetails(item.id)) ?? {
+                id: item.id,
+                argumentsText: "",
+                resultText: "",
+                errorText: tl("mcp.audit.details_unavailable"),
+                undoEntries: [],
+              };
+              // @ts-ignore - Vue component context
+              this.$set(this.details, item.id, details);
+            }
+            showRawDataDialog(item, details);
+          } catch (error) {
+            Blockbench.showMessageBox({
+              title: tl("mcp.audit.raw_data_title"),
+              icon: "error",
+              message: error instanceof Error ? error.message : String(error),
+              buttons: [tl("mcp.audit.ok")],
+            });
+          } finally {
+            // @ts-ignore - Vue component context
+            this.$set(this.rawDataLoading, item.id, false);
+          }
         },
         formatTime(timestamp: number): string {
           return new Date(timestamp).toLocaleString();
@@ -349,9 +435,6 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
           if (duration === null) return tl("mcp.audit.running");
           if (duration < 1000) return `${duration} ms`;
           return `${(duration / 1000).toFixed(duration < 10_000 ? 1 : 0)} s`;
-        },
-        sourceLabel(source: AuditSource | "unknown"): string {
-          return tl(`mcp.audit.source_${source}`);
         },
         statusLabel(status: AuditStatus): string {
           return tl(`mcp.audit.status_${status}`);
@@ -467,6 +550,8 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
 }
 
 export function auditPanelTeardown(): void {
+  rawDataDialog?.delete();
+  rawDataDialog = undefined;
   showAction?.delete();
   showAction = undefined;
   panel?.delete();

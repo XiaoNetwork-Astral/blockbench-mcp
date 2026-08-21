@@ -141,11 +141,3 @@ export function getAuditPageSize(): 25 | 50 | 100 {
 export function getAuditDefaultScope(): "current" | "all" {
   return Settings.get("codex_mcp_audit_default_scope") === "all" ? "all" : "current";
 }
-
-export function getAuditDefaultSource(): "mcp" | "all" {
-  return Settings.get("codex_mcp_audit_default_source") === "all" ? "all" : "mcp";
-}
-
-export function getAuditRecordManual(): boolean {
-  return Settings.get("codex_mcp_audit_record_manual") !== false;
-}

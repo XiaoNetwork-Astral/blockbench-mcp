@@ -714,27 +714,6 @@ export function settingsSetup(): void {
     icon: "view_in_ar",
     onChange: () => auditManager.settingsChanged(),
   });
-  addSetting("codex_mcp_audit_default_source", {
-    name: tl("mcp.settings.audit_source_name"),
-    description: tl("mcp.settings.audit_source_desc"),
-    type: "select",
-    value: "mcp",
-    options: {
-      mcp: tl("mcp.settings.audit_source_mcp"),
-      all: tl("mcp.settings.audit_source_all"),
-    },
-    icon: "filter_alt",
-    onChange: () => auditManager.settingsChanged(),
-  });
-  addSetting("codex_mcp_audit_record_manual", {
-    name: tl("mcp.settings.audit_manual_name"),
-    description: tl("mcp.settings.audit_manual_desc"),
-    type: "toggle",
-    value: true,
-    icon: "front_hand",
-    onChange: () => auditManager.settingsChanged(),
-  });
-
   refreshSettingsCategory();
   settingsUiSetup();
 }

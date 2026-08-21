@@ -1,4 +1,3 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { sessionManager } from "@/lib/sessions";
 import statusBarCSS from "@/ui/statusBar.css";
 import {
@@ -11,7 +10,7 @@ import {
 let statusBarElement: HTMLDivElement | undefined;
 let unsubscribe: (() => void) | undefined;
 
-export function statusBarSetup(server: McpServer): void {
+export function statusBarSetup(): void {
   const port = getMcpPort();
   const host = formatMcpHostForUrl(getMcpBindHost());
   const endpoint = getMcpEndpoint();
@@ -26,7 +25,7 @@ export function statusBarSetup(server: McpServer): void {
   // Create the status indicator
   const statusIndicator = document.createElement("div");
   statusIndicator.className = "mcp-status-indicator";
-  statusIndicator.title = tl("mcp.tooltip.click_to_view_panel");
+  statusIndicator.title = tl("mcp.status.server_address", [`${host}:${port}${endpoint}`]);
 
   const statusDot = document.createElement("div");
   statusDot.className = "mcp-status-dot";
@@ -63,27 +62,6 @@ export function statusBarSetup(server: McpServer): void {
 
   // Subscribe to session changes
   unsubscribe = sessionManager.subscribe(updateStatus);
-
-  // Click handler to open the MCP panel
-  statusIndicator.addEventListener("click", () => {
-    // @ts-ignore - Blockbench Panel types
-    const mcpPanel = Panels.mcp_panel;
-
-    if (!mcpPanel) {
-      return;
-    }
-
-    // Toggle panel visibility by unfolding it if folded
-    if (mcpPanel.folded) {
-      mcpPanel.fold(false);
-      return;
-    }
-
-    // If already visible and unfolded, move to front or make it visible
-    if (mcpPanel.slot === 'float') {
-      mcpPanel.moveToFront();
-    }
-  });
 
   // Append to the existing status bar
   const existingStatusBar = document.getElementById("status_bar");

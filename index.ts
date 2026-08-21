@@ -6,9 +6,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { PLUGIN_ID, VERSION } from "@/lib/constants";
-import { createServer } from "@/server/server";
 import { tools } from "@/server/tools";
-import { resources } from "@/server";
 import { uiSetup, uiTeardown } from "@/ui";
 import { settingsSetup, settingsTeardown } from "@/ui/settings";
 import { setupI18n } from "@/ui/i18n";
@@ -207,12 +205,7 @@ BBPlugin.register(PLUGIN_ID, {
     settingsSetup();
     auditManager.setup();
     setupProjectProtection();
-    const referenceServer = createServer();
-    uiSetup({
-      server: referenceServer,
-      tools,
-      resources,
-    });
+    uiSetup({ tools });
     serverControlsSetup({
       start: () => startMcpServer(true),
       stop: () => stopMcpServer(true),

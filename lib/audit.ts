@@ -12,7 +12,6 @@ import { getProjectRole } from "@/lib/projectRoles";
 import { sessionManager } from "@/lib/sessions";
 import {
   DEFAULT_AUDIT_RETENTION,
-  getAuditRecordManual,
   getAuditRetention,
 } from "@/lib/pluginSettings";
 
@@ -464,10 +463,8 @@ class AuditManager {
   setup(): void {
     if (this.setupComplete) return;
     this.setupComplete = true;
-    this.listen("finished_edit", (data) => this.onFinishedEdit(data));
-    this.listen("finished_selection_change", (data) => this.onFinishedEdit(data));
-    this.listen("undo", (data) => this.onHistoryNavigation("undo", data));
-    this.listen("redo", (data) => this.onHistoryNavigation("redo", data));
+    this.listen("finished_edit", () => this.onFinishedEdit());
+    this.listen("finished_selection_change", () => this.onFinishedEdit());
     this.listen("select_project", () => {
       this.emit({ type: "project", projectId: Project?.uuid ?? null });
     });
@@ -766,10 +763,6 @@ class AuditManager {
     return getAuditRetention();
   }
 
-  private persistManualRows(): boolean {
-    return getAuditRecordManual();
-  }
-
   private findActiveForProject(projectId: string): ActiveOperation | undefined {
     for (let index = this.activeOrder.length - 1; index >= 0; index -= 1) {
       const active = this.activeOperations.get(this.activeOrder[index]);
@@ -783,7 +776,7 @@ class AuditManager {
     return undefined;
   }
 
-  private onFinishedEdit(data: { message?: string } | undefined): void {
+  private onFinishedEdit(): void {
     const project = Project ?? null;
     if (!project) return;
     const history = project.undo?.history ?? [];
@@ -802,94 +795,6 @@ class AuditManager {
     }
 
     this.getOwnership(project.uuid).set(entryId, { source: "user" });
-    if (!this.persistManualRows()) return;
-    this.recordCompletedOperation({
-      source: "user",
-      toolName: "blockbench_manual_edit",
-      title: data?.message || entry.action || "Manual Blockbench edit",
-      project,
-      beforeIndex: Math.max(0, index - 1),
-      afterIndex: index,
-      result: { action: entry.action, type: entry.type },
-      entryIds: new Set([entryId]),
-    });
-  }
-
-  private onHistoryNavigation(kind: "undo" | "redo", data: { entry?: UndoEntry } | undefined): void {
-    const project = Project ?? null;
-    if (!project) return;
-    if (this.findActiveForProject(project.uuid)) return;
-    if (!this.persistManualRows()) return;
-    const afterIndex = project.undo?.index ?? 0;
-    const beforeIndex = kind === "undo" ? afterIndex + 1 : Math.max(0, afterIndex - 1);
-    this.recordCompletedOperation({
-      source: "user",
-      toolName: `blockbench_manual_${kind}`,
-      title: `${kind === "undo" ? "Undo" : "Redo"}: ${data?.entry?.action || "unnamed edit"}`,
-      project,
-      beforeIndex,
-      afterIndex,
-      result: { action: data?.entry?.action ?? null },
-      entryIds: new Set<string>(),
-    });
-  }
-
-  private recordCompletedOperation(options: {
-    source: AuditSource;
-    toolName: string;
-    title: string;
-    project: ModelProject;
-    beforeIndex: number;
-    afterIndex: number;
-    result: unknown;
-    entryIds: Set<string>;
-  }): void {
-    const id = createId();
-    const now = Date.now();
-    const beforeRuntime = this.captureUndoSnapshot(options.project, options.beforeIndex);
-    const afterRuntime = this.captureUndoSnapshot(options.project, options.afterIndex);
-    const summary: AuditOperationSummary = {
-      id,
-      sortKey: `${now.toString().padStart(13, "0")}:${id}`,
-      runtimeId: this.runtimeId,
-      source: options.source,
-      status: "success",
-      toolName: options.toolName,
-      title: options.title,
-      startedAt: now,
-      finishedAt: now,
-      durationMs: 0,
-      sessionId: null,
-      clientName: null,
-      readOnly: false,
-      projectId: options.project.uuid,
-      projectName: options.project.name || "Untitled",
-      projectRole: getProjectRole(options.project),
-      argumentsSummary: "",
-      resultSummary: summarizeAuditValue(options.result),
-      errorSummary: "",
-      before: beforeRuntime.point,
-      after: afterRuntime.point,
-      undoEntryCount: options.entryIds.size,
-      undoDelta: options.afterIndex - options.beforeIndex,
-      reversible: options.beforeIndex !== options.afterIndex,
-      searchText: "",
-    };
-    this.refreshSearchText(summary);
-    const details: AuditOperationDetails = {
-      id,
-      argumentsText: "{}",
-      resultText: stringifyAuditValue(options.result),
-      errorText: "",
-      undoEntries: this.describeEntries(options.project.uuid, afterRuntime, options.entryIds),
-    };
-    this.persist({
-      summary,
-      details,
-      beforeRuntime,
-      trackNativeEvents: false,
-      observedEntryIds: options.entryIds,
-    });
   }
 
   private describeEntries(
@@ -927,7 +832,7 @@ class AuditManager {
       return this.invalidPlan(
         operationId,
         phase,
-        "The original Blockbench Undo stack is no longer live after a plugin or app restart.",
+        "This restore point expired after the plugin or Blockbench restarted.",
         targetPoint
       );
     }
@@ -995,7 +900,7 @@ class AuditManager {
       }
       if (project.undo.index !== plan.targetIndex) {
         throw new Error(
-          `Blockbench stopped at Undo index ${project.undo.index}; expected ${plan.targetIndex}.`
+          "Blockbench stopped before reaching the requested restore point."
         );
       }
       this.finishOperation(handle, {
