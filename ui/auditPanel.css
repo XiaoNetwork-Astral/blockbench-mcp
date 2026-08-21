@@ -374,9 +374,10 @@
     border-radius: 4px !important;
     background: var(--color-button) !important;
     color: var(--color-text) !important;
+    -webkit-text-fill-color: var(--color-text) !important;
     box-sizing: border-box;
     line-height: 20px;
-    white-space: normal;
+    white-space: nowrap;
 }
 
 .codex-audit-entry-actions > button > i {
@@ -385,11 +386,25 @@
     font-size: 17px;
 }
 
+.codex-audit-entry-actions > button > span {
+    min-width: 0;
+    overflow: hidden;
+    color: inherit !important;
+    -webkit-text-fill-color: inherit !important;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .codex-audit-entry-actions > button:not(:disabled):hover,
-.codex-audit-entry-actions > button:not(:disabled):focus-visible,
 .codex-audit-entry-actions > button:not(:disabled):active {
     background: var(--color-accent) !important;
-    color: var(--color-light) !important;
+    color: var(--color-text) !important;
+    -webkit-text-fill-color: var(--color-text) !important;
+}
+
+.codex-audit-entry-actions > button:not(:disabled):focus {
+    color: var(--color-text) !important;
+    -webkit-text-fill-color: var(--color-text) !important;
 }
 
 .codex-audit-entry-actions > button:disabled,
@@ -398,6 +413,7 @@
 .codex-audit-entry-actions > button:disabled:active {
     background: var(--color-button) !important;
     color: var(--color-subtle_text) !important;
+    -webkit-text-fill-color: var(--color-subtle_text) !important;
     opacity: 1 !important;
     cursor: not-allowed;
 }

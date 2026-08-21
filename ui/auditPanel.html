@@ -104,19 +104,19 @@
                     <button type="button" class="tool" :disabled="!canRestore(item)"
                         @click.stop="restore(item, 'before')" :title="tl('mcp.audit.restore_before_help')">
                         <i class="material-icons">undo</i>
-                        {{tl('mcp.audit.restore_before')}}
+                        <span>{{tl('mcp.audit.restore_before')}}</span>
                     </button>
                     <button type="button" class="tool" :disabled="!canRestore(item)"
                         @click.stop="restore(item, 'after')" :title="tl('mcp.audit.restore_after_help')">
                         <i class="material-icons">redo</i>
-                        {{tl('mcp.audit.restore_after')}}
+                        <span>{{tl('mcp.audit.restore_after')}}</span>
                     </button>
                     <button type="button" class="tool" :disabled="rawDataLoading[item.id]"
-                        @click.stop="showRawData(item)">
+                        @click.stop="showRawData(item)" :title="tl('mcp.audit.show_raw_data')">
                         <i class="material-icons" :class="{'codex-audit-spin': rawDataLoading[item.id]}">
                             {{rawDataLoading[item.id] ? 'progress_activity' : 'data_object'}}
                         </i>
-                        {{rawDataLoading[item.id] ? tl('mcp.audit.loading_raw_data') : tl('mcp.audit.show_raw_data')}}
+                        <span>{{rawDataLoading[item.id] ? tl('mcp.audit.loading_raw_data') : tl('mcp.audit.show_raw_data')}}</span>
                     </button>
                 </div>
             </div>

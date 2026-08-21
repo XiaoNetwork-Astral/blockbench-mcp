@@ -161,10 +161,15 @@
 }
 
 .codex-mcp-client-expand-button:not(:disabled):hover,
-.codex-mcp-client-expand-button:not(:disabled):focus-visible,
 .codex-mcp-client-expand-button:not(:disabled):active {
     background: var(--color-accent) !important;
-    color: var(--color-light) !important;
+    color: var(--color-text) !important;
+    -webkit-text-fill-color: var(--color-text) !important;
+}
+
+.codex-mcp-client-expand-button:not(:disabled):focus {
+    color: var(--color-text) !important;
+    -webkit-text-fill-color: var(--color-text) !important;
 }
 
 .codex-mcp-client-expand-button:disabled,
@@ -173,6 +178,7 @@
 .codex-mcp-client-expand-button:disabled:active {
     background: var(--color-button) !important;
     color: var(--color-subtle_text) !important;
+    -webkit-text-fill-color: var(--color-subtle_text) !important;
     opacity: 0.55 !important;
     cursor: default;
 }

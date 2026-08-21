@@ -87,8 +87,11 @@ describe("operations panel presentation", () => {
     expect(translations).not.toContain("Codex");
     expect(translations).toContain('"mcp.audit.panel_name": "MCP Operation History"');
     expect(translations).toContain('"mcp.audit.current_model_named": "%0 (Current model)"');
-    expect(translations).toContain('"mcp.audit.restore_before": "Undo to this point"');
-    expect(translations).toContain('"mcp.audit.restore_after": "Redo to this point"');
+    expect(template.match(/<span>\{\{tl\('mcp\.audit\.restore_(before|after)'\)\}\}<\/span>/g)).toHaveLength(2);
+    expect(styles).toContain("-webkit-text-fill-color: var(--color-text) !important");
+    expect(styles).toContain("button:not(:disabled):focus");
+    expect(translations).toContain('"mcp.audit.restore_before": "Undo to here"');
+    expect(translations).toContain('"mcp.audit.restore_after": "Redo to here"');
     expect(uiSetup).not.toContain("mcp_panel");
     expect(uiSetup).not.toContain("new Panel");
   });
