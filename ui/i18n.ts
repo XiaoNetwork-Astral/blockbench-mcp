@@ -160,7 +160,9 @@ const en: Record<string, string> = {
 
   // Client manager
   "mcp.client_manager.title": "Manage MCP Clients",
+  "mcp.client_manager.client": "client",
   "mcp.client_manager.clients": "clients",
+  "mcp.client_manager.session": "session",
   "mcp.client_manager.sessions": "sessions",
   "mcp.client_manager.session_explanation": "One client can own multiple MCP sessions. Sessions remain until the client ends them or the inactivity timeout expires.",
   "mcp.client_manager.session_count": "%0 sessions",
@@ -288,7 +290,9 @@ const de: Record<string, string> = {
 
   // Client manager
   "mcp.client_manager.title": "MCP-Clients verwalten",
+  "mcp.client_manager.client": "Client",
   "mcp.client_manager.clients": "Clients",
+  "mcp.client_manager.session": "Sitzung",
   "mcp.client_manager.sessions": "Sitzungen",
   "mcp.client_manager.session_explanation": "Ein Client kann mehrere MCP-Sitzungen besitzen. Sitzungen bleiben bestehen, bis der Client sie beendet oder das Inaktivitäts-Timeout abläuft.",
   "mcp.client_manager.session_count": "%0 Sitzungen",
@@ -419,7 +423,9 @@ const ja: Record<string, string> = {
 
   // Client manager
   "mcp.client_manager.title": "MCP クライアント管理",
+  "mcp.client_manager.client": "クライアント",
   "mcp.client_manager.clients": "クライアント",
+  "mcp.client_manager.session": "セッション",
   "mcp.client_manager.sessions": "セッション",
   "mcp.client_manager.session_explanation": "1 つのクライアントが複数の MCP セッションを持つ場合があります。セッションはクライアントが終了するか、非アクティブタイムアウトまで残ります。",
   "mcp.client_manager.session_count": "%0 セッション",
@@ -681,7 +687,9 @@ const zh: Record<string, string> = {
 
   // 客户端管理
   "mcp.client_manager.title": "管理 MCP 客户端",
+  "mcp.client_manager.client": "个客户端",
   "mcp.client_manager.clients": "个客户端",
+  "mcp.client_manager.session": "个会话",
   "mcp.client_manager.sessions": "个会话",
   "mcp.client_manager.session_explanation": "一个客户端可以同时拥有多个 MCP 会话；会话会在客户端主动结束或超过无活动超时后回收。",
   "mcp.client_manager.session_count": "%0 个会话",

@@ -28,6 +28,24 @@ afterEach(() => {
 });
 
 describe("YSM temporary directory setting", () => {
+  test("reads Blockbench's persisted object shape when restoring the directory", () => {
+    replaceGlobal("PathModule", path.win32);
+    replaceGlobal("Settings", {
+      stored: { [YSM_WORKSPACE_SETTING]: { value: "D:\\persisted-temp" } },
+      get() {
+        return undefined;
+      },
+    });
+    replaceGlobal("localStorage", {
+      getItem() {
+        return null;
+      },
+      removeItem() {},
+    });
+
+    expect(getInitialYsmWorkspaceRoot()).toBe("D:\\persisted-temp");
+  });
+
   test("migrates the old localStorage path and keeps MCP changes in the native setting", () => {
     let configured: unknown;
     let legacy = "D:\\legacy-ysm";

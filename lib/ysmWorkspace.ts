@@ -1,4 +1,4 @@
-import { YSM_WORKSPACE_SETTING } from "@/lib/pluginSettings";
+import { YSM_WORKSPACE_SETTING, getStoredSettingValue } from "@/lib/pluginSettings";
 
 const LEGACY_STORAGE_KEY = "codex_blockbench_mcp.ysm_workspace";
 
@@ -15,7 +15,7 @@ function normalizedRoot(value: unknown): string {
 }
 
 export function getInitialYsmWorkspaceRoot(): string {
-  const stored = String(Settings.stored?.[YSM_WORKSPACE_SETTING] ?? "").trim();
+  const stored = String(getStoredSettingValue(YSM_WORKSPACE_SETTING) ?? "").trim();
   if (stored) {
     workspaceRoot = normalizedRoot(stored);
     return workspaceRoot;

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import path from "node:path";
 import {
   reconcileSettingsDialog,
   settingsSetup,
@@ -13,7 +14,11 @@ function replaceGlobal(name: string, value: unknown): void {
   (globalThis as any)[name] = value;
 }
 
-function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) {
+function installBlockbenchSettingsMock(options: {
+  dialogReady?: boolean;
+  storedSettings?: Record<string, unknown>;
+  persistedSettings?: Record<string, unknown>;
+} = {}) {
   const dialogReady = options.dialogReady ?? true;
   let sidebarBuilds = 0;
   let addCategoryCalls = 0;
@@ -22,7 +27,9 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
   let forceUpdates = 0;
   let openCategoryWrites = 0;
   let addedAction: FakeAction | undefined;
+  let saveLocalStoragesCalls = 0;
   const messageBoxes: Record<string, unknown>[] = [];
+  const persistedSettings = { ...(options.persistedSettings ?? {}) };
 
   let openCategory = "general";
   const contentVue = {
@@ -62,7 +69,7 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
   };
 
   const settingsApi = {
-    stored: {},
+    stored: { ...(options.storedSettings ?? {}) } as Record<string, unknown>,
     structure: {} as Record<
       string,
       { name: string; open: boolean; items: Record<string, FakeSetting> }
@@ -79,11 +86,18 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
     get(id: string) {
       return this.structure[CATEGORY_ID]?.items[id]?.value;
     },
+    saveLocalStorages() {
+      saveLocalStoragesCalls += 1;
+      for (const [id, setting] of Object.entries(this.structure[CATEGORY_ID]?.items ?? {})) {
+        persistedSettings[id] = { value: setting.master_value };
+      }
+    },
   };
 
   class FakeSetting {
     id: string;
     value: unknown;
+    master_value: unknown;
     type: string;
     onChange?: (value: unknown) => void;
     private category: string;
@@ -98,7 +112,12 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
       }
     ) {
       this.id = id;
-      this.value = options.value;
+      const stored = settingsApi.stored[id];
+      const storedValue = stored && typeof stored === "object" && "value" in stored
+        ? (stored as { value: unknown }).value
+        : undefined;
+      this.value = storedValue ?? options.value;
+      this.master_value = this.value;
       this.type = options.type ?? "toggle";
       this.onChange = options.onChange;
       this.category = options.category;
@@ -109,6 +128,7 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
 
     set(value: unknown) {
       this.value = value;
+      this.master_value = value;
       return this;
     }
 
@@ -131,6 +151,13 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
   }
 
   replaceGlobal("Settings", settingsApi);
+  replaceGlobal("PathModule", path.win32);
+  replaceGlobal("localStorage", {
+    getItem(key: string) {
+      return key === "settings" ? JSON.stringify(persistedSettings) : null;
+    },
+    removeItem() {},
+  });
   replaceGlobal("Vue", {
     set(target: Record<string, unknown>, key: string, value: unknown) {
       reactiveSets += 1;
@@ -175,6 +202,8 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
     getForceUpdates: () => forceUpdates,
     getOpenCategoryWrites: () => openCategoryWrites,
     getAddedAction: () => addedAction,
+    getSaveLocalStoragesCalls: () => saveLocalStoragesCalls,
+    getPersistedSettings: () => persistedSettings,
     getMessageBoxes: () => messageBoxes,
     mountDialog: () => {
       settingsApi.dialog = dialog;
@@ -523,5 +552,41 @@ describe("Blockbench settings integration", () => {
     expect(Object.keys(category.items)).toHaveLength(13);
     expect(dialog.content_vue.open_category).toBe(CATEGORY_ID);
     expect(mock.getForceUpdates()).toBeGreaterThan(0);
+  });
+
+  test("uses the latest persisted values during a same-session plugin reload", () => {
+    const token = "c".repeat(64);
+    const mock = installBlockbenchSettingsMock({
+      storedSettings: {
+        codex_mcp_port: { value: 3000 },
+        codex_mcp_temporary_directory: { value: "D:\\old-temp" },
+      },
+      persistedSettings: {
+        codex_mcp_port: { value: 4312 },
+        codex_mcp_temporary_directory: { value: "D:\\current-temp" },
+        codex_mcp_auth_enabled: { value: false },
+        codex_mcp_auth_token: { value: token },
+      },
+    });
+
+    settingsSetup();
+
+    let category = mock.settingsApi.structure[CATEGORY_ID];
+    expect(category.items.codex_mcp_port.value).toBe(4312);
+    expect(category.items.codex_mcp_temporary_directory.value).toBe("D:\\current-temp");
+    expect(category.items.codex_mcp_auth_enabled.value).toBe(false);
+    expect(category.items.codex_mcp_auth_token.value).toBe(token);
+
+    category.items.codex_mcp_port.set(4789);
+    settingsTeardown();
+
+    expect(mock.getSaveLocalStoragesCalls()).toBeGreaterThan(0);
+    expect(mock.settingsApi.stored.codex_mcp_port).toEqual({ value: 4789 });
+    expect(mock.getPersistedSettings().codex_mcp_port).toEqual({ value: 4789 });
+
+    settingsSetup();
+    category = mock.settingsApi.structure[CATEGORY_ID];
+    expect(category.items.codex_mcp_port.value).toBe(4789);
+    expect(category.items.codex_mcp_temporary_directory.value).toBe("D:\\current-temp");
   });
 });

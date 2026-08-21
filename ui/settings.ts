@@ -38,6 +38,7 @@ const SETTING_ROW_CLASS = "codex-mcp-setting-row";
 const STACKED_SETTING_ROW_CLASS = "codex-mcp-stacked-setting";
 const NUMBER_SETTING_ROW_CLASS = "codex-mcp-number-setting";
 const DISABLED_SETTING_ROW_CLASS = "codex-mcp-setting-disabled";
+const PLUGIN_SETTING_PREFIX = "codex_mcp_";
 const settings: Setting[] = [];
 let settingsStyle: Deletable | undefined;
 let settingsObserver: MutationObserver | undefined;
@@ -270,6 +271,60 @@ function addSetting(id: string, options: SettingOptions): Setting {
   return setting;
 }
 
+/**
+ * Blockbench refreshes localStorage whenever a setting input changes, but its
+ * in-memory Settings.stored snapshot is only populated during application
+ * startup. A file-plugin reload in the same session would therefore recreate
+ * settings from the values that existed when Blockbench launched. Refresh
+ * only this plugin's records from the authoritative persisted copy first.
+ */
+function refreshPersistedPluginSettings(): void {
+  if (typeof localStorage === "undefined") return;
+
+  try {
+    const persisted = JSON.parse(localStorage.getItem("settings") ?? "{}") as unknown;
+    if (!persisted || typeof persisted !== "object" || Array.isArray(persisted)) return;
+
+    const settingsApi = Settings as unknown as {
+      stored?: Record<string, unknown>;
+    };
+    if (!settingsApi.stored) settingsApi.stored = {};
+
+    for (const [id, record] of Object.entries(persisted as Record<string, unknown>)) {
+      if (
+        id.startsWith(PLUGIN_SETTING_PREFIX) &&
+        record &&
+        typeof record === "object" &&
+        "value" in record
+      ) {
+        settingsApi.stored[id] = record;
+      }
+    }
+  } catch {
+    // Blockbench will continue with its already-loaded snapshot if storage is
+    // unavailable or malformed.
+  }
+}
+
+/** Keep the global startup snapshot current for subsequent hot reloads. */
+function preservePluginSettingsForReload(): void {
+  if (settings.length === 0) return;
+
+  const settingsApi = Settings as unknown as {
+    stored?: Record<string, unknown>;
+    saveLocalStorages?: () => void;
+  };
+  settingsApi.saveLocalStorages?.();
+  if (!settingsApi.stored) settingsApi.stored = {};
+
+  for (const setting of settings) {
+    const masterValue = (
+      setting as Setting & { master_value?: string | number | boolean }
+    ).master_value ?? setting.value;
+    settingsApi.stored[setting.id] = { value: masterValue };
+  }
+}
+
 function regenerateMcpAuthToken(): void {
   settings.find((setting) => setting.id === MCP_AUTH_TOKEN_SETTING)?.set(createMcpAuthToken());
   getSettingsDialog()?.content_vue?.$forceUpdate?.();
@@ -450,6 +505,13 @@ function ensureInlineDirectoryAction(): void {
   row.appendChild(action);
 }
 
+function removeInlineSettingExtras(): void {
+  if (typeof document === "undefined") return;
+  document
+    .querySelectorAll(`.${TOKEN_ACTION_CLASS}, .${DIRECTORY_ACTION_CLASS}, .${AUTH_WARNING_CLASS}`)
+    .forEach((element) => element.remove());
+}
+
 function ensureInlineSettingActions(): void {
   decorateVisibleSettingRows();
   ensureInlineTokenAction();
@@ -464,6 +526,10 @@ function settingsUiSetup(): void {
   if (!settingsStyle && typeof Blockbench !== "undefined" && Blockbench.addCSS) {
     settingsStyle = Blockbench.addCSS(settingsCSS);
   }
+  // A failed or interrupted file-plugin reload can leave DOM controls whose
+  // click listeners still point at the previous bundle. Always replace them
+  // before decorating the live settings page.
+  removeInlineSettingExtras();
   reconcileSettingsDialog();
   ensureInlineSettingActions();
 
@@ -492,9 +558,7 @@ function settingsUiTeardown(): void {
   settingsStyle?.delete();
   settingsStyle = undefined;
   if (typeof document !== "undefined") {
-    document
-      .querySelectorAll(`.${TOKEN_ACTION_CLASS}, .${DIRECTORY_ACTION_CLASS}, .${AUTH_WARNING_CLASS}`)
-      .forEach((element) => element.remove());
+    removeInlineSettingExtras();
     document.querySelectorAll<HTMLElement>(`.${SETTING_ROW_CLASS}`).forEach((row) => {
       const settingId = row.dataset.codexMcpSetting;
       const input = row.querySelector<HTMLInputElement>("input.dark_bordered");
@@ -545,6 +609,7 @@ function keepEnabledAuthTokenNonEmpty(value: unknown): void {
 
 export function settingsSetup(): void {
   if (settings.length > 0) return;
+  refreshPersistedPluginSettings();
   ensureSettingsCategory();
 
   addSetting(YSM_WORKSPACE_SETTING, {
@@ -679,6 +744,7 @@ export function settingsSetup(): void {
 }
 
 export function settingsTeardown(): void {
+  preservePluginSettingsForReload();
   settingsUiTeardown();
   settings.splice(0).forEach((setting) => setting.delete());
   removeSettingsCategory();

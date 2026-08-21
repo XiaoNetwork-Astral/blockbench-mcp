@@ -15,6 +15,22 @@ export const DEFAULT_AUDIT_RETENTION = 10_000;
 export const MIN_AUDIT_RETENTION = 100;
 export const MAX_AUDIT_RETENTION = 50_000;
 
+/**
+ * Blockbench persists each setting as `{ value: ... }`, while older test
+ * doubles and a few historical builds exposed the raw value directly.
+ * Accept both shapes so startup helpers never turn a stored object into the
+ * literal string "[object Object]".
+ */
+export function getStoredSettingValue(id: string): unknown {
+  const stored = (
+    Settings as unknown as { stored?: Record<string, unknown> }
+  ).stored?.[id];
+  if (stored && typeof stored === "object" && "value" in stored) {
+    return (stored as { value: unknown }).value;
+  }
+  return stored;
+}
+
 function numericSetting(id: string, fallback: number, minimum: number, maximum: number): number {
   const configured = Number(Settings.get(id));
   if (!Number.isFinite(configured)) return fallback;
@@ -32,7 +48,7 @@ export function createMcpAuthToken(): string {
 }
 
 export function getInitialMcpAuthToken(): string {
-  const stored = String(Settings.stored?.[MCP_AUTH_TOKEN_SETTING] || "").trim();
+  const stored = String(getStoredSettingValue(MCP_AUTH_TOKEN_SETTING) ?? "").trim();
   return isValidMcpAuthToken(stored) ? stored : createMcpAuthToken();
 }
 

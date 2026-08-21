@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   MCP_AUTH_ENABLED_SETTING,
   MCP_AUTH_TOKEN_SETTING,
+  getInitialMcpAuthToken,
   getMcpAuthEnabled,
   getMcpAuthToken,
 } from "@/lib/pluginSettings";
@@ -25,6 +26,18 @@ afterEach(() => {
 });
 
 describe("MCP authentication settings", () => {
+  test("reads Blockbench's persisted object shape when restoring a token", () => {
+    const token = "d".repeat(64);
+    (globalThis as any).Settings = {
+      stored: { [MCP_AUTH_TOKEN_SETTING]: { value: `  ${token}  ` } },
+      get() {
+        return undefined;
+      },
+    };
+
+    expect(getInitialMcpAuthToken()).toBe(token);
+  });
+
   test("keeps bearer authentication enabled unless the toggle is explicitly false", () => {
     const token = "a".repeat(64);
     installSettings({ [MCP_AUTH_TOKEN_SETTING]: `  ${token}  ` });
