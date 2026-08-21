@@ -11,6 +11,7 @@ import {
   MAX_MCP_PORT,
   MAX_SESSION_TIMEOUT_MINUTES,
   MAX_SSE_HEARTBEAT_SECONDS,
+  MCP_AUTH_ENABLED_SETTING,
   MCP_AUTH_TOKEN_SETTING,
   MCP_BIND_HOST_SETTING,
   MIN_AUDIT_RETENTION,
@@ -18,6 +19,7 @@ import {
   YSM_WORKSPACE_SETTING,
   createMcpAuthToken,
   getInitialMcpAuthToken,
+  getMcpAuthEnabled,
   normalizeMcpBindHost,
 } from "@/lib/pluginSettings";
 import { isLoopbackMcpHost } from "@/lib/security";
@@ -31,6 +33,9 @@ import settingsCSS from "@/ui/settings.css";
 const CATEGORY_ID = PLUGIN_ID;
 const TOKEN_ACTION_CLASS = "codex-mcp-token-regenerate";
 const DIRECTORY_ACTION_CLASS = "codex-mcp-directory-browse";
+const SETTING_ROW_CLASS = "codex-mcp-setting-row";
+const STACKED_SETTING_ROW_CLASS = "codex-mcp-stacked-setting";
+const NUMBER_SETTING_ROW_CLASS = "codex-mcp-number-setting";
 const settings: Setting[] = [];
 let settingsStyle: Deletable | undefined;
 let settingsObserver: MutationObserver | undefined;
@@ -263,17 +268,55 @@ function addSetting(id: string, options: SettingOptions): Setting {
 
 function regenerateMcpAuthToken(): void {
   settings.find((setting) => setting.id === MCP_AUTH_TOKEN_SETTING)?.set(createMcpAuthToken());
+  getSettingsDialog()?.content_vue?.$forceUpdate?.();
   Blockbench.showQuickMessage(tl("mcp.settings.token_regenerated"), 3000);
 }
 
+/**
+ * Blockbench's settings template gives every label a stable `for` value, but
+ * text and password inputs have no id. Locate the row through that label and
+ * then add the missing id ourselves. This follows the upstream DOM contract
+ * without depending on translated labels or the position of a setting.
+ */
+function getVisibleSettingRow(id: string): HTMLLIElement | undefined {
+  if (typeof document === "undefined") return undefined;
+  const label = document.querySelector<HTMLLabelElement>(
+    `dialog#settings #settingslist label[for="setting_${id}"]`
+  );
+  return label?.closest<HTMLLIElement>("li") ?? undefined;
+}
+
+function decorateVisibleSettingRows(): void {
+  for (const setting of settings) {
+    const row = getVisibleSettingRow(setting.id);
+    if (!row) continue;
+
+    row.classList.add(SETTING_ROW_CLASS);
+    row.classList.toggle(NUMBER_SETTING_ROW_CLASS, setting.type === "number");
+    row.classList.toggle(
+      STACKED_SETTING_ROW_CLASS,
+      setting.type === "text" || setting.type === "password" || setting.type === "number"
+    );
+    if (row.dataset.codexMcpSetting !== setting.id) {
+      row.dataset.codexMcpSetting = setting.id;
+    }
+
+    if (setting.type === "text" || setting.type === "password") {
+      const input = row.querySelector<HTMLInputElement>("input.dark_bordered");
+      if (input && input.id !== `setting_${setting.id}`) {
+        input.id = `setting_${setting.id}`;
+      }
+    }
+  }
+}
+
 function ensureInlineTokenAction(): void {
-  if (typeof document === "undefined") return;
-  const input = document.getElementById(`setting_${MCP_AUTH_TOKEN_SETTING}`);
-  const row = input?.closest("li");
+  const row = getVisibleSettingRow(MCP_AUTH_TOKEN_SETTING);
+  const input = row?.querySelector<HTMLInputElement>("input.dark_bordered");
   if (!input || !row || row.querySelector(`.${TOKEN_ACTION_CLASS}`)) return;
 
   const action = document.createElement("div");
-  action.className = `password_toggle tool ${TOKEN_ACTION_CLASS}`;
+  action.className = `tool ${TOKEN_ACTION_CLASS}`;
   action.setAttribute("role", "button");
   action.setAttribute("tabindex", "0");
   action.setAttribute("aria-label", tl("mcp.settings.regenerate_token_name"));
@@ -295,15 +338,14 @@ function ensureInlineTokenAction(): void {
     if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") activate(event);
   });
 
-  const visibilityAction = row.querySelector(".password_toggle");
-  if (visibilityAction) visibilityAction.insertAdjacentElement("afterend", action);
+  const visibilityAction = row.querySelector(":scope > .password_toggle");
+  if (visibilityAction) row.insertBefore(action, visibilityAction);
   else row.appendChild(action);
 }
 
 function ensureInlineDirectoryAction(): void {
-  if (typeof document === "undefined") return;
-  const input = document.getElementById(`setting_${YSM_WORKSPACE_SETTING}`);
-  const row = input?.closest("li");
+  const row = getVisibleSettingRow(YSM_WORKSPACE_SETTING);
+  const input = row?.querySelector<HTMLInputElement>("input.dark_bordered");
   if (!input || !row || row.querySelector(`.${DIRECTORY_ACTION_CLASS}`)) return;
 
   const action = document.createElement("div");
@@ -333,6 +375,7 @@ function ensureInlineDirectoryAction(): void {
 }
 
 function ensureInlineSettingActions(): void {
+  decorateVisibleSettingRows();
   ensureInlineTokenAction();
   ensureInlineDirectoryAction();
 }
@@ -372,13 +415,24 @@ function settingsUiTeardown(): void {
     document
       .querySelectorAll(`.${TOKEN_ACTION_CLASS}, .${DIRECTORY_ACTION_CLASS}`)
       .forEach((element) => element.remove());
+    document.querySelectorAll<HTMLElement>(`.${SETTING_ROW_CLASS}`).forEach((row) => {
+      const settingId = row.dataset.codexMcpSetting;
+      const input = row.querySelector<HTMLInputElement>("input.dark_bordered");
+      if (settingId && input?.id === `setting_${settingId}`) input.removeAttribute("id");
+      row.classList.remove(
+        SETTING_ROW_CLASS,
+        STACKED_SETTING_ROW_CLASS,
+        NUMBER_SETTING_ROW_CLASS
+      );
+      delete row.dataset.codexMcpSetting;
+    });
   }
 }
 
 function warnForNonLoopbackHost(value: unknown): void {
   const host = normalizeMcpBindHost(value);
   if (isLoopbackMcpHost(host)) return;
-  const hasToken = Boolean(String(Settings.get(MCP_AUTH_TOKEN_SETTING) ?? "").trim());
+  const hasToken = getMcpAuthEnabled();
   Blockbench.showMessageBox({
     title: tl("mcp.settings.bind_host_warning_title"),
     message: tl(
@@ -392,8 +446,11 @@ function warnForNonLoopbackHost(value: unknown): void {
   });
 }
 
-function warnForMissingAuthToken(value: unknown): void {
-  if (String(value ?? "").trim()) return;
+function warnForDisabledAuth(value: unknown): void {
+  if (value !== false) {
+    if (!String(Settings.get(MCP_AUTH_TOKEN_SETTING) ?? "").trim()) regenerateMcpAuthToken();
+    return;
+  }
   const host = normalizeMcpBindHost(Settings.get(MCP_BIND_HOST_SETTING));
   Blockbench.showMessageBox({
     title: tl("mcp.settings.auth_disabled_warning_title"),
@@ -406,6 +463,11 @@ function warnForMissingAuthToken(value: unknown): void {
     icon: "warning",
     buttons: ["dialog.ok"],
   });
+}
+
+function keepEnabledAuthTokenNonEmpty(value: unknown): void {
+  if (!getMcpAuthEnabled() || String(value ?? "").trim()) return;
+  regenerateMcpAuthToken();
 }
 
 export function settingsSetup(): void {
@@ -445,13 +507,21 @@ export function settingsSetup(): void {
     value: DEFAULT_MCP_ENDPOINT,
     icon: "webhook",
   });
+  addSetting(MCP_AUTH_ENABLED_SETTING, {
+    name: tl("mcp.settings.auth_enabled_name"),
+    description: tl("mcp.settings.auth_enabled_desc"),
+    type: "toggle",
+    value: true,
+    icon: "verified_user",
+    onChange: warnForDisabledAuth,
+  });
   addSetting(MCP_AUTH_TOKEN_SETTING, {
     name: tl("mcp.settings.auth_token_name"),
     description: tl("mcp.settings.auth_token_desc"),
     type: "password",
     value: getInitialMcpAuthToken(),
     icon: "key",
-    onChange: warnForMissingAuthToken,
+    onChange: keepEnabledAuthTokenNonEmpty,
   });
   addSetting("codex_mcp_session_timeout", {
     name: tl("mcp.settings.session_timeout_name"),

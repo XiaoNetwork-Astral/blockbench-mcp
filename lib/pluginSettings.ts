@@ -4,6 +4,7 @@ export const MAX_MCP_PORT = 65_535;
 export const DEFAULT_MCP_BIND_HOST = "127.0.0.1";
 export const MCP_BIND_HOST_SETTING = "codex_mcp_bind_host";
 export const DEFAULT_MCP_ENDPOINT = "/bb-mcp";
+export const MCP_AUTH_ENABLED_SETTING = "codex_mcp_auth_enabled";
 export const MCP_AUTH_TOKEN_SETTING = "codex_mcp_auth_token";
 export const YSM_WORKSPACE_SETTING = "codex_mcp_temporary_directory";
 export const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
@@ -39,11 +40,16 @@ export function normalizeMcpAuthToken(value: unknown): string {
   return String(value ?? "").trim();
 }
 
+export function getMcpAuthEnabled(): boolean {
+  return Settings.get(MCP_AUTH_ENABLED_SETTING) !== false;
+}
+
 export function getMcpAuthToken(): string {
-  // An empty value explicitly disables HTTP authentication. New installs
-  // still receive a generated default, but clearing the field is respected
-  // instead of silently creating and persisting a replacement token.
-  return normalizeMcpAuthToken(Settings.get(MCP_AUTH_TOKEN_SETTING));
+  // Keep the token stored while authentication is disabled so switching it
+  // back on does not unexpectedly invalidate the client's configuration.
+  return getMcpAuthEnabled()
+    ? normalizeMcpAuthToken(Settings.get(MCP_AUTH_TOKEN_SETTING))
+    : "";
 }
 
 export function normalizeMcpBindHost(value: unknown): string {

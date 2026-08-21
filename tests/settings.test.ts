@@ -22,6 +22,7 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
   let forceUpdates = 0;
   let openCategoryWrites = 0;
   let addedAction: FakeAction | undefined;
+  const messageBoxes: Record<string, unknown>[] = [];
 
   let openCategory = "general";
   const contentVue = {
@@ -83,11 +84,23 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
   class FakeSetting {
     id: string;
     value: unknown;
+    type: string;
+    onChange?: (value: unknown) => void;
     private category: string;
 
-    constructor(id: string, options: { category: string; value?: unknown }) {
+    constructor(
+      id: string,
+      options: {
+        category: string;
+        type?: string;
+        value?: unknown;
+        onChange?: (value: unknown) => void;
+      }
+    ) {
       this.id = id;
       this.value = options.value;
+      this.type = options.type ?? "toggle";
+      this.onChange = options.onChange;
       this.category = options.category;
       const category = settingsApi.structure[this.category];
       if (!category) throw new Error(`Missing settings category: ${this.category}`);
@@ -143,6 +156,12 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
       },
     },
   });
+  replaceGlobal("Blockbench", {
+    showMessageBox(options: Record<string, unknown>) {
+      messageBoxes.push(options);
+    },
+    showQuickMessage() {},
+  });
   replaceGlobal("tl", (key: string, values?: unknown[]) =>
     values?.length ? `${key}:${values.join(",")}` : key
   );
@@ -156,6 +175,7 @@ function installBlockbenchSettingsMock(options: { dialogReady?: boolean } = {}) 
     getForceUpdates: () => forceUpdates,
     getOpenCategoryWrites: () => openCategoryWrites,
     getAddedAction: () => addedAction,
+    getMessageBoxes: () => messageBoxes,
     mountDialog: () => {
       settingsApi.dialog = dialog;
       return dialog;
@@ -177,6 +197,128 @@ afterEach(() => {
 });
 
 describe("Blockbench settings integration", () => {
+  test("uses Blockbench's label contract to attach both inline setting buttons", () => {
+    installBlockbenchSettingsMock();
+
+    class FakeElement {
+      className = "";
+      dataset: Record<string, string> = {};
+      id = "";
+      parent: FakeElement | undefined;
+      children: FakeElement[] = [];
+      textContent = "";
+      title = "";
+      private extraClasses = new Set<string>();
+      readonly classList = {
+        add: (...names: string[]) => names.forEach((name) => this.extraClasses.add(name)),
+        remove: (...names: string[]) => names.forEach((name) => this.extraClasses.delete(name)),
+        toggle: (name: string, force?: boolean) => {
+          const enabled = force ?? !this.hasClass(name);
+          if (enabled) this.extraClasses.add(name);
+          else this.extraClasses.delete(name);
+          return enabled;
+        },
+        contains: (name: string) => this.hasClass(name),
+      };
+
+      constructor(readonly tagName: string) {}
+
+      private hasClass(name: string): boolean {
+        return this.extraClasses.has(name) || this.className.split(/\s+/).includes(name);
+      }
+
+      appendChild(child: FakeElement): FakeElement {
+        child.parent = this;
+        this.children.push(child);
+        return child;
+      }
+
+      insertBefore(child: FakeElement, reference: FakeElement): FakeElement {
+        child.parent = this;
+        const index = this.children.indexOf(reference);
+        if (index < 0) this.children.push(child);
+        else this.children.splice(index, 0, child);
+        return child;
+      }
+
+      querySelector(selector: string): FakeElement | null {
+        if (selector === "input.dark_bordered") {
+          return this.children.find((child) => child.tagName === "input" && child.hasClass("dark_bordered")) ?? null;
+        }
+        if (selector === ":scope > .password_toggle") {
+          return this.children.find((child) => child.hasClass("password_toggle")) ?? null;
+        }
+        if (selector.startsWith(".")) {
+          const className = selector.slice(1);
+          return this.children.find((child) => child.hasClass(className)) ?? null;
+        }
+        return null;
+      }
+
+      closest(selector: string): FakeElement | null {
+        let current: FakeElement | undefined = this;
+        while (current) {
+          if (selector === "li" && current.tagName === "li") return current;
+          current = current.parent;
+        }
+        return null;
+      }
+
+      setAttribute(name: string, value: string): void {
+        if (name === "id") this.id = value;
+      }
+
+      removeAttribute(name: string): void {
+        if (name === "id") this.id = "";
+      }
+
+      addEventListener(): void {}
+      remove(): void {}
+    }
+
+    function createSettingRow(includeVisibilityButton = false) {
+      const row = new FakeElement("li");
+      const label = new FakeElement("label");
+      const input = new FakeElement("input");
+      input.className = "dark_bordered";
+      label.parent = row;
+      row.appendChild(input);
+      const visibility = includeVisibilityButton ? new FakeElement("div") : undefined;
+      if (visibility) {
+        visibility.className = "password_toggle";
+        row.appendChild(visibility);
+      }
+      return { row, label, input, visibility };
+    }
+
+    const directory = createSettingRow();
+    const token = createSettingRow(true);
+    const labels = new Map([
+      ["codex_mcp_temporary_directory", directory.label],
+      ["codex_mcp_auth_token", token.label],
+    ]);
+    replaceGlobal("document", {
+      body: new FakeElement("body"),
+      createElement: (tagName: string) => new FakeElement(tagName),
+      querySelector(selector: string) {
+        const id = selector.match(/label\[for="setting_([^"]+)"\]/)?.[1];
+        return id ? labels.get(id) ?? null : null;
+      },
+      querySelectorAll: () => [],
+    });
+
+    settingsSetup();
+
+    expect(directory.input.id).toBe("setting_codex_mcp_temporary_directory");
+    expect(directory.row.querySelector(".codex-mcp-directory-browse")).not.toBeNull();
+    expect(token.input.id).toBe("setting_codex_mcp_auth_token");
+    const regenerate = token.row.querySelector(".codex-mcp-token-regenerate");
+    expect(regenerate).not.toBeNull();
+    expect(token.row.children.indexOf(regenerate!)).toBeLessThan(
+      token.row.children.indexOf(token.visibility!)
+    );
+  });
+
   test("repairs a stale category, registers settings, and removes both category entries", () => {
     const mock = installBlockbenchSettingsMock();
 
@@ -184,11 +326,22 @@ describe("Blockbench settings integration", () => {
 
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
-    expect(Object.keys(category.items)).toHaveLength(12);
+    expect(Object.keys(category.items)).toHaveLength(13);
     expect(category.items.codex_mcp_temporary_directory).toBeDefined();
     expect(category.items.codex_mcp_bind_host).toBeDefined();
     expect(category.items.codex_mcp_port).toBeDefined();
+    expect(category.items.codex_mcp_auth_enabled).toBeDefined();
     expect(category.items.codex_mcp_auth_token).toBeDefined();
+    expect(Object.keys(category.items).indexOf("codex_mcp_auth_enabled")).toBeLessThan(
+      Object.keys(category.items).indexOf("codex_mcp_auth_token")
+    );
+    category.items.codex_mcp_auth_enabled.onChange?.(false);
+    expect(mock.getMessageBoxes()).toEqual([
+      expect.objectContaining({
+        title: "mcp.settings.auth_disabled_warning_title",
+        icon: "warning",
+      }),
+    ]);
     expect(category.items.codex_mcp_instructions).toBeUndefined();
     expect(category.items.codex_mcp_copy_connection).toBeUndefined();
     expect(category.items.codex_mcp_regenerate_auth_token).toBeUndefined();
@@ -226,7 +379,7 @@ describe("Blockbench settings integration", () => {
 
     settingsSetup();
 
-    expect(Object.keys(mock.settingsApi.structure[CATEGORY_ID].items)).toHaveLength(12);
+    expect(Object.keys(mock.settingsApi.structure[CATEGORY_ID].items)).toHaveLength(13);
     expect(
       mock.settingsApi.structure[CATEGORY_ID].items.codex_mcp_instructions
     ).toBeUndefined();
@@ -242,10 +395,11 @@ describe("Blockbench settings integration", () => {
 
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
-    expect(Object.keys(category.items)).toHaveLength(12);
+    expect(Object.keys(category.items)).toHaveLength(13);
     expect(category.items.codex_mcp_temporary_directory).toBeDefined();
     expect(category.items.codex_mcp_bind_host).toBeDefined();
     expect(category.items.codex_mcp_port).toBeDefined();
+    expect(category.items.codex_mcp_auth_enabled).toBeDefined();
     expect(category.items.codex_mcp_auth_token).toBeDefined();
     expect(mock.getAddCategoryCalls()).toBe(0);
 
@@ -256,7 +410,7 @@ describe("Blockbench settings integration", () => {
     expect(reconcileSettingsDialog()).toBe(true);
     dialog.sidebar.setPage(CATEGORY_ID);
 
-    expect(Object.keys(category.items)).toHaveLength(12);
+    expect(Object.keys(category.items)).toHaveLength(13);
     expect(dialog.content_vue.open_category).toBe(CATEGORY_ID);
     expect(mock.getForceUpdates()).toBeGreaterThan(0);
   });

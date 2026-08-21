@@ -1,23 +1,80 @@
-dialog#settings #setting_codex_mcp_auth_token {
-  width: calc(96% - 56px) !important;
+dialog#settings #settingslist > li.codex-mcp-stacked-setting {
+  align-items: stretch;
 }
 
-dialog#settings #setting_codex_mcp_temporary_directory {
-  width: calc(96% - 28px) !important;
+dialog#settings #settingslist > li.codex-mcp-stacked-setting > .setting_label {
+  margin-bottom: 10px;
+}
+
+dialog#settings #settingslist > li.codex-mcp-stacked-setting .setting_description {
+  line-height: 1.35;
+}
+
+dialog#settings #settingslist > li.codex-mcp-number-setting {
+  flex-wrap: wrap;
+}
+
+dialog#settings #settingslist > li.codex-mcp-number-setting > .setting_label {
+  order: 1;
+  width: 100%;
+}
+
+dialog#settings #settingslist > li.codex-mcp-number-setting > .setting_element {
+  order: 2;
+  width: 180px;
+  margin: 0 0 0 5px;
+  text-align: left;
+}
+
+dialog#settings #settingslist > li.codex-mcp-number-setting input[type="number"] {
+  height: 36px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_temporary_directory"] > input.dark_bordered,
+dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"] > input.dark_bordered {
+  flex: 1 1 240px;
+  width: auto !important;
+  min-width: 0;
 }
 
 dialog#settings .codex-mcp-token-regenerate,
 dialog#settings .codex-mcp-directory-browse {
   display: inline-flex;
-  width: 24px;
-  height: 32px;
-  margin-left: 4px;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 36px;
+  margin-left: 8px;
   padding: 0;
   align-items: center;
   justify-content: center;
   vertical-align: bottom;
   border-radius: 4px;
   cursor: pointer;
+}
+
+dialog#settings .codex-mcp-directory-browse {
+  margin-right: 4%;
+}
+
+dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"] > .password_toggle {
+  display: inline-flex;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 36px;
+  margin-left: 8px;
+  margin-right: 4%;
+  align-items: center;
+  justify-content: center;
+  vertical-align: bottom;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"] > .password_toggle:hover {
+  color: var(--color-light);
+  background-color: var(--color-button);
 }
 
 dialog#settings .codex-mcp-token-regenerate:hover,
@@ -31,6 +88,11 @@ dialog#settings .codex-mcp-directory-browse:focus-visible {
 
 dialog#settings .codex-mcp-token-regenerate > i,
 dialog#settings .codex-mcp-directory-browse > i {
+  font-size: 20px;
+  pointer-events: none;
+}
+
+dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"] > .password_toggle > i {
   font-size: 20px;
   pointer-events: none;
 }
