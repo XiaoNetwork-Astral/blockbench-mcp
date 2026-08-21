@@ -98,6 +98,8 @@ describe("operations panel presentation", () => {
     expect(template).toContain("'timeline-' + timelineState(item)");
     expect(styles).toContain(".codex-audit-entry.timeline-undone .codex-audit-status-dot");
     expect(styles).toContain(".codex-audit-entry.timeline-current .codex-audit-status-dot");
+    expect(styles).toContain("background-color 180ms ease");
+    expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
     expect(uiSetup).not.toContain("mcp_panel");
     expect(uiSetup).not.toContain("new Panel");
   });

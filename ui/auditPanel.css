@@ -268,6 +268,12 @@
     height: 7px;
     border-radius: 50%;
     background: var(--color-subtle_text);
+    box-shadow: 0 0 0 0 transparent;
+    transform: scale(1);
+    transition:
+        background-color 180ms ease,
+        box-shadow 180ms ease,
+        transform 180ms ease;
 }
 
 .codex-audit-entry.status-success .codex-audit-status-dot {
@@ -288,6 +294,14 @@
 
 .codex-audit-entry.timeline-current .codex-audit-status-dot {
     background: #55b86a;
+    box-shadow: 0 0 0 2px rgba(85, 184, 106, 0.22);
+    transform: scale(1.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .codex-audit-status-dot {
+        transition: none;
+    }
 }
 
 .codex-audit-entry-main {
