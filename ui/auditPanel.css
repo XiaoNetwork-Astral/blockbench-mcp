@@ -6,6 +6,13 @@
     background: var(--color-ui);
 }
 
+.panel_handle[panel_id="codex_mcp_audit_panel"] > span {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
 .codex-audit-panel {
     display: flex;
     flex-direction: column;
@@ -346,8 +353,8 @@
 }
 
 .codex-audit-entry-actions {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex !important;
+    align-items: stretch;
     gap: 6px;
 }
 
@@ -355,26 +362,43 @@
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    width: 100% !important;
+    flex: 1 1 0 !important;
+    width: 0 !important;
     min-width: 0 !important;
     max-width: none !important;
     min-height: 32px;
     margin: 0 !important;
     padding: 5px 8px !important;
     gap: 5px;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 4px !important;
+    background: var(--color-button) !important;
+    color: var(--color-text) !important;
+    box-sizing: border-box;
     line-height: 20px;
     white-space: normal;
 }
 
 .codex-audit-entry-actions > button > i {
     flex: 0 0 auto;
+    color: inherit !important;
     font-size: 17px;
 }
 
-.codex-audit-entry-actions > button:disabled {
+.codex-audit-entry-actions > button:not(:disabled):hover,
+.codex-audit-entry-actions > button:not(:disabled):focus-visible,
+.codex-audit-entry-actions > button:not(:disabled):active {
+    background: var(--color-accent) !important;
+    color: var(--color-light) !important;
+}
+
+.codex-audit-entry-actions > button:disabled,
+.codex-audit-entry-actions > button:disabled:hover,
+.codex-audit-entry-actions > button:disabled:focus,
+.codex-audit-entry-actions > button:disabled:active {
     background: var(--color-button) !important;
     color: var(--color-subtle_text) !important;
-    opacity: 0.45;
+    opacity: 1 !important;
     cursor: not-allowed;
 }
 

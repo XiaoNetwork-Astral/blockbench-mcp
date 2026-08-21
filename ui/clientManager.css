@@ -125,7 +125,6 @@
     cursor: pointer;
 }
 
-.codex-mcp-client-expand-button:hover,
 .codex-mcp-client-actions .codex-mcp-client-action:hover,
 .codex-mcp-blocked-row button:hover,
 .codex-mcp-session-row .codex-mcp-session-disconnect:hover {
@@ -144,14 +143,38 @@
     line-height: 1;
 }
 
-.codex-mcp-client-expand-button:disabled {
-    opacity: 0.5;
-    cursor: default;
-}
-
 .codex-mcp-client-expand-button > i,
 .codex-mcp-client-actions .material-icons {
     font-size: 19px;
+}
+
+.codex-mcp-client-expand-button > i {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin: 0 !important;
+    color: inherit !important;
+    line-height: 20px;
+    text-align: center;
+}
+
+.codex-mcp-client-expand-button:not(:disabled):hover,
+.codex-mcp-client-expand-button:not(:disabled):focus-visible,
+.codex-mcp-client-expand-button:not(:disabled):active {
+    background: var(--color-accent) !important;
+    color: var(--color-light) !important;
+}
+
+.codex-mcp-client-expand-button:disabled,
+.codex-mcp-client-expand-button:disabled:hover,
+.codex-mcp-client-expand-button:disabled:focus,
+.codex-mcp-client-expand-button:disabled:active {
+    background: var(--color-button) !important;
+    color: var(--color-subtle_text) !important;
+    opacity: 0.55 !important;
+    cursor: default;
 }
 
 .codex-mcp-client-scroll-region {

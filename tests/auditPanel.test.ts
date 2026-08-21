@@ -74,6 +74,11 @@ describe("operations panel presentation", () => {
     expect(styles).toContain("grid-template-columns: 42px minmax(0, 1fr)");
     expect(styles).toContain(".codex-audit-filter-select:has(select:open) > i");
     expect(styles).toContain("color: var(--color-text) !important");
+    expect(styles).toContain('.panel_handle[panel_id="codex_mcp_audit_panel"] > span');
+    expect(styles).toContain("white-space: nowrap");
+    expect(styles).toContain("display: flex !important");
+    expect(styles).toContain("flex: 1 1 0 !important");
+    expect(styles).toContain("opacity: 1 !important");
     expect(source).toContain("growable: false");
     expect(source).toContain("resizable: true");
     expect(source).not.toContain("storagePersistent");
