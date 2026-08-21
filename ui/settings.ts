@@ -370,11 +370,6 @@ function decorateVisibleSettingRows(): void {
       if (input && input.id !== `setting_${setting.id}`) {
         input.id = `setting_${setting.id}`;
       }
-      if (input && setting.id === YSM_WORKSPACE_SETTING) {
-        // Upstream's text-setting template does not add a title. Clear any
-        // stale title so Chromium does not show a second white path tooltip.
-        input.removeAttribute("title");
-      }
     }
   }
 }
@@ -531,10 +526,6 @@ function settingsUiSetup(): void {
   if (!settingsStyle && typeof Blockbench !== "undefined" && Blockbench.addCSS) {
     settingsStyle = Blockbench.addCSS(settingsCSS);
   }
-  // A failed or interrupted file-plugin reload can leave DOM controls whose
-  // click listeners still point at the previous bundle. Always replace them
-  // before decorating the live settings page.
-  removeInlineSettingExtras();
   reconcileSettingsDialog();
   ensureInlineSettingActions();
 

@@ -80,10 +80,9 @@ describe("YSM temporary directory setting", () => {
     expect(getYsmWorkspaceRoot()).toBe("D:\\new-temp");
   });
 
-  test("updates the visible setting and removes legacy path feedback", () => {
+  test("updates the visible setting without showing a redundant success message", () => {
     let configured: unknown;
     let quickMessages = 0;
-    let legacyMessage: { textContent: string; remove(): void } | undefined;
     replaceGlobal("PathModule", path.win32);
     replaceGlobal("Settings", {
       stored: {},
@@ -108,27 +107,10 @@ describe("YSM temporary directory setting", () => {
     });
     replaceGlobal("requireNativeModule", () => ({}));
     replaceGlobal("tl", (key: string) => key);
-    replaceGlobal("document", {
-      getElementById(id: string) {
-        return id === "quick_message_box" ? legacyMessage ?? null : null;
-      },
-    });
-    replaceGlobal("queueMicrotask", (callback: () => void) => {
-      // Simulate a stale same-session listener showing the old message after
-      // the current directory-selection callback has returned.
-      legacyMessage = {
-        textContent: "Temporary model directory: D:\\selected-temp",
-        remove() {
-          legacyMessage = undefined;
-        },
-      };
-      callback();
-    });
 
     expect(chooseYsmWorkspace()).toBe(true);
     expect(configured).toBe("D:\\selected-temp");
     expect(getYsmWorkspaceRoot()).toBe("D:\\selected-temp");
     expect(quickMessages).toBe(0);
-    expect(legacyMessage).toBeUndefined();
   });
 });

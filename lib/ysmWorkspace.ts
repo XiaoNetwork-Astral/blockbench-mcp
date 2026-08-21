@@ -58,23 +58,6 @@ export function setYsmWorkspaceRoot(value: string, requestPermission = true): bo
   return requestPermission ? ensureYsmWorkspaceAccess(true) : true;
 }
 
-function removeRedundantDirectorySelectionMessage(selectedPath: string): void {
-  if (typeof document === "undefined") return;
-  const message = document.getElementById("quick_message_box");
-  if (message?.textContent?.includes(selectedPath)) message.remove();
-}
-
-function suppressLegacyDirectorySelectionMessage(selectedPath: string): void {
-  // Older file-plugin builds announced the selected path with a central quick
-  // message. A same-session reload can leave that older click callback alive,
-  // so remove only that path-specific message after all click listeners have
-  // had a chance to run. Other Blockbench feedback is left untouched.
-  removeRedundantDirectorySelectionMessage(selectedPath);
-  if (typeof queueMicrotask === "function") {
-    queueMicrotask(() => removeRedundantDirectorySelectionMessage(selectedPath));
-  }
-}
-
 export function chooseYsmWorkspace(): boolean {
   const selected = Blockbench.pickDirectory({
     title: tl("mcp.settings.temporary_directory_picker_title"),
@@ -82,9 +65,7 @@ export function chooseYsmWorkspace(): boolean {
     resource_id: "codex_blockbench_mcp_ysm_workspace",
   });
   if (!selected) return false;
-  const accepted = setYsmWorkspaceRoot(selected, true);
-  if (accepted) suppressLegacyDirectorySelectionMessage(normalizedRoot(selected));
-  return accepted;
+  return setYsmWorkspaceRoot(selected, true);
 }
 
 export function ensureYsmWorkspaceAccess(showPermissionDialog: boolean): boolean {

@@ -391,10 +391,6 @@ describe("Blockbench settings integration", () => {
     }
 
     const directory = createSettingRow();
-    directory.input.setAttribute(
-      "title",
-      "Temporary model directory: D:\\selected-temp"
-    );
     const auth = createSettingRow({ toggle: true });
     const token = createSettingRow({ password: true });
     const labels = new Map([
@@ -426,7 +422,6 @@ describe("Blockbench settings integration", () => {
     settingsSetup();
 
     expect(directory.input.id).toBe("setting_codex_mcp_temporary_directory");
-    expect(directory.input.getAttribute("title")).toBeNull();
     expect(directory.row.querySelector(".codex-mcp-directory-browse")).not.toBeNull();
     expect(token.input.id).toBe("setting_codex_mcp_auth_token");
     const regenerate = token.row.querySelector(".codex-mcp-token-regenerate");
