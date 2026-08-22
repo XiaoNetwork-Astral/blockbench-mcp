@@ -11,14 +11,14 @@
     <nav class="sidebar">
       <div class="sidebar-brand">
         <h1>Blockbench MCP</h1>
-        <p>v1.7.0-codex.24 — API Reference</p>
+        <p>v1.7.0-codex.25 — API Reference</p>
       </div>
 
       <input id="search" type="text" placeholder="Search tools..." class="search-input" />
 
       <div class="nav-group">
         <p class="nav-heading">Overview</p>
-        <a href="#tools" class="nav-link">Tools <span class="count">(117)</span></a>
+        <a href="#tools" class="nav-link">Tools <span class="count">(120)</span></a>
         <a href="#prompts" class="nav-link">Prompts <span class="count">(5)</span></a>
         <a href="#resources" class="nav-link">Resources <span class="count">(12)</span></a>
       </div>
@@ -26,6 +26,7 @@
       <div class="nav-group">
         <p class="nav-heading">Categories</p>
         <a href="#cat-cubes" class="nav-link">Cubes <span class="count">(2)</span></a>
+        <a href="#cat-display-settings" class="nav-link">Display Settings <span class="count">(3)</span></a>
         <a href="#cat-camera-screenshots" class="nav-link">Camera &amp; Screenshots <span class="count">(3)</span></a>
         <a href="#cat-preview" class="nav-link">Preview <span class="count">(1)</span></a>
         <a href="#cat-animation" class="nav-link">Animation <span class="count">(7)</span></a>
@@ -51,9 +52,9 @@
     <main class="main">
       <header class="page-header">
         <h1>Blockbench MCP Plugin</h1>
-        <p class="subtitle">API Reference — v1.7.0-codex.24</p>
+        <p class="subtitle">API Reference — v1.7.0-codex.25</p>
         <nav class="stats">
-          <a href="#tools"><strong>117</strong> tools (53 stable, 64 experimental)</a>
+          <a href="#tools"><strong>120</strong> tools (53 stable, 67 experimental)</a>
           <a href="#prompts"><strong>5</strong> prompts</a>
           <a href="#resources"><strong>12</strong> resources</a>
         </nav>
@@ -200,6 +201,136 @@
       <td class="col-type">boolean</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Whether the cube is visible or not.</td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+        </section>
+<section id="cat-display-settings" class="category-section">
+          <h3 class="category-title">Display Settings</h3>
+          <div id="tool-get_display_transform" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">get_display_transform</h3>
+        <div class="card-badges">
+          <span class="badge badge-experimental">experimental</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">Get Display Transform</p>
+      <p class="card-desc">Reads Java Edition display transforms from Project.display_settings. Returns one slot or every populated slot without modifying the model.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">slot</td>
+      <td class="col-type">&quot;thirdperson_righthand&quot; | &quot;thirdperson_lefthand&quot; | &quot;firstperson_righthand&quot; | &quot;firstperson_lefthand&quot; | &quot;ground&quot; | &quot;gui&quot; | &quot;head&quot; | &quot;embedded&quot; | &quot;fixed&quot; | &quot;on_shelf&quot;</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Display slot to read. Omit to return all populated slots.</td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-set_display_transform" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">set_display_transform</h3>
+        <div class="card-badges">
+          <span class="badge badge-experimental">experimental</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Set Display Transform</p>
+      <p class="card-desc">Writes one Java Edition display transform with complete Undo and audit coverage. This changes exported model data and requires a format with display-mode support.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">slot</td>
+      <td class="col-type">&quot;thirdperson_righthand&quot; | &quot;thirdperson_lefthand&quot; | &quot;firstperson_righthand&quot; | &quot;firstperson_lefthand&quot; | &quot;ground&quot; | &quot;gui&quot; | &quot;head&quot; | &quot;embedded&quot; | &quot;fixed&quot; | &quot;on_shelf&quot;</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Display slot to modify.</td>
+    </tr><tr>
+      <td class="col-name">translation</td>
+      <td class="col-type">number[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Translation offset as [x, y, z] in Minecraft display units. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr><tr>
+      <td class="col-name">rotation</td>
+      <td class="col-type">number[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Rotation in degrees as [x, y, z]. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr><tr>
+      <td class="col-name">scale</td>
+      <td class="col-type">number[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Scale factor as [x, y, z]. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr><tr>
+      <td class="col-name">rotation_pivot</td>
+      <td class="col-type">number[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Rotation pivot as [x, y, z]. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr><tr>
+      <td class="col-name">scale_pivot</td>
+      <td class="col-type">number[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Scale pivot as [x, y, z]. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr><tr>
+      <td class="col-name">mirror</td>
+      <td class="col-type">boolean[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Per-axis mirror flags as [x, y, z]. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr><tr>
+      <td class="col-name">reset</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Reset the slot to its identity transform before applying supplied fields. <span class="param-meta">(default: <code>false</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-enter_display_mode" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">enter_display_mode</h3>
+        <div class="card-badges">
+          <span class="badge badge-experimental">experimental</span>
+
+        </div>
+      </div>
+      <p class="card-title">Enter Display Mode</p>
+      <p class="card-desc">Switches the editor preview to a display slot, optionally loads a validated reference model, and returns a screenshot for multi-view fit checks. It does not change exported transform data.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">slot</td>
+      <td class="col-type">&quot;thirdperson_righthand&quot; | &quot;thirdperson_lefthand&quot; | &quot;firstperson_righthand&quot; | &quot;firstperson_lefthand&quot; | &quot;ground&quot; | &quot;gui&quot; | &quot;head&quot; | &quot;embedded&quot; | &quot;fixed&quot; | &quot;on_shelf&quot;</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Display slot to activate.</td>
+    </tr><tr>
+      <td class="col-name">reference</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Optional live reference model name, such as player, zombie, armor_stand, or block. <span class="param-meta">[minLength: 1]</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -4864,7 +4995,7 @@
       </section>
 
       <footer class="page-footer">
-        Generated 2026-08-22T13:22:31.603Z from Zod schemas
+        Generated 2026-08-22T13:42:44.798Z from Zod schemas
       </footer>
     </main>
   </div>

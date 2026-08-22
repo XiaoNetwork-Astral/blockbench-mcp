@@ -7,6 +7,7 @@ import { tools } from "@/lib/factories";
 import { registerCameraTools } from "./tools/camera";
 import { registerAnimationTools } from "./tools/animation";
 import { registerCubesTools } from "./tools/cubes";
+import { registerDisplayTools } from "./tools/display";
 import { registerElementTools } from "./tools/element";
 import { registerImportTools } from "./tools/import";
 import { registerMeshTools } from "./tools/mesh";
@@ -39,6 +40,7 @@ const registrationFunctions = [
   registerCameraTools,
   registerCodexTextureTools,
   registerCubesTools,
+  registerDisplayTools,
   registerElementTools,
   registerExportTools,
   registerHistoryTools,

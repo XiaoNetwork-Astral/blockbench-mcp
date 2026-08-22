@@ -5,6 +5,7 @@ import type { ToolSpec, PromptSpec, ResourceSpec } from "../lib/factories";
 import { cameraToolDocs } from "../server/tools/camera";
 import { codexTextureToolDocs } from "../server/tools/codex-texture";
 import { cubeToolDocs } from "../server/tools/cubes";
+import { displayToolDocs } from "../server/tools/display";
 import { elementToolDocs } from "../server/tools/element";
 import { importToolDocs } from "../server/tools/import";
 import { meshToolDocs } from "../server/tools/mesh";
@@ -30,6 +31,7 @@ export interface CategoryGroup {
 
 export const toolManifest: CategoryGroup[] = [
   { category: "Cubes", tools: cubeToolDocs },
+  { category: "Display Settings", tools: displayToolDocs },
   { category: "Camera & Screenshots", tools: cameraToolDocs },
   { category: "Preview", tools: previewToolDocs },
   { category: "Animation", tools: animationToolDocs },

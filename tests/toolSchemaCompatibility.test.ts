@@ -6,6 +6,7 @@ import { armatureToolDocs } from "@/server/tools/armature";
 import { cameraToolDocs } from "@/server/tools/camera";
 import { codexTextureToolDocs } from "@/server/tools/codex-texture";
 import { cubeToolDocs } from "@/server/tools/cubes";
+import { displayToolDocs } from "@/server/tools/display";
 import { elementToolDocs } from "@/server/tools/element";
 import { exportToolDocs } from "@/server/tools/export";
 import { historyToolDocs } from "@/server/tools/history";
@@ -28,6 +29,7 @@ const toolDocs = [
   ...cameraToolDocs,
   ...codexTextureToolDocs,
   ...cubeToolDocs,
+  ...displayToolDocs,
   ...elementToolDocs,
   ...exportToolDocs,
   ...historyToolDocs,
@@ -60,13 +62,13 @@ function findTupleItems(value: unknown, path = "schema"): string[] {
 }
 
 describe("Codex MCP schema compatibility", () => {
-  test("all 105 tools avoid unsupported draft-07 tuple items", () => {
+  test("all 108 tools avoid unsupported draft-07 tuple items", () => {
     const failures = toolDocs.flatMap((tool) => {
       const schema = zodToJsonSchema(tool.parameters, { $refStrategy: "root" });
       return findTupleItems(schema).map((path) => `${tool.name}: ${path}`);
     });
 
-    expect(toolDocs).toHaveLength(105);
+    expect(toolDocs).toHaveLength(108);
     expect(failures).toEqual([]);
   });
 
@@ -91,10 +93,10 @@ describe("Codex MCP schema compatibility", () => {
       !category.endsWith("(optional)")
     );
 
-    expect(core).toHaveLength(105);
+    expect(core).toHaveLength(108);
     expect(optional).toHaveLength(12);
-    expect(documented).toHaveLength(117);
-    expect(new Set(documented.map(({ name }) => name)).size).toBe(117);
+    expect(documented).toHaveLength(120);
+    expect(new Set(documented.map(({ name }) => name)).size).toBe(120);
     expect(optional.map(({ name }) => name).sort()).toEqual(
       hytaleToolDocs.map(({ name }) => name).sort()
     );

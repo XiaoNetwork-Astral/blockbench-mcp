@@ -14,6 +14,11 @@ import {
 } from "@/lib/toolFixes";
 import { vec3 } from "@/lib/zodObjects";
 import { applyTexturePixelsParameters } from "@/server/tools/codex-texture";
+import {
+  displayToolDocs,
+  hasDisplayTransformChange,
+  setDisplayTransformParameters,
+} from "@/server/tools/display";
 
 describe("upstream issue regressions", () => {
   test("add_group advertises independent optional vectors and an explicit parent", () => {
@@ -242,5 +247,25 @@ describe("upstream issue regressions", () => {
     expect(Array.isArray(vectorSchema.items)).toBe(false);
     expect(vectorSchema).toMatchObject({ minItems: 3, maxItems: 3 });
     expect(Array.isArray(rgbaItems)).toBe(false);
+  });
+
+  test("display tools use bounded slots and reject empty transform intents", () => {
+    expect(displayToolDocs.map(({ name }) => name)).toEqual([
+      "get_display_transform",
+      "set_display_transform",
+      "enter_display_mode",
+    ]);
+    expect(() => setDisplayTransformParameters.parse({
+      slot: "invalid_slot",
+      scale: [1, 1, 1],
+    })).toThrow();
+
+    const noChange = setDisplayTransformParameters.parse({ slot: "gui" });
+    const scaleChange = setDisplayTransformParameters.parse({
+      slot: "gui",
+      scale: [1, 2, 1],
+    });
+    expect(hasDisplayTransformChange(noChange)).toBe(false);
+    expect(hasDisplayTransformChange(scaleChange)).toBe(true);
   });
 });

@@ -121,6 +121,20 @@ export const renderSidesEnum = z.enum(["auto", "front", "double"]);
 /** Loop modes for animation */
 export const loopModeEnum = z.enum(["once", "loop", "hold"]);
 
+/** Java Edition display slots stored under Project.display_settings. */
+export const displaySlotEnum = z.enum([
+  "thirdperson_righthand",
+  "thirdperson_lefthand",
+  "firstperson_righthand",
+  "firstperson_lefthand",
+  "ground",
+  "gui",
+  "head",
+  "embedded",
+  "fixed",
+  "on_shelf",
+]);
+
 // ============================================================================
 // Color Schemas
 // ============================================================================

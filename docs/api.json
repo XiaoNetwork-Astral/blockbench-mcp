@@ -1,6 +1,6 @@
 {
-  "version": "1.7.0-codex.24",
-  "generatedAt": "2026-08-22T13:22:31.603Z",
+  "version": "1.7.0-codex.25",
+  "generatedAt": "2026-08-22T13:42:44.798Z",
   "tools": [
     {
       "name": "place_cube",
@@ -391,6 +391,201 @@
                 "markdownDescription": "Whether the cube is visible or not."
               }
             },
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "get_display_transform",
+      "title": "Get Display Transform",
+      "description": "Reads Java Edition display transforms from Project.display_settings. Returns one slot or every populated slot without modifying the model.",
+      "status": "experimental",
+      "category": "Display Settings",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/get_display_transform",
+        "definitions": {
+          "get_display_transform": {
+            "type": "object",
+            "properties": {
+              "slot": {
+                "type": "string",
+                "enum": [
+                  "thirdperson_righthand",
+                  "thirdperson_lefthand",
+                  "firstperson_righthand",
+                  "firstperson_lefthand",
+                  "ground",
+                  "gui",
+                  "head",
+                  "embedded",
+                  "fixed",
+                  "on_shelf"
+                ],
+                "description": "Display slot to read. Omit to return all populated slots.",
+                "markdownDescription": "Display slot to read. Omit to return all populated slots."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "set_display_transform",
+      "title": "Set Display Transform",
+      "description": "Writes one Java Edition display transform with complete Undo and audit coverage. This changes exported model data and requires a format with display-mode support.",
+      "status": "experimental",
+      "category": "Display Settings",
+      "annotations": {
+        "destructiveHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/set_display_transform",
+        "definitions": {
+          "set_display_transform": {
+            "type": "object",
+            "properties": {
+              "slot": {
+                "type": "string",
+                "enum": [
+                  "thirdperson_righthand",
+                  "thirdperson_lefthand",
+                  "firstperson_righthand",
+                  "firstperson_lefthand",
+                  "ground",
+                  "gui",
+                  "head",
+                  "embedded",
+                  "fixed",
+                  "on_shelf"
+                ],
+                "description": "Display slot to modify.",
+                "markdownDescription": "Display slot to modify."
+              },
+              "translation": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Translation offset as [x, y, z] in Minecraft display units.",
+                "markdownDescription": "Translation offset as [x, y, z] in Minecraft display units."
+              },
+              "rotation": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Rotation in degrees as [x, y, z].",
+                "markdownDescription": "Rotation in degrees as [x, y, z]."
+              },
+              "scale": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Scale factor as [x, y, z].",
+                "markdownDescription": "Scale factor as [x, y, z]."
+              },
+              "rotation_pivot": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Rotation pivot as [x, y, z].",
+                "markdownDescription": "Rotation pivot as [x, y, z]."
+              },
+              "scale_pivot": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Scale pivot as [x, y, z].",
+                "markdownDescription": "Scale pivot as [x, y, z]."
+              },
+              "mirror": {
+                "type": "array",
+                "items": {
+                  "type": "boolean"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Per-axis mirror flags as [x, y, z].",
+                "markdownDescription": "Per-axis mirror flags as [x, y, z]."
+              },
+              "reset": {
+                "type": "boolean",
+                "default": false,
+                "description": "Reset the slot to its identity transform before applying supplied fields.",
+                "markdownDescription": "Reset the slot to its identity transform before applying supplied fields."
+              }
+            },
+            "required": [
+              "slot"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "enter_display_mode",
+      "title": "Enter Display Mode",
+      "description": "Switches the editor preview to a display slot, optionally loads a validated reference model, and returns a screenshot for multi-view fit checks. It does not change exported transform data.",
+      "status": "experimental",
+      "category": "Display Settings",
+      "annotations": {
+        "destructiveHint": false
+      },
+      "parameters": {
+        "$ref": "#/definitions/enter_display_mode",
+        "definitions": {
+          "enter_display_mode": {
+            "type": "object",
+            "properties": {
+              "slot": {
+                "type": "string",
+                "enum": [
+                  "thirdperson_righthand",
+                  "thirdperson_lefthand",
+                  "firstperson_righthand",
+                  "firstperson_lefthand",
+                  "ground",
+                  "gui",
+                  "head",
+                  "embedded",
+                  "fixed",
+                  "on_shelf"
+                ],
+                "description": "Display slot to activate.",
+                "markdownDescription": "Display slot to activate."
+              },
+              "reference": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Optional live reference model name, such as player, zombie, armor_stand, or block.",
+                "markdownDescription": "Optional live reference model name, such as player, zombie, armor_stand, or block."
+              }
+            },
+            "required": [
+              "slot"
+            ],
             "additionalProperties": false
           }
         },
