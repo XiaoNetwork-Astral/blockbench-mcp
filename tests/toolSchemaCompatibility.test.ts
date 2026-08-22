@@ -8,6 +8,7 @@ import { cubeToolDocs } from "@/server/tools/cubes";
 import { elementToolDocs } from "@/server/tools/element";
 import { exportToolDocs } from "@/server/tools/export";
 import { historyToolDocs } from "@/server/tools/history";
+import { hytaleToolDocs } from "@/server/tools/hytale";
 import { importToolDocs } from "@/server/tools/import";
 import { materialInstanceToolDocs } from "@/server/tools/material-instances";
 import { meshToolDocs } from "@/server/tools/mesh";
@@ -65,6 +66,16 @@ describe("Codex MCP schema compatibility", () => {
     });
 
     expect(toolDocs).toHaveLength(105);
+    expect(failures).toEqual([]);
+  });
+
+  test("all 12 optional Hytale tools use compatible schemas", () => {
+    const failures = hytaleToolDocs.flatMap((tool) => {
+      const schema = zodToJsonSchema(tool.parameters, { $refStrategy: "root" });
+      return findTupleItems(schema).map((path) => `${tool.name}: ${path}`);
+    });
+
+    expect(hytaleToolDocs).toHaveLength(12);
     expect(failures).toEqual([]);
   });
 });

@@ -24,6 +24,11 @@ import { registerYsmTools } from "./tools/ysm";
 import { registerWorkflowTools } from "./tools/workflow";
 import { registerSpatialTools } from "./tools/spatial";
 
+// Optional plugin integrations. Each function performs its own runtime check.
+import { registerHytaleTools } from "./tools/hytale";
+import { registerHytaleResources } from "./resources/hytale";
+import { registerHytalePrompts } from "./prompts/hytale";
+
 // Core resource registrations
 import { registerValidatorResources } from "./resources/validator";
 
@@ -53,6 +58,14 @@ const registrationFunctions = [
 
 // Register all core tools immediately when this module loads
 for (const register of registrationFunctions) {
+  register();
+}
+
+for (const register of [
+  registerHytaleTools,
+  registerHytaleResources,
+  registerHytalePrompts,
+]) {
   register();
 }
 

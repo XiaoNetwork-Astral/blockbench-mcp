@@ -23,9 +23,13 @@ import {
 } from "@/lib/hytale";
 import { findGroupOrThrow, findElementOrThrow } from "@/lib/util";
 import {
+  finishCreatedOutlinerEdit,
+  resolveOutlinerParentOrThrow,
+  rollbackCreatedOutlinerEdit,
+} from "@/lib/modelSafety";
+import {
   cubeIdOptionalSchema,
   vector3Schema,
-  groupIdOptionalSchema,
   animationIdOptionalSchema,
   boneNameSchema,
   stretchSchema,
@@ -77,7 +81,12 @@ export const hytaleCreateQuadParametersSchema = z.object({
     .default("+Y")
     .describe("Normal direction: +X, -X, +Y, -Y, +Z, -Z"),
   size: size2dSchema.default([16, 16]),
-  group: groupIdOptionalSchema.describe("Parent group/bone name"),
+  group: z
+    .string()
+    .min(1)
+    .describe(
+      "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level quad."
+    ),
   double_sided: z
     .boolean()
     .default(true)
@@ -168,7 +177,7 @@ export const hytaleToolDocs: ToolSpec[] = [
   {
     name: "hytale_create_quad",
     description:
-      "Creates a Hytale quad (2D plane) with a specified normal direction. Quads are single-face elements useful for flat surfaces.",
+      "Creates a Hytale quad under a mandatory explicit parent. Use group='root' only for an intentional root-level quad; missing or ambiguous parents are rejected before mutation.",
     annotations: {
       title: "Create Hytale Quad",
       destructiveHint: false,
@@ -454,11 +463,7 @@ export function registerHytaleTools() {
           throw new Error("Current project is not using a Hytale format.");
         }
 
-        // Find parent group if specified
-        let parentGroup: Group | undefined;
-        if (group) {
-          parentGroup = findGroupOrThrow(group);
-        }
+        const outlinerParent = resolveOutlinerParentOrThrow(group, "cube");
 
         // Calculate from/to based on normal direction and size
         const [width, height] = size;
@@ -488,29 +493,30 @@ export function registerHytaleTools() {
             to = [x + width, y + height, z];
         }
 
-        // @ts-ignore - Undo is globally available
-        Undo.initEdit({ outliner: true, elements: [] });
+        Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
+        let cube: Cube | null = null;
+        try {
+          cube = new Cube({
+            name,
+            from,
+            to,
+            autouv: 1,
+          }).init();
 
-        // @ts-ignore - Cube is globally available
-        const cube = new Cube({
-          name,
-          from,
-          to,
-          autouv: 1,
-        }).init();
-
-        // Set Hytale-specific properties
-        const hytaleCube = cube as HytaleCube;
-        hytaleCube.double_sided = double_sided;
-        hytaleCube.shading_mode = "standard";
-
-        // Add to parent group if specified
-        if (parentGroup) {
-          cube.addTo(parentGroup);
+          const hytaleCube = cube as HytaleCube;
+          hytaleCube.double_sided = double_sided;
+          hytaleCube.shading_mode = "standard";
+          cube.addTo(outlinerParent);
+        } catch (error) {
+          rollbackCreatedOutlinerEdit(cube ? [cube] : []);
+          throw error;
         }
 
-        // @ts-ignore - Undo is globally available
-        Undo.finishEdit("Create Hytale quad");
+        if (!cube) {
+          throw new Error("Failed to create Hytale quad.");
+        }
+
+        finishCreatedOutlinerEdit("Create Hytale quad", [cube]);
 
         // @ts-ignore - Canvas is globally available
         Canvas.updateAll();
@@ -522,6 +528,9 @@ export function registerHytaleTools() {
           from,
           to,
           double_sided,
+          parent: outlinerParent === "root"
+            ? "root"
+            : { uuid: outlinerParent.uuid, name: outlinerParent.name },
         });
       },
     },

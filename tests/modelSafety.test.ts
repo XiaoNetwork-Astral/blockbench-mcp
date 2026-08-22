@@ -24,6 +24,7 @@ import {
   closeProjectParameters,
   setProjectTextureResolutionParameters,
 } from "@/server/tools/project";
+import { hytaleCreateQuadParametersSchema } from "@/server/tools/hytale";
 
 describe("deterministic model references", () => {
   const candidates = [
@@ -146,6 +147,9 @@ describe("explicit Outliner parent schemas", () => {
     expect(createCylinderParameters.parse({ elements: [cylinder], group: "root" }).group).toBe("root");
     expect(() => addArmatureParameters.parse({})).toThrow();
     expect(addArmatureParameters.parse({ parent: "root" }).parent).toBe("root");
+    expect(() => hytaleCreateQuadParametersSchema.parse({ name: "quad" })).toThrow();
+    expect(hytaleCreateQuadParametersSchema.parse({ name: "quad", group: "root" }).group)
+      .toBe("root");
   });
 
   test("bone rigging makes hierarchy and rename intent explicit", () => {
