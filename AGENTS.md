@@ -1,102 +1,81 @@
-# Repository Guidelines
+# 通用 Blockbench 建模工作流
 
-## Project Structure & Module Organization
-- `index.ts`: Blockbench plugin entry (registers MCP server and UI).
-- `server/`: MCP server glue (`server.ts`), `tools/`, `resources.ts`, `prompts.ts`.
-- `ui/`: Panel UI and settings (`index.ts`, `settings.ts`).
-- `lib/`: Shared utilities and factories (`constants.ts`, `factories.ts`, `util.ts`, `zodObjects.ts`).
-- `prompts/` and `macros/`: Prompt templates and helpers.
-- `dist/`: Build output (`mcp.js`, maps, copied assets like `icon.svg`, `about.md`).
-- `docs/`: Auto-generated documentation (`api.json`, `index.html`, `style.css`).
-- `build/`: Build scripts (`index.ts`, `utils.ts`, `plugins.ts`, `docs.ts`, `docs-manifest.ts`).
+## 适用范围
 
-## Build, Test, and Development Commands
-- `bun install`: Install dependencies.
-- `bun run dev`: Build once with sourcemaps.
-- `bun run dev:watch`: Rebuild on change (watch mode).
-- `bun run build`: Minified production build to `dist/mcp.js`.
-- `bun run ./build.ts --clean`: Remove `dist/` before a fresh build.
-- `bun run docs:build`: Generate API documentation from Zod schemas to `docs/`.
-- `bun run docs:serve`: Serve the generated docs locally with Tailwind processing.
-- `bunx @modelcontextprotocol/inspector`: Launch MCP Inspector for local testing.
+- 本文件是一份独立、自足、可迁移的基本建模工作流，用于在 Blockbench 中从头创建模型或调整现有模型。它不依赖其他 `AGENTS` 文件、特定项目、角色、仓库路径或专用插件功能；只提供本文件也应能够完成一项普通建模任务。
+- 可以通过 MCP、其他结构化工具或 Blockbench 本身执行操作。工具名称不同不改变工作流要求；缺少某项自动检查能力时，应使用现有只读数据和多视角观察完成等价检查，不能悄悄跳过。
+- 用户在当前任务中的较新、较明确要求优先于本文件。发生实质冲突时应指出冲突及影响，不要擅自选择会改变成品的方向。
 
-## Adding New Tools
+## 1. 理解目标、资料与边界
 
-Every tool file in `server/tools/` follows a two-part pattern:
+1. 区分任务是从头创建、在现有模型上调整，还是只做检查。没有修改授权时保持只读。
+2. 确认目标模型格式、用途、比例或单位、纹理尺寸、贴图模式、视觉风格、需要保留的内容和最终交付形式。
+3. 先为参考图、现有模型和纹理建立导航，再完整查看当前判断依赖的部分。区分资料明确事实、用户意见、当前推断和未知内容，不从文件名或单张截图猜完整结构。
+4. 调整现有模型时，先读取项目、Outliner、对象计数、骨骼、枢轴、纹理、UV、动画和保存状态。未知对象默认保留，不因暂时看不懂就删除或重组。
+5. 不影响方向的缺失信息可以采用保守临时假设；会改变模型结构、风格、比例、版本或造成难恢复修改时，先请用户决定。
+6. 除非用户明确要求导入现成资产，不要在 Blockbench 外预先生成完整模型、`.bbmodel` 或 GeoJSON 再整体导入。若使用 MCP，短生命周期代码只负责建立会话和逐次调用，不为每个模型保存一套持久 builder／脚手架。
 
-1. **Export parameter schemas and a `toolDocs` array** at module level (no Blockbench globals):
-```ts
-import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+## 2. 在动手前规划模型
 
-export const myToolParameters = z.object({
-  name: z.string().describe("Name of the thing."),
-});
+- 确认 Blockbench 的坐标轴、正面方向、单位、原点、对称轴和模型可用范围，避免把不同格式或旧项目的坐标经验直接套用。
+- 将目标拆成主体、主要部件、连接件、附着物和细节；先确定大轮廓、主要比例、关键接触点和需要独立移动的部分，再规划 Outliner 分组树。
+- 对重复或左右对称结构，先制作并验证一个代表性部件，再复制、镜像或批量扩展。不要在未经检查的错误结构上一次生成几十个对象。
+- 对需要附着、嵌入、握持或悬挂的部件，提前写明“谁连接到谁、从哪个方向接触、是否需要重叠、哪些区域允许隐藏”。
 
-export const myToolDocs: ToolSpec[] = [
-  {
-    name: "my_tool",
-    description: "Does something useful.",
-    annotations: { title: "My Tool", destructiveHint: true },
-    parameters: myToolParameters,
-    status: "stable",
-  },
-];
-```
+## 3. Outliner 层级必须显式指定
 
-2. **Register with `createTool()`** inside a `registerXxxTools()` function, spreading from the spec:
-```ts
-export function registerMyTools() {
-  createTool(myToolDocs[0].name, {
-    ...myToolDocs[0],
-    async execute({ name }) {
-      // Blockbench globals (Undo, Canvas, etc.) are safe here
-      return `Hello, ${name}!`;
-    },
-  }, myToolDocs[0].status);
-}
-```
+- 每个创建、复制或移动的 Outliner 节点都必须事先作出明确的父级决定。结构化工具调用中，要放在根层时必须显式使用字面值 `"root"`；不得依赖省略父级参数来隐式落入根层。
+- 省略父级、父级不存在、引用已经失效或名称存在歧义时，应在产生任何模型修改之前停止并纠正；绝不能静默退回根层。当前工具若无法明确表达父级，就先停下来解决能力缺口，不用猜测补位。
+- 先规划并创建分组树，再创建子对象。创建父分组和创建子对象必须顺序执行，不得并行竞态。
+- 创建分组后立即回读名称与 UUID；后续优先使用 UUID，避免重名、改名或本地化文字造成错绑。
+- 每个阶段结束都要核对：根层对象是否全部为明确指定的 `"root"` 对象、各分组的直接子项是否正确、是否存在重复 UUID、孤儿节点或同一对象的重复根引用。
 
-3. **Update the docs manifest** in `build/docs-manifest.ts`:
-   - Import the `toolDocs` array from your tool file.
-   - Add it to `toolManifest` with the appropriate category.
+## 4. 从大形体到小细节逐步建立
 
-4. **Register in `server/tools.ts`**: Import and call your `registerXxxTools()` function.
+- 按“大轮廓和比例 → 主要体块 → 连接结构 → 次要部件 → 表面细节”的顺序推进。不要先堆装饰，再发现主体比例和连接关系错误。
+- 一次只完成一个可检查的小阶段，例如主体、一个主要部件、一组附着物或一块纹理区域。完成后先检查再继续。
+- 每阶段至少回读项目与对象计数、父级、位置、尺寸、旋转、枢轴、纹理引用和 UV。工具返回成功只表示调用完成，不证明数据或画面正确。
+- 新的重复结构先做一个样例并从多个角度确认；确认无误后再复制或批量生成其余部分。
+- 批量操作中途失败时，不在半成品上继续叠加。先确认哪些修改已经发生，并安全回滚或逐项清理，再恢复建模。
 
-5. **Regenerate docs**: Run `bun run docs` to update `docs/api.json` and `docs/index.html`.
+## 5. 空间关系不能只凭单一视图判断
 
-### Critical Rule: No Blockbench Globals in Schemas
+- 创建花饰、翼根、骨架、武器连接件等附着物前，要明确记录它应连接、贴附、嵌入或悬挂于哪个对象或部件。
+- 每个关键附着关系都要检查世界坐标和三轴范围，并同时查看正面、侧面和顶面；三分之四视图用于检查整体体积和遮挡，不能替代三视图。
+- 如果某个视图中的二维投影重叠，但垂直于该视图的轴上仍有明显间隙，必须判定为未正确连接，不能因单张截图看似贴合而通过。
+- 对旋转元素，普通轴对齐包围盒只能用于发现明显问题；必要时还要检查变换后的角点、实际网格或人工观察。
+- 优先读取双方父子关系、世界坐标中心、三轴范围和逐轴间隙／重叠。若现有工具不能自动计算，就读取变换数据并结合三视图人工判断；工具或模型不能擅自猜测两个部件在语义上是否本应连接。
+- 同时检查悬浮、意外穿模、过度嵌入、错误遮挡和前后层次。轮廓正确但深度错误仍然属于未完成。
 
-Parameter schemas are imported at build time by the doc generator, which runs outside Blockbench. **Never use Blockbench runtime globals** (e.g., `BarItems`, `Formats`, `Plugins`) in schema construction. Use `z.string().describe("...")` instead of dynamic enums, and do runtime validation inside `execute()`.
+## 6. 纹理与 UV
 
-## Documentation System
+- 在绘制或绑定纹理前确认项目纹理分辨率、源图真实尺寸、透明度、颜色空间和模型格式要求。项目分辨率与源图不一致时先解决解释尺度问题。
+- 先划分可追踪的纹理区域，再为代表性部件设置 UV；验证正确后才扩展到同类对象。不要让多个用途无意采样同一区域。
+- Box UV、Per-face UV 和不同模型格式的坐标经验不能混用。改变 UV 模式后重新检查所有受影响的面。
+- 关键纹理操作后同时检查纹理名称、真实尺寸、像素内容、面纹理 UUID、UV 范围和视口效果。
+- 细小方块的格式警告不等于插件失败；确需小于一个单位的厚度时，使用合适的 UV 模式并重新检查所有面。
 
-Documentation is auto-generated from Zod schemas at build time:
+## 7. 骨骼、枢轴与可动结构
 
-- **`build/docs-manifest.ts`**: Imports all `toolDocs` arrays from tool files plus inline prompt/resource specs. This is the single source of truth for what appears in the docs.
-- **`build/docs.ts`**: Reads the manifest, converts Zod schemas to JSON Schema via `zod-to-json-schema`, and outputs `docs/api.json` (machine-readable) and `docs/index.html` (Tailwind-styled page).
-- **`lib/factories.ts`**: Defines `ToolSpec`, `PromptSpec`, and `ResourceSpec` interfaces used by both tool files and the manifest.
+- 只有需要独立变换的结构才建立独立骨骼或分组；父子关系应反映真实的运动传递，而不只是为了让列表整齐。
+- 旋转枢轴应位于实际关节、铰链或握持点。设置后用一个小角度姿态测试变换继承、蒙皮或子项跟随，再恢复目标状态。
+- 任何姿态或动画检查都不能覆盖用户未授权修改的基准姿势。结构含义不清时先保留并请用户确认。
 
-Prompt and resource specs are defined **inline in the manifest** (not imported from their source files) because `server/prompts.ts` uses Bun macros and `server/resources.ts` accesses Blockbench globals at module level.
+## 8. Undo、失败恢复与阶段验收
 
-## Coding Style & Naming Conventions
-- Language: TypeScript (strict), ESNext modules, CJS output for the plugin.
-- Paths: Use alias `@/*` (see `tsconfig.json`).
-- Indentation: 2 spaces; prefer explicit return types and narrow types.
-- Keep UI text concise; avoid blocking calls in plugin lifecycle hooks.
-- Schema naming: `{camelCaseToolName}Parameters` (e.g., `placeCubeParameters`).
-- Docs array naming: `{domainName}ToolDocs` (e.g., `cubeToolDocs`).
+- 重要阶段开始前确认当前对象计数和层级，结束后再次核对，形成可比较的前后状态。
+- 执行 Undo/Redo 后重新检查计数、父子关系、UUID 唯一性、搜索结果、纹理和画面；不能只相信历史游标或成功消息已经变化。
+- 如果视口、Outliner、对象搜索和项目统计互相矛盾，立即停止在该项目中继续创建，保留现场并先诊断一致性问题。
+- 每个阶段的验收至少包括：结构层级、整体比例、三视图与斜视图、关键连接、纹理与 UV、格式警告和保存状态。
 
-## Testing Guidelines
-- Automated tests are not set up yet. For changes, provide manual verification steps.
-- Validate builds with Blockbench by loading `dist/mcp.js` and exercising changed tools/resources.
-- When adding tests, prefer Bun's test runner or Vitest; co-locate near source or use `tests/`.
+## 9. 用户协助是正式工作流的一部分
 
-## Commit & Pull Request Guidelines
-- Commits: Use conventional prefixes (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`). Avoid vague "update"; be specific (e.g., `feat: add mesh selection tools`).
-- PRs: Include scope/summary, linked issues, screenshots/GIFs for UI changes, and steps to reproduce/test. Note any new tools, resources, settings, or breaking changes.
+- 如果参考资料不足、结构语义不明确、多视角与坐标检查仍无法判断，或连续尝试没有收敛，立即停止继续堆叠模型。
+- 保留当前未保存现场，不要关闭、重建、批量撤回或用猜测覆盖。整理相关对象名称／UUID、预期关系、当前坐标和正面／侧面／顶面或斜视图，请用户直接观察并指出正确结构或位置。
+- 用户给出修正后，先用最小改动验证一个代表性部件，再恢复后续建模。不要把向用户求助视为失败，也不要为了显得自主而在不确定状态下继续扩散错误。
 
-## Security & Configuration Tips
-- Server config lives in Blockbench Settings: MCP port and endpoint (defaults `:3000/bb-mcp`).
-- Do not commit secrets. Keep network calls behind tools; validate all inputs (use `zod`).
-- Keep bundle lean: add only necessary deps; prefer tree-shakeable utilities.
+## 10. 完成与交付
+
+- 完成当前阶段或整个模型后，向用户说明实际完成内容、仍有的不确定性、检查过的视角和数据，以及需要用户观察的重点。
+- 停下来让用户检查；不要自动继续到保存、覆盖基线、关闭标签、删除试验对象、打包或发布。
+- 只有用户明确授权时才执行会覆盖、丢弃、合并或公开结果的操作，并在执行前再次确认精确目标。

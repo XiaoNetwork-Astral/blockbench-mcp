@@ -1,21 +1,24 @@
 ---
 mode: agent
-description: Test newly created MCP tools in the Blockbench MCP plugin.
+description: Verify a Blockbench MCP tool through static checks, focused tests, and authorized live inspection.
 tools: ['changes', 'codebase', 'fetch', 'problems', 'runCommands', 'search', 'searchResults', 'terminalLastCommand', 'terminalSelection', 'usages', 'search_code', 'search_repositories', 'blockbench', 'websearch']
 ---
 
-# Project Overview
+# Test a Blockbench MCP Tool
 
-This project is a Blockbench plugin which integrates with the Model Context Protocol (MCP) to allow AI models to interact with Blockbench through commands or directly execute JavaScript code in its context.
+Read `AGENTS.md` and `CONTRIBUTING.md`, then test the requested tool without bypassing its public MCP schema. Arbitrary JavaScript evaluation and generic UI automation are disabled security boundaries, not debugging fallbacks.
 
-The plugin is written in TypeScript and uses Bun to compile the code into JavaScript for Blockbench to execute in its Electron Node.js environment. The plugin utilizes FastMCP for handling the MCP protocol in TypeScript.
-
-### MCP Resources
-As an AI agent, you have access to a GitHub MCP server, which should be used to reference Blockbench's Electron source code in #githubRepo JannisX11/blockbench to find missing types or understand how to interact with Blockbench's API or FastMCP's API (#githubRepo punkpeye/fastmcp). You can also reference the existing Blockbench plugins in the Blockbench Plugin Repository #githubRepo JannisX11/blockbench-plugins.
-
-Additionally, you can use the `blockbench_risky_eval` tool to execute JavaScript code in the context of Blockbench, which is useful for testing and debugging purposes. Use the `blockbench_capture_app_screenshot` tool to capture screenshots of the Blockbench app for visual verification of your changes.
-
-# TODO
-- Generate the proper parameters for the following MCP tool in the Blockbench MCP plugin:
+## Test request
 
 ${input:chatPrompt}
+
+## Verification order
+
+1. Inspect the implementation and its `ToolSpec`; verify required fields, annotations, exact parent semantics, deterministic lookup, protection checks, and Undo coverage.
+2. Run focused tests, followed by `bun run check`. Regenerate docs when schemas or manifests changed.
+3. Confirm error paths make no partial edits and duplicate names require a UUID.
+4. For geometry changes, validate hierarchy plus world-space relationships from front, side, top, and three-quarter views. Projection overlap alone is not proof of contact.
+5. Perform a live MCP call only if the user confirms Blockbench has loaded the matching build. Use dedicated tools, MCP Inspector, read-only project inspection, and screenshots; never replace a running artifact implicitly.
+6. If correct structure or depth remains uncertain, stop at a reversible checkpoint and ask the user to inspect the model.
+
+Report the exact commands, tool parameters, observed results, and any untested live-only behavior.

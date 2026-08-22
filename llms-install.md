@@ -1,84 +1,59 @@
-# Blockbench MCP Installation
+# Codex Blockbench MCP 安装与连接
 
-This file helps AI assistants configure the Blockbench MCP server connection.
+本仓库不提供公共插件 URL。请先在仓库中运行 `bun install` 和 `bun run build`，然后在 Blockbench 桌面版中选择“文件 → 插件 → 从文件加载插件”，加载 `dist/codex_blockbench_mcp.js`。文件名必须与插件 ID 保持一致。
 
-## Prerequisites
+插件默认连接地址为 `http://127.0.0.1:3000/bb-mcp`，Bearer 认证默认开启。实际监听地址、端口、端点和令牌以 Blockbench 设置中的“Codex Blockbench MCP”为准；不要把令牌提交到仓库。
 
-Before configuring the MCP connection, please confirm:
+## Codex
 
-1. **Is Blockbench running?**
-   - The Blockbench desktop application must be open
-   - The MCP plugin must be installed (File > Plugins > Load from URL: `https://jasonjgardner.github.io/blockbench-mcp-plugin/mcp.js`)
+推荐把令牌放在环境变量中：
 
-2. **What are your server settings?**
-   - Default: `http://localhost:3000/bb-mcp`
-   - If the port number and endpoint are something other than the default values (`:3000/bb-mcp`), please specify
-   - Settings can be changed in Blockbench: Settings > General > MCP Server Port / MCP Server Endpoint
-
-## Configuration
-
-Once confirmed, add the MCP server to your client:
-
-### Cline
-
-Add to `cline_mcp_settings.json`:
-```json
-{
-  "mcpServers": {
-    "blockbench": {
-      "url": "http://localhost:{PORT}/{ENDPOINT}",
-      "type": "streamableHttp",
-      "disabled": false,
-      "autoApprove": []
-    }
-  }
-}
+```toml
+[mcp_servers.blockbench]
+url = "http://127.0.0.1:3000/bb-mcp"
+bearer_token_env_var = "CODEX_BLOCKBENCH_MCP_TOKEN"
 ```
 
-### VS Code
+也可以临时在本机 `config.toml` 中设置 `http_headers`，但不要提交该配置或复制真实令牌到文档：
 
-Create `.vscode/mcp.json`:
+```toml
+[mcp_servers.blockbench]
+url = "http://127.0.0.1:3000/bb-mcp"
+http_headers = { Authorization = "Bearer <BLOCKBENCH_MCP_TOKEN>" }
+```
+
+Codex 默认会对较大的 MCP 工具目录使用渐进式披露：未在初始上下文中显示的工具仍可通过工具搜索找到。只有在调试完整工具目录时，才在同一配置块中临时加入 `omit_tools_from = ["deferred"]`；日常使用应保留默认行为，避免 105 个核心工具同时挤占上下文。
+
+## VS Code
+
+仓库已经提供 `.vscode/mcp.json`。它会用密码输入框询问令牌，配置等价于：
+
 ```json
 {
   "servers": {
     "blockbench": {
-      "url": "http://localhost:{PORT}/{ENDPOINT}",
-      "type": "http"
+      "type": "http",
+      "url": "http://127.0.0.1:3000/bb-mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:blockbench-mcp-token}"
+      }
     }
-  }
+  },
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "blockbench-mcp-token",
+      "description": "Bearer token shown in Blockbench MCP settings",
+      "password": true
+    }
+  ]
 }
 ```
 
-### Claude Desktop
+## 其他 MCP 客户端
 
-Add to `claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "blockbench": {
-      "command": "npx",
-      "args": ["mcp-remote", "http://localhost:{PORT}/{ENDPOINT}"]
-    }
-  }
-}
-```
+选择 Streamable HTTP 传输，连接上述 URL，并发送 `Authorization: Bearer <令牌>` 请求头。只有用户在插件设置中明确关闭认证后，客户端才能省略该请求头。
 
-### Claude Code
+修改监听地址、端口、端点、认证状态或令牌后，从 Blockbench 的 Tools 菜单停止并重新启动 MCP 服务器；客户端也需要重新连接。若改用非回环地址，插件会提示局域网暴露风险。
 
-```bash
-claude mcp add blockbench --transport http http://localhost:{PORT}/{ENDPOINT}
-```
-
-### Antigravity
-
-```json
-{
-  "mcpServers": {
-    "blockbench": {
-      "serverUrl": "http://localhost:{PORT}/{ENDPOINT}"
-    }
-  }
-}
-```
-
-Replace `{PORT}` with the port number (default: `3000`) and `{ENDPOINT}` with the endpoint path (default: `bb-mcp`).
+完整设置、安全边界和建模约定见 `README.md`、`AGENTS.md` 与 `CONTRIBUTING.md`。

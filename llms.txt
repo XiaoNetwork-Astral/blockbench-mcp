@@ -1,56 +1,44 @@
-# Project: Blockbench MCP Plugin
-# Repository: https://github.com/jasonjgardner/blockbench-mcp-plugin
-# Author: Jason Gardner
-# Type: Blockbench Plugin
-# Target Platform: Minecraft + Blockbench
+# Project: Codex Blockbench MCP
+# Repository: https://github.com/XiaoNetwork-Astral/blockbench-mcp
+# Upstream: https://github.com/jasonjgardner/blockbench-mcp-plugin
+# Type: Blockbench desktop plugin with an in-process Streamable HTTP MCP server
+# License: GPL-3.0-only
 
-## Summary
-This is a plugin for Blockbench that integrates with the Model Context Protocol (MCP). It enables automated and contextual manipulation of 3D models using LLM-driven workflows. It is designed to assist with structured model generation, property editing, and potential export logic for downstream use.
+## Current state
+- Package version: 1.7.0-codex.24.
+- Install artifact: dist/codex_blockbench_mcp.js. The filename must match plugin id codex_blockbench_mcp.
+- Default URL: http://127.0.0.1:3000/bb-mcp.
+- Bearer authentication is enabled by default and the token is configured in Blockbench.
+- Core catalog: 105 tools. Optional Hytale catalog: 12 additional experimental tools when the Hytale plugin is installed.
+- MCP prompts are bundled locally; the fork does not fetch behavior from the upstream prompt CDN.
+- General resources cover projects, nodes, textures, validators, and optional integrations.
 
-## Key Objectives
-- Connect Blockbench’s internal model representation to LLMs using a structured protocol (MCP).
-- Enable structured data exchange: import/export model metadata, geometry, animations, and textures.
-- Allow scripted or conversational workflows with AI agents to modify models in-place.
+## Implemented capabilities
+- Project, Outliner, cube, mesh, armature, animation, texture, UV, paint, preview, import/export, material-instance, and history operations.
+- Exact texture-pixel operations and spatial relationship inspection.
+- Per-project audit history with filtering, pagination, guarded Undo/Redo, and manual-operation tracking.
+- Logical client/session management, loopback-by-default networking, optional explicit network binding, and bearer authentication.
+- Optional folder-scoped YSM workspace and protected reference/baseline/working-copy workflow.
+- Optional Hytale tools, resources, and prompts.
 
-## Dependencies
-- Blockbench Plugin API (JavaScript-based)
-- Model Context Protocol (specification reference needed)
-- Three.js (via Blockbench)
-- Optionally, APIs for communication with a local or remote LLM agent
+## Non-negotiable modeling behavior
+- Read and follow AGENTS.md before modeling. CLAUDE.md points to the same canonical workflow.
+- Every created, duplicated, or moved Outliner node requires an explicit parent. Use the literal "root" only intentionally; never fall back to root when a parent is missing or ambiguous.
+- Validate key attachments with world coordinates and front, side, top, and three-quarter views. Projection overlap is not proof of depth contact.
+- Work in small reversible stages, re-read hierarchy/UUIDs/UVs, verify Undo consistency, and ask the user to inspect when structure or depth cannot be established reliably.
+- Do not save over baselines, close unsaved tabs, delete experiments, package, or publish without explicit authorization.
 
-## Features (Planned / In Progress)
-- [x] MCP schema parsing and validation
-- [ ] AI-assisted property editing (name, scale, origin, visibility, etc.)
-- [ ] AI-assisted animation creation or modification
-- [ ] Export geometry or metadata in MCP-compliant format
-- [ ] Basic UI integration (side panel, buttons, notifications)
-- [ ] LLM interface (agent chat or command-based interaction)
+## Security invariants
+- Arbitrary JavaScript evaluation and generic action/click/dialog automation are permanently disabled.
+- Mutating tools pass through project-role protection, audit recording, and bounded Undo cleanup.
+- Names must resolve uniquely; duplicate display names require an exact UUID.
+- Remote HTTP(S) geometry fetching is disabled; imports accept inline JSON, data URLs, or local JSON files.
+- Secrets and bearer tokens must never be committed.
 
-## Development Setup
-1. Clone this repository into the Blockbench plugins folder or load it via `Plugins > Load Plugin from File`.
-2. Use Blockbench's developer mode for live reloading and debugging.
-3. The main entry point is `index.ts`.
-4. Enable logging in the developer console (`View > Developer Tools`) to track plugin actions.
-
-## Notes for LLM Tools
-- Focus on manipulating models through the Blockbench API (`Blockbench.model`, `Group`, `Cube`, `Outliner`, etc.)
-- MCP references should include object definitions, context-specific logic, and any validation rules.
-- Maintain two-way sync between the Blockbench UI state and MCP object model.
-- LLM tools can assist in generating plugin UI code (e.g., dialogs, sidebars) or creating MCP-compatible payloads.
-
-## Plugin API Reference
-- Official: https://www.blockbench.net/wiki
-- Common classes: `new Action()`, `new Dialog()`, `Blockbench.showQuickMessage()`
-- Typical usage patterns involve:
-  - Registering actions with `MenuBar.addAction`
-  - Manipulating models via `Outliner`, `selected`, or `Project` state
-  - Reading and writing metadata with `model.getProperty()` or `model.format`
-
-## License
-MIT License
-
-## Related Projects
-- JannisX11/Blockbench
-- Model Context Protocol (concept/protocol spec)
-
-# End of LLM.txt
+## Development
+- Install: bun install
+- Automated checks: bun run check
+- Direct test command: bun test tests
+- Prompts and API docs: bun run docs
+- Production build: bun run build
+- Contributor details: CONTRIBUTING.md

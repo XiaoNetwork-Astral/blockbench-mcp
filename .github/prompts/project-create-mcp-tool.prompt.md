@@ -1,29 +1,29 @@
 ---
 mode: agent
-description: This is a Blockbench plugin that integrates with the Model Context Protocol (MCP) to allow AI models to interact with Blockbench (JannisX11/blockbench) through commands or directly execute JavaScript code in its context.
+description: Add a dedicated, schema-validated MCP tool without weakening the repository's modeling or security boundaries.
 tools: ['githubRepo', 'get_commit', 'get_file_contents', 'list_branches', 'search_code', 'search_repositories', 'blockbench']
 ---
 
-# Project Overview
+# Create a Blockbench MCP Tool
 
-This project is a Blockbench plugin which integrates with the Model Context Protocol (MCP) to allow AI models to interact with Blockbench through commands or directly execute JavaScript code in its context.
+Read `AGENTS.md` for the modeling contract and `CONTRIBUTING.md` for repository structure before changing code. Implement the requested capability as a narrow, dedicated MCP tool. Arbitrary JavaScript evaluation and generic UI action/click/dialog automation are intentionally unavailable and must not be reintroduced.
 
-The plugin is written in TypeScript and uses Bun to compile the code into JavaScript for Blockbench to execute in its Electron Node.js environment. The plugin utilizes FastMCP for handling the MCP protocol in TypeScript.
+The plugin is written in TypeScript, built with Bun, and runs inside Blockbench's Electron environment. Tool schemas must remain importable outside Blockbench because the documentation generator loads them without editor globals.
 
-### MCP Resources
-As an AI agent, you have access to a GitHub MCP server, which should be used to reference Blockbench's Electron source code in #githubRepo JannisX11/blockbench to find missing types or understand how to interact with Blockbench's API or FastMCP's API (#githubRepo punkpeye/fastmcp). You can also reference the existing Blockbench plugins in the Blockbench Plugin Repository #githubRepo JannisX11/blockbench-plugins.
+When the local source and types are insufficient, consult the current Blockbench source (`JannisX11/blockbench`), plugin repository, and official MCP SDK documentation. Prefer existing local helpers and patterns over copying upstream code blindly.
 
-Additionally, you can use the `blockbench_risky_eval` tool to execute JavaScript code in the context of Blockbench, which is useful for testing and debugging purposes.
-
-# TODO
-- Add a new MCP tool to the plugin based on the following prompt:
+## Request
 
 ${input:chatPrompt}
 
-## Note
-- If any of this functionality already exist in the project, inspect it for enhancements or bugs. Suggest changes if necessarry but confirm before applying any.
-- Avoid cutting any corners and ensure the task is done well-enough to be used in production.
-- If you are unsure about the implementation, ask for clarification or additional context.
-- Document your code thoroughly to aid future maintenance and collaboration.
+## Requirements
 
-Finally, run `bun run compile` to compile the TypeScript code into JavaScript for Blockbench to execute.
+- First confirm that a dedicated tool does not already provide the capability.
+- Define a module-level `ToolSpec` and Zod schema with no Blockbench runtime globals, then register the implementation through the shared factory.
+- Mutations must validate every reference before editing, use deterministic UUID/name resolution, respect protected project roles, record audit data, and capture complete Undo before/after state.
+- Creation, duplication, movement, or reparenting must require an explicit parent. Only the literal `root` intentionally targets the root; missing or ambiguous references must fail before mutation.
+- Geometry-related tools must return enough identifiers and spatial data for front/side/top/three-quarter verification. If semantics remain uncertain, leave a safe checkpoint for human inspection.
+- Add the tool to the registry and documentation manifest, then add focused regression tests for schema, error, Undo, and safety behavior.
+- Run `bun run check` and `bun run docs`. Build or load the plugin only when the user explicitly authorizes replacing the current artifact.
+
+Do not alter unrelated model files, running Blockbench state, or generated plugin artifacts while another live test depends on them.

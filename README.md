@@ -1,133 +1,183 @@
-# Blockbench MCP
+# Codex Blockbench MCP
 
-https://github.com/user-attachments/assets/ab1b7e63-b6f0-4d5b-85ab-79d328de31db
+这是一个在 Blockbench 桌面版进程内运行的本地 MCP 插件，让 Codex 和其他 MCP 客户端通过结构化工具读取、检查和修改当前模型。运行插件不需要 Python、Uvicorn 或额外桥接进程。
 
-## Plugin Installation
+本仓库派生自 Jason J. Gardner 的 `blockbench-mcp-plugin`，以本地整合分支的安全模型、工具实现、测试和工作流为准。它不是原始上游项目的官方发行版。
 
-Open the desktop version of Blockbench, go to File > Plugins and click the "Load Plugin from URL" and paste in this URL:
+## 现在提供什么
 
-**[https://jasonjgardner.github.io/blockbench-mcp-plugin/mcp.js](https://jasonjgardner.github.io/blockbench-mcp-plugin/mcp.js)**
+- 在 Blockbench 内直接执行建模、贴图、UV、动画和工程操作。
+- 默认注册 105 个通用工具；安装并启用 Hytale 插件时，额外注册 12 个实验性 Hytale 工具。API 文档同时列出两部分。
+- 提供 MCP Resources 和内置 Prompt；模型创建提示与 `AGENTS.md` 同样要求显式层级、多视角空间检查、小步验证和必要时请用户直接观察。
+- 默认只允许本机通过 `127.0.0.1` 访问 MCP 服务，并默认启用 Bearer 认证、生成随机令牌。可显式改用其他监听地址，也可通过认证开关停用认证；插件会根据组合风险显示相应警告。
+- 永久移除 `risky_eval` 以及任意 action/选择器/对话框自动操作工具；共享注册入口还会拒绝这些高风险工具重新进入插件。
+- 提供可拖动、可缩放、可隐藏的“Codex 操作记录”面板。
+- 操作历史按模型隔离，支持搜索、筛选、分页、懒加载、回滚和重做。
+- 区分逻辑客户端与 MCP 会话，并可在 Blockbench 内查看、断开或临时封禁客户端及其会话。
+- 提供可选的限定目录 YSM 文件操作，以及“旧版参照 / 新版基线 / 工作副本”三标签工作流。
+- 两个参照标签同时对 Codex 和人工几何编辑只读；仍可转动视角、切换选择和隐藏骨架以便观察。
 
-## Model Context Protocol Server
+## 编译
 
-Configure the MCP server under Blockbench settings: **Settings** > **General** > **MCP Server Port** and **MCP Server Endpoint**
+开发时需要 [Bun](https://bun.sh/)。Blockbench 运行插件时不需要另开 Bun 或 Node 服务。
 
-The following examples use the default values of `:3000/bb-mcp`
-
-### Installation
-
-
-#### General
-
-```bash
-npx mcp-add --type http --url "http://localhost:3000/bb-mcp" --scope project
+```powershell
+bun install
+bun run check
+bun run build
 ```
 
-#### VS Code
+可安装文件位于：
 
-**`.vscode/mcp.json`**
-
-```json
-{
-  "servers": {
-    "blockbench": {
-      "url": "http://localhost:3000/bb-mcp",
-      "type": "http"
-    }
-  }
-}
+```text
+dist/codex_blockbench_mcp.js
 ```
 
-#### Claude Desktop
+调试构建可用：
 
-**`claude_desktop_config.json`** (macOS/Linux)
-
-```json
-{
-  "mcpServers": {
-    "blockbench": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:3000/bb-mcp"]
-    }
-  }
-}
+```powershell
+bun run dev
 ```
 
-**`claude_desktop_config.json`** (Windows)
+## 安装与更新
 
-```json
-{
-  "mcpServers": {
-    "blockbench": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "mcp-remote", "http://localhost:3000/bb-mcp"]
-    }
-  }
-}
+1. 打开 Blockbench 桌面版。
+2. 进入“文件 → 插件”。
+3. 选择“从文件加载插件”。
+4. 选择本目录下的 `dist/codex_blockbench_mcp.js`。文件名不能修改；Blockbench 要求它与插件 ID 完全一致。
+5. 更新后若旧实例仍驻留，重启一次 Blockbench。
+
+这个仓库不自动公开部署插件 URL。请从本地构建结果或仓库 CI 产物按文件加载，以免误用原始上游的旧构建。
+
+## 首次连接 Codex
+
+插件默认监听：
+
+```text
+http://127.0.0.1:3000/bb-mcp
 ```
 
-#### Claude Code
+第一次启用时，Blockbench 会请求本机网络权限。随后进入 Blockbench 设置中的“Codex Blockbench MCP”，查看监听地址、端口、端点和 Bearer 令牌，并把它们写入 Codex 的 `config.toml`：
 
-```bash
-claude mcp add blockbench --transport http http://localhost:3000/bb-mcp
+```toml
+[mcp_servers.blockbench]
+url = "http://127.0.0.1:3000/bb-mcp"
+http_headers = { Authorization = "Bearer 在插件设置中生成的令牌" }
 ```
 
-#### [Antigravity](https://antigravity.google/docs/mcp#connecting-custom-mcp-servers)
+也可以把同一个令牌放入环境变量，避免将它直接写进配置文件：
 
-```json
-{
-  "mcpServers": {
-    "blockbench": {
-      "serverUrl": "http://localhost:3000/bb-mcp"
-    }
-  }
-}
+```toml
+[mcp_servers.blockbench]
+url = "http://127.0.0.1:3000/bb-mcp"
+bearer_token_env_var = "CODEX_BLOCKBENCH_MCP_TOKEN"
 ```
 
-#### Cline
+如果明确不需要认证，可以关闭插件设置中的“启用 MCP Bearer 认证”，并在 Codex 配置里省略 `http_headers` 与 `bearer_token_env_var`：
 
-<img width="674" height="486" alt="Connecting to Blockbench MCP plugin through Cline" src="https://github.com/user-attachments/assets/f27f2304-dd56-4c60-b159-86fbd5af65ee" />
-
-**`cline_mcp_settings.json`**
-
-```json
-{
-  "mcpServers": {
-    "blockbench": {
-      "url": "http://localhost:3000/bb-mcp",
-      "type": "streamableHttp",
-      "disabled": false,
-      "autoApprove": []
-    }
-  }
-}
+```toml
+[mcp_servers.blockbench]
+url = "http://127.0.0.1:3000/bb-mcp"
 ```
 
-#### Ollama
+Codex 会对较大的 MCP 工具目录启用渐进式披露：服务器仍会完整返回工具，但其中一部分只在工具搜索命中后才暴露给模型。如果希望这个服务器的完整工具目录从任务开始就直接可见，可以在同一个配置块里加入：
 
-```bash
-uvx ollmcp -u http://localhost:3000/bb-mcp
+```toml
+[mcp_servers.blockbench]
+url = "http://127.0.0.1:3000/bb-mcp"
+omit_tools_from = ["deferred"]
 ```
 
-Recommended: [jonigl/mcp-client-for-ollama](https://github.com/jonigl/mcp-client-for-ollama)
+这是 Codex 客户端配置，插件无法通过 MCP 协议替客户端设置。修改后需要重新启动 Codex 或新建任务才会生效；直接暴露全部工具也会增加初始工具描述所占的上下文与处理成本。使用 Bearer 认证时，保留上面对应示例中的 `http_headers` 或 `bearer_token_env_var` 即可。
 
-#### OpenCode
+令牌不会出现在状态栏或普通日志里。令牌输入框右侧的刷新图标可生成新令牌；关闭认证开关时会保留令牌，以便以后重新启用而不必立刻改 Codex 配置。监听地址、端口、路径、认证开关、令牌或连接参数变更后，可从 Tools 菜单停止并重新启动 MCP 服务器使其生效，不必重载整个插件。
 
-```bash
-opencode mcp add
-```
+默认的 `127.0.0.1` 只接受本机连接。监听地址也可以改为具体的局域网地址、`0.0.0.0`、`::` 或主机名；插件会在保存非回环地址时弹出警告，并在每次启动时再次提示。关闭认证开关同样会显示警告；“非回环地址 + 认证关闭”会得到更强的无认证网络暴露警告。监听 `0.0.0.0` 或 `::` 时，Codex 配置中的 URL 应填写客户端实际能够访问的主机地址，而不是通配地址本身。
 
-<img width="504" height="300" alt="Connecting to Blockbench MCP plugin through OpenCode." src="https://github.com/user-attachments/assets/238971fc-0048-4b8d-95dd-6681604bbe90" />
+## Blockbench 设置
 
+插件设置会通过 Blockbench 自身的设置系统持久化，主要包括：
 
-## Usage
+- MCP 监听地址、端口与端点路径；
+- MCP Bearer 认证开关、令牌，以及令牌输入框右侧的重新生成与显示/隐藏按钮；
+- 会话闲置超时与 SSE 心跳；
+- 临时模型目录：这是插件可读写临时 YSM 模型文件的唯一目录，可直接输入路径或使用行内文件夹按钮选择；
+- 操作记录保留条数、每页条数、默认模型范围与来源筛选；
+- 是否记录人工操作；
 
-[See sample project](https://github.com/jasonjgardner/blockbench-mcp-project) for prompt examples.
+Tools 菜单提供“显示操作记录”“启动服务器”“停止服务器”“显示服务器状态”和“管理客户端”五个插件操作；设置入口与临时目录选择不再重复出现在这里。没有打开项目时，“显示操作记录”会先提示创建或打开项目。服务器真正开始监听后会显示启动成功提示；状态窗口按独立行显示运行阶段、实际配置 URL、Bearer 认证状态、逻辑客户端数量和活动会话数量。
 
-### [Skills](https://skills.sh/jasonjgardner/blockbench-mcp-project)
+同一个 Codex 实例可以因重新初始化或并行任务拥有多个 MCP 会话，因此插件不再把每个会话都显示成一个“客户端”。“管理客户端”会按服务器实际可见的网络地址、客户端自报名称/版本和 User-Agent 将会话分组，可断开单条会话、断开该客户端的全部会话，或封禁到 MCP 服务器下次重启。客户端身份字段可以伪造，所以这里的封禁只用于本机运行时清理与排查，不能替代 Bearer 认证。
 
-Use Agent Skills to orchestrate tool usage.
+操作记录默认最多保留 10,000 条，可在 100 到 50,000 条之间调整。超出上限时按时间清理旧记录。历史记录属于各自模型，不能拿一个模型的历史节点去回滚另一个模型。
 
-## Plugin Development
+## 通用建模保护
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed instructions on setting up the development environment and how to add new tools, resources, and prompts.
+插件的建模入口与根目录 `AGENTS.md` 保持一致：
+
+- 新建、复制或移动 Outliner 节点时必须明确指定父级；只有字面值 `"root"` 会落到根层。缺失、失效或同名不唯一的父级会在修改前失败。
+- 使用 UUID 优先的确定性引用；名称重复时不会悄悄选取第一个对象。
+- `inspect_spatial_relationships` 会报告世界坐标包围盒、逐轴间距，以及“某个投影视图重合但深度轴分离”的情况。
+- 关键附着关系仍需结合正面、侧面、顶面和斜视图检查。工具无法确定部件在语义上应如何连接时，代理应保留现场并请用户直接观察。
+- 创建类工具使用完整 Undo 前后快照；工具异常只清理本次调用新开的编辑，不取消 Blockbench 或用户原先进行中的编辑。
+
+## 可选 YSM 工作流工具
+
+- `ysm_set_workspace`：在受控工作流中设置与插件“临时模型目录”相同的目录边界；通常直接在 Blockbench 设置页配置即可。
+- `ysm_open_workflow_tabs`：验证并打开三个角色明确的标签。
+- `ysm_workflow_status`：只读检查标签数量、角色、路径和保护状态。
+- `ysm_merge_working_into_baseline`：在用户明确同意后完成一次合并替换。
+- `ysm_bind_project` 及其他 YSM 工具：在限定工作目录内同步模型与资源。
+
+常规模型工具也受统一的参照标签写入保护。没有显式标记为只读的 MCP 工具会按“可能修改”处理，不会因为遗漏元数据而绕过保护。
+
+## 操作记录与回滚
+
+“Codex 操作记录”是独立的 Blockbench 面板，可拖动、改变大小或关闭。它使用浏览器原生 IndexedDB 保存索引化记录，不依赖 SQLite，也不需要额外二进制模块。
+
+面板可以按当前模型或全部模型、MCP 或全部来源、工具名、状态和关键词筛选。列表按页读取，不会一次把全部历史装入界面。回滚和重做会先确认目标历史仍属于同一模型、同一条 Undo 分支；发生外部改写或分支变化时会拒绝跳转，避免把错误状态套到另一个模型。
+
+## 安全边界
+
+- 网络监听默认为 `127.0.0.1`。用户可以显式改为其他地址；非回环地址会在保存设置和服务启动时警告，并且不会绕过工具或目录限制。
+- Bearer 认证默认启用，健康检查、就绪检查和 MCP 端点都会验证令牌。用户也可以明确关闭认证开关；插件会警告，尤其会突出提示“非回环地址 + 认证关闭”的无认证网络暴露风险。
+- `risky_eval` 的实现、清单和 UI 均已删除；`trigger_action`、`emulate_clicks`、`fill_dialog` 这类可绕过专用能力边界的通用 UI 自动操作也已移除。共享工具注册器同时保留拒绝规则，防止以后合并上游代码时误恢复。
+- YSM 文件能力只允许访问插件设置中的临时模型目录，并对每个路径做范围检查。
+- 参照标签同时由 MCP 写入守卫、Blockbench 元素锁和 Undo 恢复三层保护。
+
+这仍然是能修改本机 Blockbench 工程的高权限插件。令牌只防止未授权客户端连接，并不能替代系统账户隔离、可靠备份或谨慎的端口配置。
+
+## 上游修复纳入情况
+
+本地整合分支包含对上游公开问题和实际建模回归的修复：
+
+- Issue #40：文档统一改为从本地文件安装，避免重启后插件消失；
+- Issue #44：`add_group` 的向量结构改为彼此独立，`origin` 和 `rotation` 可省略并获得默认值；
+- Issue #45：`create_texture` 正确应用渲染模式、双面设置和图层名称；
+- Issue #46：关键帧数值按 `x/y/z` 通道写入，支持零值和非等比缩放。
+
+`1.7.0-codex.21` 还补入了实际建模中发现的三组回归修复：
+
+- `place_cube` 会保留调用者指定的纹理；显式逐面 UV 会自动切换到 Per-face UV，避免 Box UV 在导出或重映射时覆盖结果；
+- `create_texture` 会等待图片真正载入，按请求尺寸创建或缩放画布，并在文件导入后恢复请求名称与纹理元数据；
+- `draw_shape_tool` 直接修改活动纹理画布，不再依赖鼠标指针状态，因此不会出现“返回成功但没有写入像素”。
+
+`1.7.0-codex.22` 进一步收紧了模型写入与调试契约：
+
+- 新建、复制、移动或镜像 Outliner 节点时必须提供明确父级；只有显式传入字面量 `root` 才会落在根层。不存在或同名不唯一的引用会在写入前失败，不再静默选第一个对象或退回根层；
+- 修正方块、网格、组、骨架、骨骼、纹理和纹理组创建/删除时的 Undo 前后快照，并在工具异常时只回滚本次调用新开的编辑；
+- 新增 `inspect_spatial_relationships`，报告世界坐标包围盒、逐轴间距，以及“某个投影视图看似相贴、隐藏深度轴实际分离”的警告；
+- 新增显式贴图分辨率设置与安全关闭工程能力；关闭未保存工程必须明确允许丢弃；
+- `from_geo_json` 的旧名称为兼容而保留，但现在只接受内联 JSON、JSON data URL 或本地 `.json` 文件。插件不再代为获取 HTTP(S) 地址，避免把 Blockbench 进程变成本地网络请求入口。
+
+这些检查不能替代人的结构判断：多视图和数值检查后仍无法确定父子结构或空间关系时，应停止继续写入，请用户查看当前模型并说明正确关系后再继续。
+
+`1.7.0-codex.23` 修正了空间检查的一个编辑器状态相关问题：世界包围盒现在只汇总 Outliner 元素自身的正式几何，不再把选中轮廓、像素网格等 Blockbench 辅助对象计入尺寸或间距。
+
+`1.7.0-codex.24` 修正了项目贴图分辨率工具对不存在的 Blockbench 内部函数的依赖。分辨率现在通过公开工程字段和 `uv_mode` Undo 快照更新；明确启用 UV 缩放时，会分别处理 Box UV、方块逐面 UV 与网格顶点 UV。固定长度参数也统一改为“同类型数组 + 精确长度”，避免 Codex 因不支持 JSON Schema tuple `items` 而跳过 17 个 MCP 工具。
+
+Issue #47 涉及 Java 版展示设置；是否需要额外实现以当前工具覆盖情况和最终上游核对结果为准。
+
+## 许可与来源
+
+上游项目及此派生代码继续遵循 `GPL-3.0-only`，详见 `LICENSE`。保留原作者 Jason J. Gardner 的署名；新增工具、工作流、安全加固和测试属于本仓库的派生改造。

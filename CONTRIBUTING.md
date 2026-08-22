@@ -1,42 +1,44 @@
-# Contributing to Blockbench MCP Plugin
+# Contributing to Codex Blockbench MCP
 
 Thank you for improving the Blockbench MCP plugin. This project uses TypeScript and Bun. Please keep changes focused, documented, and easy to verify inside Blockbench.
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/jasonjgardner/blockbench-mcp-plugin)
-
 ## Prerequisites
+
 - Bun installed: https://bun.sh/
-- Blockbench (desktop) for local testing.
+- Blockbench desktop for live integration testing.
 
 ## Setup & Development
 ```sh
 bun install                # install deps
+bun run check              # automated regression suite; does not write dist/
+bun run docs               # regenerate prompt manifest and API docs
 bun run dev                # build once with sourcemaps
 bun run dev:watch          # rebuild on change (watch mode)
-bun run build              # minified production build to dist/mcp.js
+bun run build              # minified production build to dist/codex_blockbench_mcp.js
 ```
 
 For MCP Inspector (optional):
 ```sh
 bunx @modelcontextprotocol/inspector
 ```
-Default server transport (when plugin is loaded): `http://localhost:3000/bb-mcp`.
+The default server URL is `http://127.0.0.1:3000/bb-mcp`. Bearer authentication is enabled by default; obtain the token from Blockbench settings and never commit it.
 
-Local testing in Blockbench: File → Plugins → Load Plugin from File → select `dist/mcp.js`.
+For live testing, use File → Plugins → Load Plugin from File and select `dist/codex_blockbench_mcp.js`. The filename is part of the local Blockbench plugin identity and must not be changed.
 
 ## Project Structure
 - `index.ts`: Plugin entry; registers server, UI, settings.
 - `server/`: MCP server implementation.
   - `server.ts`: McpServer singleton (official MCP SDK).
   - `tools.ts`: Tool module aggregator importing domain-specific tools.
-  - `tools/`: Tool implementations by domain (animation, camera, cubes, element, import, mesh, paint, project, texture, ui, uv).
+  - `tools/`: Tool implementations by domain, including guarded modeling, audit/history, spatial inspection, YSM workflow, and optional Hytale support.
   - `resources.ts`: MCP resource definitions.
   - `prompts.ts`: MCP prompts with argument schemas.
   - `net.ts`: HTTP server and transport handling.
-- `ui/`: Panel, settings, and status bar UI.
-- `lib/`: Shared utilities, factories (`createTool`, `createResource`, `createPrompt`), and Zod schemas.
-- `macros/`: Build-time macros (e.g., prompt embedding).
-- `dist/`: Build outputs (`mcp.js`, maps, copied assets).
+- `ui/`: Operations history, settings, server controls, client management, and status UI.
+- `lib/`: Shared factories, security guards, deterministic reference resolution, Undo safety, sessions, workspace controls, and Zod schemas.
+- `prompts/`: Prompt source files bundled through `prompts/manifest.json`.
+- `tests/`: Bun regression tests.
+- `dist/`: Ignored build outputs, including `codex_blockbench_mcp.js`.
 
 ## Adding Tools
 Use `createTool()` from `lib/factories.ts`. Tools are organized by domain in `server/tools/` (e.g., `animation.ts`, `paint.ts`, `mesh.ts`). Each domain file exports a registration function that is called from `server/tools.ts`.
@@ -44,23 +46,34 @@ Use `createTool()` from `lib/factories.ts`. Tools are organized by domain in `se
 Example tool in a domain file (e.g., `server/tools/example.ts`):
 ```ts
 import { z } from "zod";
-import { createTool } from "@/lib/factories";
+import { createTool, type ToolSpec } from "@/lib/factories";
+
+export const exampleParameters = z.object({ name: z.string() });
+export const exampleToolDocs: ToolSpec[] = [{
+  name: "example",
+  description: "Does something useful",
+  annotations: { title: "Example", readOnlyHint: true },
+  parameters: exampleParameters,
+  status: "stable",
+}];
 
 export function registerExampleTools() {
-  createTool("example", {
-    description: "Does something useful",
-    annotations: { title: "Example" },
-    parameters: z.object({ name: z.string() }),
+  createTool(exampleToolDocs[0].name, {
+    ...exampleToolDocs[0],
     async execute({ name }) {
       return `Hello, ${name}!`;
     },
-  });
+  }, exampleToolDocs[0].status);
 }
 ```
-Then import and call the registration function in `server/tools.ts`.
+Then import and call the registration function in `server/tools.ts`, add the docs array to `build/docs-manifest.ts`, and add regression coverage.
 
 - Naming: Tools are registered with the name you provide (no automatic prefix).
-- Validate inputs with `zod`. Avoid blocking UI during execution.
+- Define schemas without Blockbench globals because docs/tests import them outside Blockbench.
+- Validate inputs with Zod and resolve names deterministically; duplicate names must require an exact UUID.
+- Creation, duplication, and reparenting tools must require an explicit parent. Only the exact literal `"root"` may intentionally select root.
+- Mutations must use bounded Undo edits and remain compatible with the shared project-role guard and audit wrapper.
+- Arbitrary JavaScript execution and generic action/click/dialog automation are permanently out of scope.
 
 ## Adding Resources
 Use `createResource()` from `lib/factories.ts` in `server/resources.ts`:
@@ -101,7 +114,15 @@ createPrompt("example_prompt", {
   },
 });
 ```
-See `server/prompts.ts` for examples using the `readPrompt` macro to embed prompt text files.
+Prompt text belongs in `prompts/*.md`. Run `bun run prompts:build` to update the bundled manifest; never fetch private-fork prompt behavior from an upstream CDN.
+
+## Safety invariants
+
+- The normal server binds to `127.0.0.1` and requires a bearer token by default. Changes to network exposure or authentication require explicit UI warnings and tests.
+- Every session server must receive the same enabled tools, resources, and prompts through the reconstruction functions in `lib/factories.ts`.
+- Read-only/reference projects remain protected even if a tool omits metadata; missing `readOnlyHint` is treated as potentially mutating.
+- Never reintroduce a general evaluation or UI-automation escape hatch to work around a missing dedicated tool.
+- Keep `AGENTS.md`, bundled model-creation prompts, tool schemas, and implementation behavior aligned on hierarchy, multi-view checks, and human review checkpoints.
 
 ## Style & Commits
 - TypeScript strict mode; ESNext modules; use the `@/*` path alias.
@@ -113,12 +134,16 @@ See `server/prompts.ts` for examples using the `readPrompt` macro to embed promp
 - Add repro and verification steps; include screenshots/GIFs for UI changes.
 - Call out new tools, resources, settings, or breaking changes.
 
-## Manual Verification Checklist
-- Build: `bun run build` (or `bun run dev`) and confirm `dist/mcp.js` updates.
-- Load: In Blockbench → File → Plugins → Load Plugin from File → pick `dist/mcp.js`.
-- Settings: Confirm MCP port/endpoint under Settings → General (defaults `3000` and `/bb-mcp`).
-- Server: Open the MCP panel; ensure server shows connected when a client attaches.
-- Tools: Verify new tool appears with a readable title. Using MCP Inspector, call the tool with a small sample payload; confirm no errors and expected side effects (and Undo works when applicable).
+## Verification Checklist
+
+- Automated checks: run `bun run check`.
+- Generated files: run `bun run docs` and confirm the core catalog contains 105 tools plus 12 optional Hytale tools.
+- Build: run `bun run build` only when a fresh install artifact is actually needed; confirm `dist/codex_blockbench_mcp.js` is produced and remains untracked.
+- Load: In Blockbench → File → Plugins → Load Plugin from File → pick `dist/codex_blockbench_mcp.js`.
+- Settings: Confirm bind host, port, endpoint, authentication, token, audit, and workspace controls.
+- Server: Use Tools → Show Server Status and Manage Clients; verify client/session accounting and authentication behavior.
+- Tools: Through MCP Inspector or another client, call the smallest representative payload and verify result, Outliner state, explicit parent, audit entry, Undo and Redo.
 - Resources: In Inspector, resolve a sample URI (e.g., `nodes://<id>` or `textures://<name>`); confirm autocompletion and returned data.
 - Prompts: Load the prompt; check argument autocompletion and that `load` returns content without errors.
-- UI: Sanity check layout in light/dark themes; verify tool status badges and descriptions render and truncate gracefully.
+- UI: Check operations history, server controls, client manager, and light/dark presentation.
+- Spatial/modeling changes: inspect front, side, top, and three-quarter views; ask the user to inspect when semantic placement cannot be established reliably.
