@@ -6,21 +6,24 @@
     background-color: var(--color-dark);
     border-block-start: 1px solid var(--color-border);
     font-size: 0.85em;
-    user-select: none;
+    cursor: default !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+#mcp-status-bar * {
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
 }
 
 #mcp-status-bar .mcp-status-indicator {
     display: flex;
     align-items: center;
     gap: 6px;
-    cursor: pointer;
     padding: 2px 8px;
     border-radius: 4px;
-    transition: background-color 0.2s;
-}
-
-#mcp-status-bar .mcp-status-indicator:hover {
-    background-color: var(--color-button);
 }
 
 #mcp-status-bar .mcp-status-dot {

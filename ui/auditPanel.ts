@@ -1,0 +1,732 @@
+/// <reference types="blockbench-types" />
+import {
+  AuditConfirmationRequiredError,
+  auditManager,
+  type AuditChange,
+  type AuditOperationDetails,
+  type AuditOperationSummary,
+  type AuditStatus,
+  type AuditTravelPlan,
+} from "@/lib/audit";
+import type { IMCPTool } from "@/types";
+import { getProjectRole } from "@/lib/projectRoles";
+import {
+  getAuditDefaultScope,
+  getAuditPageSize,
+} from "@/lib/pluginSettings";
+import auditPanelCss from "@/ui/auditPanel.css";
+import auditPanelTemplate from "@/ui/auditPanel.html";
+
+let panel: Panel | undefined;
+let showAction: Action | undefined;
+let cssHandle: Deletable | undefined;
+let rawDataDialog: Dialog | undefined;
+let movedToListener: Deletable | undefined;
+let layoutTimer: ReturnType<typeof setTimeout> | undefined;
+
+type ProjectScope = "current" | "all" | string;
+const NO_PROJECT_SCOPE = "__codex_no_project__";
+
+interface AuditPanelProject {
+  id: string;
+  name: string;
+  role: string;
+}
+
+export type AuditTimelineState = "applied" | "current" | "undone";
+
+export interface AuditTimelineAnchor {
+  id: string;
+  phase: "before" | "after";
+}
+
+export function buildAuditTimelineStates(
+  items: AuditOperationSummary[],
+  projectId: string | null,
+  currentUndoIndex: number | null,
+  anchor: AuditTimelineAnchor | null = null
+): Record<string, AuditTimelineState> {
+  const states: Record<string, AuditTimelineState> = {};
+  let foundCurrent = false;
+
+  const anchorIndex = anchor
+    ? items.findIndex((item) => item.id === anchor.id && item.projectId === projectId)
+    : -1;
+  if (anchorIndex >= 0) {
+    const currentIndex = anchor?.phase === "after"
+      ? anchorIndex
+      : items.findIndex((item, index) => index > anchorIndex && item.projectId === projectId);
+
+    for (const [index, item] of items.entries()) {
+      if (!projectId || item.projectId !== projectId) {
+        states[item.id] = "applied";
+      } else if (currentIndex >= 0 && index === currentIndex) {
+        states[item.id] = "current";
+      } else if (currentIndex < 0 || index < currentIndex) {
+        // Everything newer than the selected boundary is visually undone,
+        // including read-only, failed, and otherwise non-reversible records.
+        states[item.id] = "undone";
+      } else {
+        states[item.id] = "applied";
+      }
+    }
+    return states;
+  }
+
+  for (const item of items) {
+    if (!projectId || currentUndoIndex === null || item.projectId !== projectId) {
+      states[item.id] = "applied";
+      continue;
+    }
+
+    // Use the state after each operation. This also puts read-only and failed
+    // operations on the same visual timeline as reversible edits: if they ran
+    // beyond the current native Undo cursor, they are shown as undone too.
+    if (item.after.index > currentUndoIndex) {
+      states[item.id] = "undone";
+      continue;
+    }
+
+    if (!foundCurrent) {
+      states[item.id] = "current";
+      foundCurrent = true;
+      continue;
+    }
+
+    states[item.id] = "applied";
+  }
+
+  return states;
+}
+
+function selectedProject(): ModelProject | null {
+  if (typeof Project !== "undefined" && Project) return Project;
+  if (typeof ModelProject === "undefined") return null;
+  return ModelProject.all.find((project) => project.selected) ?? null;
+}
+
+function currentProjectId(): string | null {
+  return selectedProject()?.uuid ?? null;
+}
+
+function projectOptions(): AuditPanelProject[] {
+  const projects = typeof ModelProject === "undefined" ? [] : ModelProject.all;
+  return projects.map((project) => ({
+    id: project.uuid,
+    name: project.name || tl("mcp.audit.untitled"),
+    role: getProjectRole(project),
+  }));
+}
+
+function selectedScopeProjectId(scope: ProjectScope): string | "all" {
+  if (scope === "all") return "all";
+  if (scope === "current") return currentProjectId() ?? NO_PROJECT_SCOPE;
+  return scope;
+}
+
+function configuredPageSize(): number {
+  return getAuditPageSize();
+}
+
+function configuredProjectScope(): ProjectScope {
+  return getAuditDefaultScope();
+}
+
+function timelineCursor(scope: ProjectScope): { projectId: string | null; undoIndex: number | null } {
+  const scopeId = selectedScopeProjectId(scope);
+  if (scopeId === "all" || scopeId === NO_PROJECT_SCOPE) {
+    return { projectId: null, undoIndex: null };
+  }
+  const project = ModelProject.all.find((candidate) => candidate.uuid === scopeId);
+  return {
+    projectId: project?.uuid ?? null,
+    undoIndex: project?.undo?.index ?? null,
+  };
+}
+
+function normalizeAuditPanelHeight(): void {
+  if (!panel || !panel.isInSidebar() || panel.attached_to || panel.folded) return;
+  const sidebar = panel.container.parentElement;
+  if (!sidebar || !sidebar.clientHeight) return;
+
+  const sidebarRect = sidebar.getBoundingClientRect();
+  const panelRect = panel.container.getBoundingClientRect();
+  const availableHeight = Math.floor(sidebarRect.bottom - panelRect.top);
+  if (availableHeight <= 0) return;
+
+  const minimum = Math.min(panel.min_height ?? 180, availableHeight);
+  const requested = panel.position_data.height || 430;
+  const height = Math.max(minimum, Math.min(requested, availableHeight));
+  if (panel.fixed_height && Math.abs(panel.position_data.height - height) < 2) return;
+
+  // Blockbench clears fixed_height while moving a panel. A non-growable list
+  // then uses its complete content height, so restore a native resizable height
+  // once the panel has reached its new sidebar position.
+  panel.customizePosition({ height, fixed_height: true });
+  panel.update();
+}
+
+function scheduleAuditPanelLayout(): void {
+  if (layoutTimer) clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(() => {
+    layoutTimer = undefined;
+    normalizeAuditPanelHeight();
+  }, 0);
+}
+
+function showPanel(): void {
+  if (!selectedProject()) {
+    Blockbench.showMessageBox({
+      title: tl("mcp.audit.open_project_title"),
+      message: tl("mcp.audit.open_project_message"),
+      icon: "info",
+      buttons: ["dialog.ok"],
+    });
+    return;
+  }
+  if (!panel) return;
+  if (panel.slot === "hidden") {
+    const previous = panel.previous_slot;
+    panel.moveTo(previous && previous !== "hidden" ? previous : "right_bar");
+  }
+  panel.fold(false);
+  panel.selectTab();
+  panel.moveToFront();
+}
+
+function hidePanel(): void {
+  panel?.moveTo("hidden");
+}
+
+function confirmMessage(options: MessageBoxOptions): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    Blockbench.showMessageBox(
+      {
+        confirm: 0,
+        cancel: 1,
+        ...options,
+      },
+      (button) => resolve(button === 0)
+    );
+  });
+}
+
+function unsafeTravelMessage(plan: AuditTravelPlan): string {
+  const examples = plan.unsafeActions
+    .slice(0, 4)
+    .map((action) => `• ${action}`)
+    .join("\n");
+  const omitted = Math.max(0, plan.unsafeActions.length - 4);
+  return [
+    tl("mcp.audit.confirm_cross_manual", [plan.unsafeCount, plan.projectName ?? ""]),
+    examples,
+    omitted > 0 ? tl("mcp.audit.more_edits", [omitted]) : "",
+    tl("mcp.audit.confirm_cross_manual_tail"),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function parseStoredAuditValue(value: string): unknown {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+export function buildAuditRawData(
+  item: AuditOperationSummary,
+  details: AuditOperationDetails
+): Record<string, unknown> {
+  return {
+    operation: {
+      id: item.id,
+      title: item.title,
+      toolName: item.toolName,
+      source: item.source,
+      status: item.status,
+      startedAt: new Date(item.startedAt).toISOString(),
+      finishedAt: item.finishedAt === null ? null : new Date(item.finishedAt).toISOString(),
+      durationMs: item.durationMs,
+      readOnly: item.readOnly,
+      sessionId: item.sessionId,
+      clientName: item.clientName,
+    },
+    model: item.projectId
+      ? {
+          id: item.projectId,
+          name: item.projectName,
+          role: item.projectRole,
+        }
+      : null,
+    sanitized: {
+      arguments: parseStoredAuditValue(details.argumentsText),
+      result: parseStoredAuditValue(details.resultText),
+      error: parseStoredAuditValue(details.errorText),
+    },
+    undo: {
+      reversible: item.reversible,
+      changedEntryCount: item.undoEntryCount,
+      before: item.before,
+      after: item.after,
+      entries: details.undoEntries,
+    },
+  };
+}
+
+function showRawDataDialog(item: AuditOperationSummary, details: AuditOperationDetails): void {
+  rawDataDialog?.delete();
+  rawDataDialog = new Dialog({
+    id: "codex_mcp_audit_raw_data",
+    title: tl("mcp.audit.raw_data_title"),
+    icon: "data_object",
+    width: 720,
+    resizable: "xy",
+    component: {
+      name: "codex_mcp_audit_raw_data",
+      data: () => ({
+        note: tl("mcp.audit.raw_data_note"),
+        jsonText: JSON.stringify(buildAuditRawData(item, details), null, 2),
+      }),
+      template: `
+        <div class="codex-audit-raw-dialog">
+          <p>{{note}}</p>
+          <pre>{{jsonText}}</pre>
+        </div>
+      `,
+    },
+    singleButton: true,
+    buttons: [tl("mcp.dialog.close")],
+  });
+  rawDataDialog.show();
+}
+
+export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
+  if (panel) return panel;
+  cssHandle = Blockbench.addCSS(auditPanelCss);
+
+  panel = new Panel("codex_mcp_audit_panel", {
+    id: "codex_mcp_audit_panel",
+    plugin: "codex_blockbench_mcp",
+    icon: "manage_history",
+    name: tl("mcp.audit.panel_name"),
+    optional: true,
+    default_side: "right",
+    default_position: {
+      slot: "right_bar",
+      height: 430,
+      folded: false,
+      sidebar_index: 10,
+    },
+    growable: false,
+    resizable: true,
+    min_height: 180,
+    expand_button: true,
+    onResize: scheduleAuditPanelLayout,
+    component: {
+      name: "codex_mcp_audit_panel",
+      data: () => ({
+        items: [] as AuditOperationSummary[],
+        details: {} as Record<string, AuditOperationDetails | null>,
+        expanded: {} as Record<string, boolean>,
+        loading: true,
+        error: "",
+        page: 0,
+        pageSize: configuredPageSize(),
+        hasPrevious: false,
+        hasNext: false,
+        projectScope: configuredProjectScope(),
+        projects: projectOptions(),
+        filters: {
+          search: "",
+          toolName: "all",
+        },
+        toolOptions: Object.values(tools)
+          .map((tool) => ({
+            name: tool.name,
+            label: tool.name,
+            title: tool.description || tool.name,
+          }))
+          .sort((left, right) => left.name.localeCompare(right.name)),
+        rawDataLoading: {} as Record<string, boolean>,
+        loadRevision: 0,
+        searchTimer: null as ReturnType<typeof setTimeout> | null,
+        refreshTimer: null as ReturnType<typeof setTimeout> | null,
+        unsubscribeAudit: null as (() => void) | null,
+        timelineProjectId: null as string | null,
+        timelineUndoIndex: null as number | null,
+        timelineAnchorId: null as string | null,
+        timelineAnchorPhase: null as "before" | "after" | null,
+      }),
+      computed: {
+        viewingAllProjects(): boolean {
+          // @ts-ignore - Vue component context
+          return this.projectScope === "all";
+        },
+        currentProjectLabel(): string {
+          const project = selectedProject();
+          return project?.name
+            ? tl("mcp.audit.current_model_named", [project.name])
+            : tl("mcp.audit.current_model");
+        },
+        timelineStates(): Record<string, AuditTimelineState> {
+          // @ts-ignore - Vue component context
+          const anchor = this.timelineAnchorId && this.timelineAnchorPhase
+            // @ts-ignore - Vue component context
+            ? { id: this.timelineAnchorId, phase: this.timelineAnchorPhase }
+            : null;
+          // @ts-ignore - Vue component context
+          return buildAuditTimelineStates(this.items, this.timelineProjectId, this.timelineUndoIndex, anchor);
+        },
+      },
+      mounted() {
+        // @ts-ignore - Vue component context
+        const vm = this;
+        vm.unsubscribeAudit = auditManager.subscribe((change: AuditChange) => {
+          if (change.type === "storage") return;
+          if (change.type === "settings") {
+            vm.applyAuditSettings();
+            return;
+          }
+          if (change.type === "project") {
+            vm.timelineAnchorId = null;
+            vm.timelineAnchorPhase = null;
+            vm.projects = projectOptions();
+            if (vm.projectScope === "current") {
+              vm.page = 0;
+              vm.scheduleRefresh(0);
+            }
+            return;
+          }
+          vm.timelineAnchorId = null;
+          vm.timelineAnchorPhase = null;
+          if (vm.page === 0) vm.scheduleRefresh(120);
+        });
+        void vm.loadPage();
+        vm.$nextTick(scheduleAuditPanelLayout);
+      },
+      beforeDestroy() {
+        // @ts-ignore - Vue component context
+        if (this.unsubscribeAudit) this.unsubscribeAudit();
+        // @ts-ignore - Vue component context
+        if (this.searchTimer) clearTimeout(this.searchTimer);
+        // @ts-ignore - Vue component context
+        if (this.refreshTimer) clearTimeout(this.refreshTimer);
+      },
+      methods: {
+        tl(key: string, variables?: string | number | (string | number)[]): string {
+          return tl(key, variables);
+        },
+        hidePanel,
+        openSettings(): void {
+          const category = Settings.structure.codex_blockbench_mcp;
+          if (category) category.open = true;
+          Settings.openDialog();
+        },
+        applyAuditSettings(): void {
+          // @ts-ignore - Vue component context
+          this.pageSize = configuredPageSize();
+          // @ts-ignore - Vue component context
+          this.projectScope = configuredProjectScope();
+          // @ts-ignore - Vue component context
+          this.timelineAnchorId = null;
+          // @ts-ignore - Vue component context
+          this.timelineAnchorPhase = null;
+          // @ts-ignore - Vue component context
+          this.page = 0;
+          // @ts-ignore - Vue component context
+          void this.loadPage();
+        },
+        refreshProjects(): void {
+          // @ts-ignore - Vue component context
+          this.projects = projectOptions();
+        },
+        scheduleRefresh(delay = 180): void {
+          // @ts-ignore - Vue component context
+          if (this.refreshTimer) clearTimeout(this.refreshTimer);
+          // @ts-ignore - Vue component context
+          this.refreshTimer = setTimeout(() => {
+            // @ts-ignore - Vue component context
+            this.refreshTimer = null;
+            // @ts-ignore - Vue component context
+            void this.loadPage();
+          }, delay);
+        },
+        onSearchInput(): void {
+          // @ts-ignore - Vue component context
+          if (this.searchTimer) clearTimeout(this.searchTimer);
+          // @ts-ignore - Vue component context
+          this.searchTimer = setTimeout(() => {
+            // @ts-ignore - Vue component context
+            this.page = 0;
+            // @ts-ignore - Vue component context
+            void this.loadPage();
+          }, 250);
+        },
+        onFilterChanged(): void {
+          // @ts-ignore - Vue component context
+          this.page = 0;
+          // @ts-ignore - Vue component context
+          this.details = {};
+          // @ts-ignore - Vue component context
+          this.expanded = {};
+          // @ts-ignore - Vue component context
+          this.timelineAnchorId = null;
+          // @ts-ignore - Vue component context
+          this.timelineAnchorPhase = null;
+          // @ts-ignore - Vue component context
+          void this.loadPage();
+        },
+        async loadPage(): Promise<void> {
+          // @ts-ignore - Vue component context
+          const revision = ++this.loadRevision;
+          // @ts-ignore - Vue component context
+          this.loading = true;
+          // @ts-ignore - Vue component context
+          this.error = "";
+          try {
+            // @ts-ignore - Vue component context
+            const result = await auditManager.queryPage({
+              // @ts-ignore - Vue component context
+              page: this.page,
+              // @ts-ignore - Vue component context
+              pageSize: Number(this.pageSize),
+              // @ts-ignore - Vue component context
+              search: this.filters.search,
+              // @ts-ignore - Vue component context
+              source: "mcp",
+              status: "all",
+              // @ts-ignore - Vue component context
+              toolName: this.filters.toolName,
+              // @ts-ignore - Vue component context
+              projectId: selectedScopeProjectId(this.projectScope),
+            });
+            // @ts-ignore - Vue component context
+            if (revision !== this.loadRevision) return;
+            // @ts-ignore - Vue component context
+            this.items = result.items;
+            // @ts-ignore - Vue component context
+            this.refreshTimelineCursor();
+            // @ts-ignore - Vue component context
+            this.hasPrevious = result.hasPrevious;
+            // @ts-ignore - Vue component context
+            this.hasNext = result.hasNext;
+          } catch (error) {
+            // @ts-ignore - Vue component context
+            if (revision !== this.loadRevision) return;
+            // @ts-ignore - Vue component context
+            this.error = error instanceof Error ? error.message : String(error);
+          } finally {
+            // @ts-ignore - Vue component context
+            if (revision === this.loadRevision) this.loading = false;
+          }
+        },
+        toggleDetails(item: AuditOperationSummary): void {
+          // @ts-ignore - Vue component context
+          const isOpen = !this.expanded[item.id];
+          // @ts-ignore - Vue component context
+          this.$set(this.expanded, item.id, isOpen);
+        },
+        async showRawData(item: AuditOperationSummary): Promise<void> {
+          // @ts-ignore - Vue component context
+          if (this.rawDataLoading[item.id]) return;
+          // @ts-ignore - Vue component context
+          this.$set(this.rawDataLoading, item.id, true);
+          try {
+            // @ts-ignore - Vue component context
+            let details = this.details[item.id] as AuditOperationDetails | undefined;
+            if (!details) {
+              details = (await auditManager.getDetails(item.id)) ?? {
+                id: item.id,
+                argumentsText: "",
+                resultText: "",
+                errorText: tl("mcp.audit.details_unavailable"),
+                undoEntries: [],
+              };
+              // @ts-ignore - Vue component context
+              this.$set(this.details, item.id, details);
+            }
+            showRawDataDialog(item, details);
+          } catch (error) {
+            Blockbench.showMessageBox({
+              title: tl("mcp.audit.raw_data_title"),
+              icon: "error",
+              message: error instanceof Error ? error.message : String(error),
+              buttons: [tl("mcp.audit.ok")],
+            });
+          } finally {
+            // @ts-ignore - Vue component context
+            this.$set(this.rawDataLoading, item.id, false);
+          }
+        },
+        formatTime(timestamp: number): string {
+          return new Date(timestamp).toLocaleString();
+        },
+        formatDuration(duration: number | null): string {
+          if (duration === null) return tl("mcp.audit.running");
+          if (duration < 1000) return `${duration} ms`;
+          return `${(duration / 1000).toFixed(duration < 10_000 ? 1 : 0)} s`;
+        },
+        statusLabel(status: AuditStatus): string {
+          return tl(`mcp.audit.status_${status}`);
+        },
+        refreshTimelineCursor(): void {
+          // @ts-ignore - Vue component context
+          const cursor = timelineCursor(this.projectScope);
+          // @ts-ignore - Vue component context
+          this.timelineProjectId = cursor.projectId;
+          // @ts-ignore - Vue component context
+          this.timelineUndoIndex = cursor.undoIndex;
+        },
+        timelineState(item: AuditOperationSummary): AuditTimelineState {
+          // @ts-ignore - Vue component context
+          return this.timelineStates[item.id] ?? "applied";
+        },
+        timelineLabel(item: AuditOperationSummary): string {
+          // @ts-ignore - Vue component context
+          const state = this.timelineState(item);
+          if (state === "current") return tl("mcp.audit.timeline_current");
+          if (state === "undone") return tl("mcp.audit.timeline_undone");
+          return this.statusLabel(item.status);
+        },
+        canRestore(item: AuditOperationSummary): boolean {
+          // The all-model view is intentionally search-only: every history
+          // action must occur inside one explicitly selected model timeline.
+          // @ts-ignore - Vue component context
+          if (this.projectScope === "all") return false;
+          // @ts-ignore - Vue component context
+          return Boolean(item.reversible && item.projectId === selectedScopeProjectId(this.projectScope));
+        },
+        async restore(item: AuditOperationSummary, phase: "before" | "after"): Promise<void> {
+          // @ts-ignore - Vue component context
+          if (!this.canRestore(item)) return;
+          let restored = false;
+          try {
+            const plan = await auditManager.applyTravel(item.id, phase, false);
+            restored = true;
+            if (plan.steps === 0) {
+              Blockbench.showQuickMessage(tl("mcp.audit.already_at_state"), 2200);
+            } else {
+              Blockbench.showQuickMessage(
+                tl("mcp.audit.restored_steps", [plan.projectName ?? "", plan.steps]),
+                3200
+              );
+            }
+          } catch (error) {
+            if (error instanceof AuditConfirmationRequiredError) {
+              const confirmed = await confirmMessage({
+                title: tl("mcp.audit.confirm_title"),
+                icon: "warning",
+                message: unsafeTravelMessage(error.plan),
+                buttons: [tl("mcp.audit.continue"), tl("mcp.dialog.cancel")],
+              });
+              if (!confirmed) return;
+              try {
+                await auditManager.applyTravel(item.id, phase, true);
+                restored = true;
+                Blockbench.showQuickMessage(
+                  tl("mcp.audit.restored_steps", [error.plan.projectName ?? "", error.plan.steps]),
+                  3200
+                );
+              } catch (confirmedError) {
+                Blockbench.showMessageBox({
+                  title: tl("mcp.audit.restore_failed"),
+                  icon: "error",
+                  message: confirmedError instanceof Error ? confirmedError.message : String(confirmedError),
+                  buttons: [tl("mcp.audit.ok")],
+                });
+              }
+            } else {
+              Blockbench.showMessageBox({
+                title: tl("mcp.audit.restore_failed"),
+                icon: "error",
+                message: error instanceof Error ? error.message : String(error),
+                buttons: [tl("mcp.audit.ok")],
+              });
+            }
+          } finally {
+            if (restored) {
+              // Preserve the exact chronological boundary selected by the
+              // user; native Undo indices alone cannot order read-only calls
+              // that share an index with a reversible edit.
+              // @ts-ignore - Vue component context
+              this.timelineAnchorId = item.id;
+              // @ts-ignore - Vue component context
+              this.timelineAnchorPhase = phase;
+            }
+            // @ts-ignore - Vue component context
+            this.projects = projectOptions();
+            // @ts-ignore - Vue component context
+            await this.loadPage();
+          }
+        },
+        previousPage(): void {
+          // @ts-ignore - Vue component context
+          if (!this.hasPrevious) return;
+          // @ts-ignore - Vue component context
+          this.page -= 1;
+          // @ts-ignore - Vue component context
+          void this.loadPage();
+        },
+        nextPage(): void {
+          // @ts-ignore - Vue component context
+          if (!this.hasNext) return;
+          // @ts-ignore - Vue component context
+          this.page += 1;
+          // @ts-ignore - Vue component context
+          void this.loadPage();
+        },
+        async clearHistory(): Promise<void> {
+          const confirmed = await confirmMessage({
+            title: tl("mcp.audit.clear_title"),
+            icon: "delete_sweep",
+            message: tl("mcp.audit.clear_message"),
+            buttons: [tl("mcp.audit.clear"), tl("mcp.dialog.cancel")],
+          });
+          if (!confirmed) return;
+          await auditManager.clearHistory();
+          // @ts-ignore - Vue component context
+          this.page = 0;
+          // @ts-ignore - Vue component context
+          this.details = {};
+          // @ts-ignore - Vue component context
+          this.expanded = {};
+          // @ts-ignore - Vue component context
+          await this.loadPage();
+        },
+      },
+      template: auditPanelTemplate,
+    },
+  });
+
+  movedToListener = panel.on("moved_to", scheduleAuditPanelLayout);
+  scheduleAuditPanelLayout();
+
+  showAction = new Action("codex_blockbench_mcp_show_audit_panel", {
+    name: tl("mcp.audit.show_panel"),
+    description: tl("mcp.audit.show_panel_description"),
+    icon: "manage_history",
+    click: showPanel,
+  });
+  MenuBar.menus.tools.addAction(showAction);
+  return panel;
+}
+
+export function auditPanelTeardown(): void {
+  movedToListener?.delete();
+  movedToListener = undefined;
+  if (layoutTimer) clearTimeout(layoutTimer);
+  layoutTimer = undefined;
+  rawDataDialog?.delete();
+  rawDataDialog = undefined;
+  showAction?.delete();
+  showAction = undefined;
+  panel?.delete();
+  panel = undefined;
+  cssHandle?.delete();
+  cssHandle = undefined;
+}
+
+export { showPanel as showAuditPanel };
