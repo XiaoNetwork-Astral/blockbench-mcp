@@ -101,6 +101,14 @@ function toTextContent(raw: unknown): string {
   return String(raw);
 }
 
+/** Resolve both synchronous and asynchronous Blockbench codec compilers. */
+export async function compileCodecResult(
+  compile: (options?: unknown) => unknown | Promise<unknown>,
+  options?: unknown
+): Promise<unknown> {
+  return await Promise.resolve(compile(options));
+}
+
 export function registerExportTools() {
   createTool(exportToolDocs[0].name, {
     ...exportToolDocs[0],
@@ -165,7 +173,7 @@ export function registerExportTools() {
           id?: string;
           name?: string;
           extension?: string;
-          compile?: (opts?: unknown) => unknown;
+          compile?: (opts?: unknown) => unknown | Promise<unknown>;
           getExportOptions?: () => Record<string, unknown>;
           fileName?: () => string;
         }
@@ -201,7 +209,10 @@ export function registerExportTools() {
           ? codec.getExportOptions()
           : undefined);
 
-      const rawResult = codec.compile(effectiveOptions);
+      const rawResult = await compileCodecResult(
+        codec.compile,
+        effectiveOptions
+      );
 
       const isArrayBuffer = rawResult instanceof ArrayBuffer;
       const isBinaryView =
