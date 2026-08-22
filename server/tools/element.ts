@@ -9,6 +9,12 @@ import {
   vec3,
   autoUvEnum,
 } from "@/lib/zodObjects";
+import {
+  collectOutlinerSubtree,
+  finishCreatedOutlinerEdit,
+  resolveOutlinerParentOrThrow,
+  rollbackCreatedOutlinerEdit,
+} from "@/lib/modelSafety";
 
 export const removeElementParameters = z.object({
   id: elementIdSchema.describe("ID or name of the element to remove."),
@@ -98,7 +104,12 @@ export const addGroupParameters = z.object({
   rotation: vec3("Rotation of the group in degrees as [x, y, z].")
     .optional()
     .default([0, 0, 0]),
-  parent: z.string().optional().default("root"),
+  parent: z
+    .string()
+    .min(1)
+    .describe(
+      "Required parent UUID or unique name. Use the exact literal 'root' only for an intentional root-level group."
+    ),
   visibility: z.boolean().optional().default(true),
   autouv: autoUvEnum
     .optional()
@@ -133,6 +144,12 @@ export const listOutlineParameters = z.object({
 
 export const duplicateElementParameters = z.object({
   id: elementIdSchema.describe("ID or name of the element to duplicate."),
+  parent: z
+    .string()
+    .min(1)
+    .describe(
+      "Required target parent UUID or unique name. Use the exact literal 'root' only for an intentional root-level duplicate."
+    ),
   offset: vec3().optional().default([0, 0, 0]),
   newName: z.string().optional(),
 });
@@ -155,7 +172,8 @@ export const elementToolDocs: ToolSpec[] = [
   },
   {
     name: "add_group",
-    description: "Adds a new group with the given name and options.",
+    description:
+      "Adds a new group under a mandatory explicit parent. Use parent='root' only for an intentional root-level group; omitted, missing, or ambiguous parents are rejected before mutation.",
     annotations: {
       title: "Add Group",
       destructiveHint: true,
@@ -177,7 +195,7 @@ export const elementToolDocs: ToolSpec[] = [
   {
     name: "duplicate_element",
     description:
-      "Duplicates a cube, mesh or group by ID or name.  You may offset the duplicate or assign a new name.",
+      "Duplicates a cube, mesh, or group under a mandatory explicit target parent while preserving geometry, UVs, textures, and descendants. You may offset the duplicate or assign a new name.",
     annotations: { title: "Duplicate Element", destructiveHint: true },
     parameters: duplicateElementParameters,
     status: STATUS_EXPERIMENTAL,
@@ -325,16 +343,25 @@ export function registerElementTools() {
     ...elementToolDocs[0],
     async execute({ id }) {
       const element = findElementOrThrow(id);
-
+      const deleted = collectOutlinerSubtree([element]);
       Undo.initEdit({
-        elements: [],
+        elements: deleted.elements,
+        groups: deleted.groups,
         outliner: true,
         collections: [],
       });
 
-      element.remove();
-
-      Undo.finishEdit("Agent removed element");
+      element.remove(false);
+      // Blockbench compares the same mutable arrays at finish time. Emptying
+      // them records that the nodes no longer exist in the post-edit state.
+      deleted.elements.length = 0;
+      deleted.groups.length = 0;
+      Undo.finishEdit("Agent removed element", {
+        elements: deleted.elements,
+        groups: deleted.groups,
+        outliner: true,
+        collections: [],
+      });
       Canvas.updateAll();
 
       return `Removed element with ID ${id}`;
@@ -353,28 +380,32 @@ export function registerElementTools() {
       selected,
       shade,
     }) {
+      const parentGroup = resolveOutlinerParentOrThrow(parent, "group");
       Undo.initEdit({
         elements: [],
+        groups: [],
         outliner: true,
         collections: [],
       });
+      let group: Group | undefined;
+      try {
+        group = new Group({
+          name,
+          origin,
+          rotation,
+          autouv: Number(autouv) as 0 | 1 | 2,
+          visibility: Boolean(visibility),
+          selected: Boolean(selected),
+          shade: Boolean(shade),
+        }).init();
+        group.addTo(parentGroup);
+      } catch (error) {
+        if (group) rollbackCreatedOutlinerEdit([group]);
+        else Undo.cancelEdit();
+        throw error;
+      }
 
-      const group = new Group({
-        name,
-        origin,
-        rotation,
-        autouv: Number(autouv) as 0 | 1 | 2,
-        visibility: Boolean(visibility),
-        selected: Boolean(selected),
-        shade: Boolean(shade),
-      }).init();
-
-      const parentGroup = parent === "root"
-        ? "root"
-        : Group.all.find((g) => g.name === parent || g.uuid === parent);
-      group.addTo(parentGroup);
-
-      Undo.finishEdit("Agent added group");
+      finishCreatedOutlinerEdit("Agent added group", [group]);
       Canvas.updateAll();
 
       return `Added group ${group.name} with ID ${group.uuid}`;
@@ -447,90 +478,57 @@ export function registerElementTools() {
 
   createTool(elementToolDocs[3].name, {
     ...elementToolDocs[3],
-    async execute({ id, offset, newName }) {
+    async execute({ id, parent, offset, newName }) {
       const element = findElementOrThrow(id);
+      if (!(element instanceof Cube || element instanceof Mesh || element instanceof Group)) {
+        throw new Error(
+          `Element "${id}" has unsupported type "${element.type}". duplicate_element supports cubes, meshes, and groups.`
+        );
+      }
+      const targetParent = resolveOutlinerParentOrThrow(parent, element.type);
 
-      const withOffset = (vector: ArrayLike<number>): [number, number, number] => [
+      const addOffset = (vector: ArrayLike<number>): [number, number, number] => [
         Number(vector[0]) + offset[0],
         Number(vector[1]) + offset[1],
         Number(vector[2]) + offset[2],
       ];
+      const translate = (node: OutlinerNode): void => {
+        if (node instanceof Group) {
+          node.origin.V3_set(addOffset(node.origin));
+        } else if (node instanceof Cube) {
+          node.from.V3_set(addOffset(node.from));
+          node.to.V3_set(addOffset(node.to));
+          node.origin.V3_set(addOffset(node.origin));
+        } else if (node instanceof Mesh) {
+          node.origin.V3_set(addOffset(node.origin));
+        }
+        const children = (node as OutlinerNode & { children?: OutlinerNode[] }).children;
+        if (Array.isArray(children)) children.forEach(translate);
+        node.preview_controller?.updateAll(node);
+      };
 
-      // Helper functions for each supported outliner element type.
-      function cloneCube(cube: Cube, parent: any) {
-        const dupe = new Cube({
-          name: newName || `${cube.name}_copy`,
-          from: withOffset(cube.from),
-          to: withOffset(cube.to),
-          origin: withOffset(cube.origin),
-          rotation: cube.rotation,
-          autouv: cube.autouv,
-          uv_offset: cube.uv_offset,
-          mirror_uv: cube.mirror_uv,
-          shade: cube.shade,
-          inflate: cube.inflate,
-          color: cube.color,
-          visibility: cube.visibility,
-        }).init();
-        dupe.addTo(parent);
-        return dupe;
+      Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
+      let duplicate: OutlinerNode | undefined;
+      try {
+        const duplicateMethod = (element as OutlinerNode & {
+          duplicate?: () => OutlinerNode;
+        }).duplicate;
+        if (typeof duplicateMethod !== "function") {
+          throw new Error(`Blockbench does not expose duplication for ${element.type} nodes.`);
+        }
+        duplicate = duplicateMethod.call(element);
+        if (newName) duplicate.name = newName;
+        duplicate.addTo(targetParent);
+        translate(duplicate);
+      } catch (error) {
+        if (duplicate) rollbackCreatedOutlinerEdit([duplicate]);
+        else Undo.cancelEdit();
+        throw error;
       }
 
-      function cloneGroup(group: Group, parent: any) {
-        const dupeGroup = new Group({
-          name: newName || `${group.name}_copy`,
-          origin: withOffset(group.origin),
-          rotation: group.rotation,
-          autouv: group.autouv,
-          selected: group.selected,
-          shade: group.shade,
-          visibility: group.visibility,
-        }).init();
-        dupeGroup.addTo(parent);
-        group.children.forEach((child: any) => cloneElement(child, dupeGroup));
-        return dupeGroup;
-      }
-
-      function cloneMesh(mesh: Mesh, parent: any) {
-        const dupe = new Mesh({
-          name: newName || `${mesh.name}_copy`,
-          vertices: {},
-          origin: withOffset(mesh.origin),
-          rotation: mesh.rotation,
-        }).init();
-        const map: Record<string, any> = {};
-        Object.entries(mesh.vertices).forEach(([key, coords]: [any, any]) => {
-          map[key] = dupe.addVertices([
-            coords[0] + offset[0],
-            coords[1] + offset[1],
-            coords[2] + offset[2],
-          ])[0];
-        });
-        Object.values(mesh.faces).forEach((face: any) => {
-          dupe.addFaces(
-            new MeshFace(dupe, {
-              vertices: face.vertices.map((v: any) => map[v]),
-              uv: face.uv,
-            })
-          );
-        });
-        dupe.addTo(parent);
-        if ((mesh as any).material) dupe.applyTexture((mesh as any).material);
-        return dupe;
-      }
-
-      function cloneElement(el: any, parent: any) {
-        if (el instanceof Cube) return cloneCube(el, parent);
-        if (el instanceof Group) return cloneGroup(el, parent);
-        if (el instanceof Mesh) return cloneMesh(el, parent);
-        throw new Error("Unsupported element type.");
-      }
-
-      Undo.initEdit({ elements: [], outliner: true, collections: [] });
-      const dup = cloneElement(element, element.parent ?? Outliner);
-      Undo.finishEdit("Agent duplicated element");
+      finishCreatedOutlinerEdit("Agent duplicated element", [duplicate]);
       Canvas.updateAll();
-      return `Duplicated "${element.name}" as "${dup.name}" (ID: ${dup.uuid}).`;
+      return `Duplicated "${element.name}" as "${duplicate.name}" (ID: ${duplicate.uuid}).`;
     },
   }, elementToolDocs[3].status);
 
@@ -542,7 +540,11 @@ export function registerElementTools() {
     ...elementToolDocs[4],
     async execute({ id, new_name }) {
       const element = findElementOrThrow(id);
-      Undo.initEdit({ elements: [element], outliner: true, collections: [] });
+      Undo.initEdit(
+        element instanceof Group
+          ? { groups: [element], outliner: true, collections: [] }
+          : { elements: [element], outliner: true, collections: [] }
+      );
       element.extend({ name: new_name });
       Undo.finishEdit("Agent renamed element");
       Canvas.updateAll();

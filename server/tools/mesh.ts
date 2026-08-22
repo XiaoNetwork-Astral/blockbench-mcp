@@ -7,13 +7,17 @@ import {
   meshIdOptionalSchema,
   meshIdSchema,
   textureIdOptionalSchema,
-  groupIdOptionalSchema,
   vec3,
   meshSelectionModeEnum,
   selectionActionEnum,
 } from "@/lib/zodObjects";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import { getProjectTexture, getMeshOrSelected, findMeshOrThrow } from "@/lib/util";
+import {
+  finishCreatedOutlinerEdit,
+  resolveOutlinerParentOrThrow,
+  rollbackCreatedOutlinerEdit,
+} from "@/lib/modelSafety";
 
 // ============================================================================
 // Mesh Tool Parameter Schemas
@@ -25,7 +29,9 @@ export const placeMeshParameters = z.object({
     .min(1)
     .describe("Array of meshes to place."),
   texture: textureIdOptionalSchema.describe("Texture ID or name to apply to the mesh."),
-  group: groupIdOptionalSchema.describe("Group/bone to which the mesh belongs."),
+  group: z.string().min(1).describe(
+    "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level mesh."
+  ),
 });
 
 export const extrudeMeshParameters = z.object({
@@ -81,7 +87,9 @@ export const createSphereParameters = z.object({
     .min(1)
     .describe("Array of spheres to create."),
   texture: textureIdOptionalSchema.describe("Texture ID or name to apply to the sphere."),
-  group: groupIdOptionalSchema.describe("Group/bone to which the sphere belongs."),
+  group: z.string().min(1).describe(
+    "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level sphere."
+  ),
 });
 
 export const selectMeshElementsParameters = z.object({
@@ -167,7 +175,9 @@ export const createCylinderParameters = z.object({
     )
     .min(1),
   texture: textureIdOptionalSchema,
-  group: groupIdOptionalSchema,
+  group: z.string().min(1).describe(
+    "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level cylinder."
+  ),
 });
 
 export const knifeToolParameters = z.object({
@@ -194,7 +204,7 @@ export const meshToolDocs: ToolSpec[] = [
   {
     name: "place_mesh",
     description:
-      "Places a mesh at the specified position. Texture and group are optional.",
+      "Places one or more meshes under a mandatory explicit parent. Use group='root' only for intentional root-level meshes; invalid or ambiguous parents are rejected before mutation.",
     annotations: {
       title: "Place Mesh",
       destructiveHint: true,
@@ -225,7 +235,7 @@ export const meshToolDocs: ToolSpec[] = [
   {
     name: "create_sphere",
     description:
-      "Creates a sphere mesh at the specified position with the given parameters. The sphere is created as a mesh with vertices and faces using spherical coordinates.",
+      "Creates one or more sphere meshes under a mandatory explicit parent. The spheres use vertices and faces generated from spherical coordinates.",
     annotations: {
       title: "Create Sphere",
       destructiveHint: true,
@@ -287,7 +297,8 @@ export const meshToolDocs: ToolSpec[] = [
   },
   {
     name: "create_cylinder",
-    description: "Creates one or more cylinder meshes with optional end caps.",
+    description:
+      "Creates one or more cylinder meshes with optional end caps under a mandatory explicit parent.",
     annotations: { title: "Create Cylinder", destructiveHint: true },
     parameters: createCylinderParameters,
     status: STATUS_EXPERIMENTAL,
@@ -312,49 +323,38 @@ export function registerMeshTools() {
   createTool(meshToolDocs[0].name, {
     ...meshToolDocs[0],
     async execute({ elements, texture, group }, { reportProgress }) {
-      Undo.initEdit({
-        elements: [],
-        outliner: true,
-        collections: [],
-      });
       const total = elements.length;
-
       const projectTexture = texture
         ? getProjectTexture(texture)
         : Texture.getDefault();
-
-      if (!projectTexture) {
+      if (texture && !projectTexture) {
         throw new Error(`No texture found for "${texture}".`);
       }
+      const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
+      const meshes: Mesh[] = [];
+      Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
+      try {
+        for (const [progress, element] of elements.entries()) {
+          const mesh = new Mesh({
+            name: element.name,
+            vertices: {},
+          }).init();
+          meshes.push(mesh);
 
-      // @ts-expect-error getAllGroups is a utility function that returns all groups in the project
-      const groups = getAllGroups();
-      const outlinerGroup = group === "root"
-        ? "root"
-        : groups.find((g: Group) => g.name === group || g.uuid === group) ?? "root";
+          element.vertices.forEach((vertex) => {
+            mesh.addVertices(vertex as ArrayVector3);
+          });
 
-      const meshes = elements.map((element, progress) => {
-        const mesh = new Mesh({
-          name: element.name,
-          vertices: {},
-        }).init();
+          mesh.addTo(outlinerParent);
+          if (projectTexture) mesh.applyTexture(projectTexture);
+          reportProgress({ progress: progress + 1, total });
+        }
+      } catch (error) {
+        rollbackCreatedOutlinerEdit(meshes);
+        throw error;
+      }
 
-        element.vertices.forEach((vertex) => {
-          mesh.addVertices(vertex as ArrayVector3);
-        });
-
-        mesh.addTo(outlinerGroup);
-        mesh.applyTexture(projectTexture);
-
-        reportProgress({
-          progress,
-          total,
-        });
-
-        return mesh;
-      });
-
-      Undo.finishEdit("Agent placed meshes");
+      finishCreatedOutlinerEdit("Agent placed meshes", meshes);
       Canvas.updateAll();
 
       return await Promise.resolve(
@@ -405,28 +405,18 @@ export function registerMeshTools() {
   createTool(meshToolDocs[3].name, {
     ...meshToolDocs[3],
     async execute({ elements, texture, group }, { reportProgress }) {
-      Undo.initEdit({
-        elements: [],
-        outliner: true,
-        collections: [],
-      });
       const total = elements.length;
-
       const projectTexture = texture
         ? getProjectTexture(texture)
         : Texture.getDefault();
-
-      if (!projectTexture) {
+      if (texture && !projectTexture) {
         throw new Error(`No texture found for "${texture}".`);
       }
-
-      // @ts-expect-error getAllGroups is a utility function that returns all groups in the project
-      const groups = getAllGroups();
-      const outlinerGroup = group === "root"
-        ? "root"
-        : groups.find((g: Group) => g.name === group || g.uuid === group) ?? "root";
-
-      const spheres = elements.map((element, progress) => {
+      const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
+      const spheres: Mesh[] = [];
+      Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
+      try {
+        for (const [progress, element] of elements.entries()) {
         const mesh = new Mesh({
           name: element.name,
           vertices: {},
@@ -437,6 +427,7 @@ export function registerMeshTools() {
             number
           ],
         }).init();
+        spheres.push(mesh);
 
         // Create sphere vertices using spherical coordinates
         const radius = element.diameter / 2;
@@ -512,20 +503,22 @@ export function registerMeshTools() {
           }
         }
 
-        mesh.addTo(outlinerGroup);
+        mesh.addTo(outlinerParent);
         if (projectTexture) {
           mesh.applyTexture(projectTexture);
         }
 
         reportProgress({
-          progress,
+          progress: progress + 1,
           total,
         });
+        }
+      } catch (error) {
+        rollbackCreatedOutlinerEdit(spheres);
+        throw error;
+      }
 
-        return mesh;
-      });
-
-      Undo.finishEdit("Agent created spheres");
+      finishCreatedOutlinerEdit("Agent created spheres", spheres);
       Canvas.updateAll();
 
       return await Promise.resolve(
@@ -865,18 +858,18 @@ export function registerMeshTools() {
   createTool(meshToolDocs[9].name, {
     ...meshToolDocs[9],
     async execute({ elements, texture, group }, { reportProgress }) {
-      Undo.initEdit({ elements: [], outliner: true, collections: [] });
       const total = elements.length;
       const projectTexture = texture
         ? getProjectTexture(texture)
         : Texture.getDefault();
-      if (!projectTexture) throw new Error(`Texture "${texture}" not found.`);
-      // @ts-expect-error getAllGroups is a utility function that returns all groups in the project
-      const groups = getAllGroups();
-      const outlinerGroup = group === "root"
-        ? "root"
-        : groups.find((g: Group) => g.name === group || g.uuid === group) ?? "root";
-      const cylinders = elements.map((element, progress) => {
+      if (texture && !projectTexture) {
+        throw new Error(`Texture "${texture}" not found.`);
+      }
+      const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
+      const cylinders: Mesh[] = [];
+      Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
+      try {
+        for (const [progress, element] of elements.entries()) {
         const mesh = new Mesh({
           name: element.name,
           vertices: {},
@@ -887,6 +880,7 @@ export function registerMeshTools() {
             number
           ],
         }).init();
+        cylinders.push(mesh);
         const radius = element.diameter / 2;
         const height = element.height;
         const sides = Math.round(element.sides);
@@ -933,12 +927,15 @@ export function registerMeshTools() {
             );
           }
         }
-        mesh.addTo(outlinerGroup);
+        mesh.addTo(outlinerParent);
         if (projectTexture) mesh.applyTexture(projectTexture);
-        reportProgress({ progress, total });
-        return mesh;
-      });
-      Undo.finishEdit("Agent created cylinders");
+        reportProgress({ progress: progress + 1, total });
+        }
+      } catch (error) {
+        rollbackCreatedOutlinerEdit(cylinders);
+        throw error;
+      }
+      finishCreatedOutlinerEdit("Agent created cylinders", cylinders);
       Canvas.updateAll();
       return JSON.stringify(
         cylinders.map((c) => `Added cylinder ${c.name} (ID ${c.uuid})`)

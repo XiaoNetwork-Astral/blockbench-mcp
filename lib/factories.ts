@@ -5,6 +5,10 @@ import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { assertAgentMayMutateProject } from "@/lib/projectRoles";
 import { auditManager } from "@/lib/audit";
 import { assertToolRegistrationAllowed } from "@/lib/security";
+import {
+  captureUndoEditToken,
+  rollbackUndoEditStartedAfter,
+} from "@/lib/undoSafety";
 
 /**
  * Declarative tool spec for documentation and registration.
@@ -109,6 +113,7 @@ async function invokeTool(
   args: Record<string, unknown>,
   extra: ToolRequestExtra
 ): Promise<unknown> {
+  const undoEditAtStart = captureUndoEditToken();
   const handle = auditManager.beginMcpOperation({
     toolName: name,
     title: toolDef.title,
@@ -130,6 +135,7 @@ async function invokeTool(
     auditManager.finishMcpOperation(handle, result);
     return normalizeToolResult(result);
   } catch (error) {
+    rollbackUndoEditStartedAfter(undoEditAtStart);
     auditManager.finishMcpOperation(handle, undefined, error);
     throw error;
   }

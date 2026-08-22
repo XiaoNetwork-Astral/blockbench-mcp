@@ -17,7 +17,7 @@ export const applyTexturePixelsParameters = z.object({
       z.object({
         x: z.number().int().min(0),
         y: z.number().int().min(0),
-        rgba: z.tuple([byte, byte, byte, byte]),
+        rgba: z.array(byte).length(4),
       })
     )
     .min(1)

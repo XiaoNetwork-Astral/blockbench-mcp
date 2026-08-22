@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL } from "@/lib/constants";
 import { getProjectTexture, getAndActivateTexture, setBarItemValue } from "@/lib/util";
+import { getDeterministicShapeGeometry } from "@/lib/toolFixes";
 import {
   textureIdOptionalSchema,
   hexColorSchema,
@@ -425,11 +426,6 @@ export function registerPaintTools() {
       }) {
         const texture = getAndActivateTexture(texture_id);
 
-        Undo.initEdit({
-          textures: [texture],
-          bitmap: true,
-        });
-
         // Apply settings
         if (color) {
           ColorPanel.set(color);
@@ -499,16 +495,64 @@ export function registerPaintTools() {
         // Set shape type
         setBarItemValue("draw_shape_type", shape);
 
-        // Select draw shape tool
-        // @ts-ignore
-        BarItems.draw_shape_tool.select();
+        const geometry = getDeterministicShapeGeometry(shape, start, end);
+        const hollow = shape.endsWith("_h");
+        const strokeWidth = line_width ?? 1;
+        const drawColor = color ?? ColorPanel.get(false);
 
-        // Draw shape
-        Painter.startPaintTool(texture, start.x, start.y, {}, { shiftKey: false });
-        Painter.useShapeTool(texture, end.x, end.y, {});
-        Painter.stopPaintTool();
+        // Draw directly into the active bitmap. Painter.startPaintTool is a
+        // pointer-driven UI workflow that owns its own Undo transaction; using
+        // it from MCP can be rejected by PointerTarget while still returning a
+        // successful tool response.
+        texture.edit((canvas: HTMLCanvasElement) => {
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("Blockbench could not open the texture canvas.");
+          const { offset } = texture.getActiveCanvas();
 
-        Undo.finishEdit("Draw shape");
+          ctx.save();
+          texture.selection.maskCanvas(ctx, offset);
+          ctx.fillStyle = drawColor;
+          ctx.strokeStyle = drawColor;
+          ctx.lineWidth = strokeWidth;
+          ctx.globalAlpha = (opacity ?? 255) / 255;
+          ctx.globalCompositeOperation = (Painter.erase_mode
+            ? "destination-out"
+            : Painter.lock_alpha
+              ? "source-atop"
+              : Painter.getBlendModeCompositeOperation()) as GlobalCompositeOperation;
+
+          if (geometry.kind === "rectangle") {
+            const x = geometry.x - offset[0];
+            const y = geometry.y - offset[1];
+            if (hollow && geometry.width > strokeWidth && geometry.height > strokeWidth) {
+              const inset = strokeWidth / 2;
+              ctx.strokeRect(
+                x + inset,
+                y + inset,
+                geometry.width - strokeWidth,
+                geometry.height - strokeWidth
+              );
+            } else {
+              ctx.fillRect(x, y, geometry.width, geometry.height);
+            }
+          } else {
+            const centerX = geometry.centerX - offset[0];
+            const centerY = geometry.centerY - offset[1];
+            const radiusX = hollow
+              ? Math.max(0.5, geometry.radiusX - strokeWidth / 2)
+              : geometry.radiusX;
+            const radiusY = hollow
+              ? Math.max(0.5, geometry.radiusY - strokeWidth / 2)
+              : geometry.radiusY;
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+            if (hollow) ctx.stroke();
+            else ctx.fill();
+          }
+
+          ctx.restore();
+        }, { edit_name: "Draw shape" });
+
         Canvas.updateAll();
 
         return `Drew ${shape} from (${start.x}, ${start.y}) to (${end.x}, ${end.y}) on texture "${texture.name}"`;

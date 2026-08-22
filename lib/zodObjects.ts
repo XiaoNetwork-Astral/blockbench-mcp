@@ -21,7 +21,7 @@ export const vector3Schema = z
  * object makes some MCP schema converters emit an unresolved local $ref.
  */
 export function vec3(description = "3D vector [x, y, z].") {
-  return z.tuple([z.number(), z.number(), z.number()]).describe(description);
+  return z.array(z.number()).length(3).describe(description);
 }
 
 // ============================================================================

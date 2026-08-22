@@ -2,9 +2,15 @@
 /// <reference types="blockbench-types" />
 import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
-import { findGroupOrThrow } from "@/lib/util";
+import { findElementOrThrow, findGroupOrThrow } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import { applyKeyframeValues } from "@/lib/toolFixes";
+import {
+  collectOutlinerSubtree,
+  finishCreatedOutlinerEdit,
+  resolveOutlinerParentOrThrow,
+  rollbackCreatedOutlinerEdit,
+} from "@/lib/modelSafety";
 import {
   vec3,
   animationIdOptionalSchema,
@@ -96,41 +102,84 @@ export const animationGraphEditorParameters = z.object({
     ),
 });
 
-export const boneRiggingParameters = z.object({
-  action: z
-    .enum([
-      "create",
-      "parent",
-      "unparent",
-      "delete",
-      "rename",
-      "set_pivot",
-      "set_ik",
-      "mirror",
-    ])
-    .describe("Action to perform on the bone structure."),
-  bone_data: z
-    .object({
-      name: z.string().describe("Name of the bone."),
-      parent: z.string().optional().describe("Parent bone name."),
-      origin: vec3("Pivot point of the bone.").optional(),
-      rotation: vec3("Initial rotation of the bone.").optional(),
-      children: z
-        .array(z.string())
-        .optional()
-        .describe("Names of elements to add to this bone."),
-      ik_enabled: z
-        .boolean()
-        .optional()
-        .describe("Enable inverse kinematics for this bone."),
-      ik_target: z
-        .string()
-        .optional()
-        .describe("Target bone for IK chain."),
-      mirror_axis: axisEnum.optional().describe("Axis to mirror the bone across."),
-    })
-    .describe("Bone configuration data."),
-});
+export const boneRiggingParameters = z
+  .object({
+    action: z
+      .enum([
+        "create",
+        "parent",
+        "unparent",
+        "delete",
+        "rename",
+        "set_pivot",
+        "set_ik",
+        "mirror",
+      ])
+      .describe("Action to perform on the bone structure."),
+    bone_data: z
+      .object({
+        name: z.string().min(1).describe("UUID or unique name of the bone."),
+        parent: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            'Required for create, parent, unparent, and mirror. Use the literal "root" for the root level; otherwise provide an exact UUID or unique name.'
+          ),
+        new_name: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Required replacement name for the rename action."),
+        origin: vec3("Pivot point of the bone.").optional(),
+        rotation: vec3("Initial rotation of the bone.").optional(),
+        children: z
+          .array(z.string().min(1))
+          .optional()
+          .describe("UUIDs or unique names of existing nodes to move into a newly created bone."),
+        ik_enabled: z
+          .boolean()
+          .optional()
+          .describe("Enable inverse kinematics for this bone."),
+        ik_target: z
+          .string()
+          .optional()
+          .describe("Target bone UUID or unique name for the IK chain."),
+        mirror_axis: axisEnum.optional().describe("Axis to mirror the bone across."),
+      })
+      .describe("Bone configuration data."),
+  })
+  .superRefine(({ action, bone_data }, ctx) => {
+    if (["create", "parent", "unparent", "mirror"].includes(action) && !bone_data.parent) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bone_data", "parent"],
+        message:
+          'parent is required for this action. Use the literal "root" for the root level.',
+      });
+    }
+    if (action === "unparent" && bone_data.parent && bone_data.parent !== "root") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bone_data", "parent"],
+        message: 'unparent requires parent to be the literal "root".',
+      });
+    }
+    if (action === "rename" && !bone_data.new_name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bone_data", "new_name"],
+        message: "new_name is required for the rename action.",
+      });
+    }
+    if (action === "set_pivot" && !bone_data.origin) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bone_data", "origin"],
+        message: "origin is required for the set_pivot action.",
+      });
+    }
+  });
 
 export const animationTimelineParameters = z.object({
   action: z
@@ -631,141 +680,194 @@ createTool(
   {
     ...animationToolDocs[3],
     async execute({ action, bone_data }) {
-      Undo.initEdit({
-        outliner: true,
-        elements: [],
-        groups: [],
-      });
-
-      let result = "";
-
       switch (action) {
         case "create": {
-          const group = new Group({
-            name: bone_data.name,
-            origin: bone_data.origin || [0, 0, 0],
-            rotation: bone_data.rotation || [0, 0, 0],
-          }).init();
+          const parent = resolveOutlinerParentOrThrow(bone_data.parent!, "group");
+          const children: Array<OutlinerElement | Group> = [...new Map<string, OutlinerElement | Group>(
+            ((bone_data.children ?? []) as string[]).map((reference: string) => {
+              const child = findElementOrThrow(reference);
+              return [child.uuid, child] as const;
+            })
+          ).values()];
+          const ikTarget = bone_data.ik_target
+            ? findGroupOrThrow(bone_data.ik_target)
+            : undefined;
 
-          // Set parent
-          if (bone_data.parent) {
-            const parent = Group.all.find((g) => g.name === bone_data.parent);
-            if (parent) {
-              group.addTo(parent);
+          for (const child of children) {
+            if (
+              parent !== "root" &&
+              (parent === child || parent.isChildOf(child, Number.POSITIVE_INFINITY))
+            ) {
+              throw new Error(
+                `Cannot create a bone under "${parent.name}" while also moving its ancestor ` +
+                  `"${child.name}" into that bone.`
+              );
             }
           }
 
-          // Add children elements
-          if (bone_data.children) {
-            bone_data.children.forEach((childName) => {
-              const element = Outliner.elements.find(
-                (e) => e.name === childName
-              );
-              if (element) {
-                element.addTo(group);
-              }
-            });
+          const movedState = collectOutlinerSubtree(children);
+          Undo.initEdit({
+            outliner: true,
+            elements: movedState.elements,
+            groups: movedState.groups,
+            collections: [],
+          });
+
+          let group: Group | undefined;
+          try {
+            group = new Group({
+              name: bone_data.name,
+              origin: bone_data.origin ?? [0, 0, 0],
+              rotation: bone_data.rotation ?? [0, 0, 0],
+            })
+              .addTo(parent)
+              .init();
+
+            for (const child of children) child.addTo(group);
+            group.ik_enabled = bone_data.ik_enabled ?? false;
+            if (ikTarget) group.ik_target = ikTarget.uuid;
+          } catch (error) {
+            if (group) rollbackCreatedOutlinerEdit([group]);
+            throw error;
           }
 
-          // Set up IK if requested
-          if (bone_data.ik_enabled && bone_data.ik_target) {
-            // @ts-ignore
-            group.ik_enabled = true;
-            // @ts-ignore
-            group.ik_target = bone_data.ik_target;
-          }
-
-          result = `Created bone "${group.name}" with UUID ${group.uuid}`;
-          break;
+          finishCreatedOutlinerEdit(`Bone rigging: ${action}`, [group]);
+          Canvas.updateAll();
+          return `Created bone "${group.name}" with UUID ${group.uuid}`;
         }
 
         case "parent": {
           const child = findGroupOrThrow(bone_data.name);
-          const parent = bone_data.parent
-            ? Group.all.find((g) => g.name === bone_data.parent)
-            : "root";
+          const parent = resolveOutlinerParentOrThrow(bone_data.parent!, "group");
+          if (
+            parent !== "root" &&
+            (parent === child || parent.isChildOf(child, Number.POSITIVE_INFINITY))
+          ) {
+            throw new Error(
+              `Cannot parent "${child.name}" to itself or one of its descendants.`
+            );
+          }
 
+          const state = collectOutlinerSubtree([child]);
+          Undo.initEdit({ ...state, outliner: true, collections: [] });
           child.addTo(parent);
-          result = `Parented "${bone_data.name}" to "${
-            bone_data.parent || "root"
-          }"`;
-          break;
+          Undo.finishEdit(`Bone rigging: ${action}`, {
+            ...state,
+            outliner: true,
+            collections: [],
+          });
+          Canvas.updateAll();
+          return `Parented "${child.name}" to "${bone_data.parent}"`;
         }
 
         case "unparent": {
           const bone = findGroupOrThrow(bone_data.name);
-
+          const state = collectOutlinerSubtree([bone]);
+          Undo.initEdit({ ...state, outliner: true, collections: [] });
           bone.addTo("root");
-          result = `Unparented "${bone_data.name}"`;
-          break;
+          Undo.finishEdit(`Bone rigging: ${action}`, {
+            ...state,
+            outliner: true,
+            collections: [],
+          });
+          Canvas.updateAll();
+          return `Unparented "${bone.name}" to root`;
         }
 
         case "delete": {
           const bone = findGroupOrThrow(bone_data.name);
-
-          bone.remove();
-          result = `Deleted bone "${bone_data.name}"`;
-          break;
+          const state = collectOutlinerSubtree([bone]);
+          Undo.initEdit({ ...state, outliner: true, collections: [] });
+          bone.remove(false);
+          state.elements.length = 0;
+          state.groups.length = 0;
+          Undo.finishEdit(`Bone rigging: ${action}`, {
+            ...state,
+            outliner: true,
+            collections: [],
+          });
+          Canvas.updateAll();
+          return `Deleted bone "${bone_data.name}"`;
         }
 
         case "rename": {
           const bone = findGroupOrThrow(bone_data.name);
-
-          const newName = bone_data.children?.[0] || "new_name";
-          bone.name = newName;
-          result = `Renamed bone to "${newName}"`;
-          break;
+          Undo.initEdit({ groups: [bone], outliner: true, collections: [] });
+          bone.name = bone_data.new_name!;
+          Undo.finishEdit(`Bone rigging: ${action}`, {
+            groups: [bone],
+            outliner: true,
+            collections: [],
+          });
+          Canvas.updateAll();
+          return `Renamed bone to "${bone.name}"`;
         }
 
         case "set_pivot": {
           const bone = findGroupOrThrow(bone_data.name);
-
-          if (bone_data.origin) {
-            bone.origin = bone_data.origin;
-          }
-          result = `Set pivot point for "${bone_data.name}"`;
-          break;
+          const state = collectOutlinerSubtree([bone]);
+          Undo.initEdit({ ...state, outliner: true, collections: [] });
+          bone.transferOrigin(bone_data.origin!);
+          Undo.finishEdit(`Bone rigging: ${action}`, {
+            ...state,
+            outliner: true,
+            collections: [],
+          });
+          Canvas.updateAll();
+          return `Set pivot point for "${bone.name}"`;
         }
 
         case "set_ik": {
           const bone = findGroupOrThrow(bone_data.name);
-
-          // @ts-ignore
-          bone.ik_enabled = bone_data.ik_enabled || false;
-          if (bone_data.ik_target) {
-            // @ts-ignore
-            bone.ik_target = bone_data.ik_target;
-          }
-          result = `Updated IK settings for "${bone_data.name}"`;
-          break;
+          const ikTarget = bone_data.ik_target
+            ? findGroupOrThrow(bone_data.ik_target)
+            : undefined;
+          Undo.initEdit({ groups: [bone], outliner: true, collections: [] });
+          bone.ik_enabled = bone_data.ik_enabled ?? false;
+          bone.ik_target = ikTarget?.uuid ?? "";
+          Undo.finishEdit(`Bone rigging: ${action}`, {
+            groups: [bone],
+            outliner: true,
+            collections: [],
+          });
+          Canvas.updateAll();
+          return `Updated IK settings for "${bone.name}"`;
         }
 
         case "mirror": {
           const bone = findGroupOrThrow(bone_data.name);
-
+          const parent = resolveOutlinerParentOrThrow(bone_data.parent!, "group");
           const axis = bone_data.mirror_axis || "x";
-          const mirroredBone = bone.duplicate();
-
-          // Mirror position
           const axisIndex = axis === "x" ? 0 : axis === "y" ? 1 : 2;
-          mirroredBone.origin[axisIndex] *= -1;
+          Undo.initEdit({
+            outliner: true,
+            elements: [],
+            groups: [],
+            collections: [],
+          });
 
-          // Update name
-          mirroredBone.name = bone.name.includes("left")
-            ? bone.name.replace("left", "right")
-            : bone.name.includes("right")
-            ? bone.name.replace("right", "left")
-            : bone.name + "_mirrored";
+          let mirroredBone: Group | undefined;
+          try {
+            mirroredBone = bone.duplicate();
+            mirroredBone.addTo(parent);
+            mirroredBone.origin[axisIndex] *= -1;
+            mirroredBone.name = bone.name.includes("left")
+              ? bone.name.replace("left", "right")
+              : bone.name.includes("right")
+              ? bone.name.replace("right", "left")
+              : `${bone.name}_mirrored`;
+          } catch (error) {
+            if (mirroredBone) rollbackCreatedOutlinerEdit([mirroredBone]);
+            throw error;
+          }
 
-          result = `Mirrored bone "${bone_data.name}" across ${axis} axis`;
-          break;
+          finishCreatedOutlinerEdit(`Bone rigging: ${action}`, [mirroredBone]);
+          Canvas.updateAll();
+          return `Mirrored bone "${bone.name}" across ${axis} axis as "${mirroredBone.name}"`;
         }
       }
 
-      Undo.finishEdit(`Bone rigging: ${action}`);
-      Canvas.updateAll();
-
-      return result;
+      throw new Error(`Unsupported bone rigging action: ${String(action)}`);
     },
   },
   animationToolDocs[3].status

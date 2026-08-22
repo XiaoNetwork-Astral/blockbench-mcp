@@ -5,12 +5,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 let serverInstance: McpServer | null = null;
 const MCP_INSTRUCTIONS =
-  "Follow the YSM three-tab workflow: compare legacy and new baselines, edit only working_copy, " +
-  "self-check before asking the user, and merge only after explicit approval. Never switch " +
-  "animation or pose unless the user asks. When building a new model from scratch, work " +
-  "incrementally with add_group, place_cube, and modify_cube, and inspect the result with " +
-  "capture_screenshot after each coherent stage. Do not use from_geo_json as a shortcut unless " +
-  "the user explicitly asks to import existing geometry.";
+  "Work incrementally and preserve existing content unless the user explicitly authorizes a " +
+  "replacement or deletion. Every Outliner create, duplicate, parent, or mirror operation must " +
+  "name an explicit parent; use the literal root only when root placement is intentional. Build " +
+  "a semantic group hierarchy before adding geometry, and validate each coherent stage from " +
+  "front, side, top, and perspective views. Use inspect_spatial_relationships for important " +
+  "contacts. If hierarchy or depth remains ambiguous after those checks, stop before further " +
+  "mutation and ask the user to inspect the model and state the intended structure or position. " +
+  "Do not use from_geo_json as a shortcut unless the user explicitly asks to import existing " +
+  "geometry. Use YSM workspace tools only for an explicitly selected YSM workflow.";
 
 /**
  * Creates a new MCP server instance using the official SDK

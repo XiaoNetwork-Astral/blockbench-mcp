@@ -8,6 +8,12 @@ import {
   vec3,
   meshIdOptionalSchema,
 } from "@/lib/zodObjects";
+import {
+  collectOutlinerSubtree,
+  finishCreatedOutlinerEdit,
+  resolveUniqueReference,
+  rollbackCreatedOutlinerEdit,
+} from "@/lib/modelSafety";
 
 // ============================================================================
 // Helper Functions
@@ -17,9 +23,16 @@ import {
  * Find an armature by UUID or name
  */
 function findArmature(id: string): Armature | undefined {
-  return Armature.all.find(
-    (a) => a.uuid === id || a.name === id || a.uuid.startsWith(id)
-  );
+  const uuidMatch = Armature.all.find((armature) => armature.uuid === id);
+  if (uuidMatch) return uuidMatch;
+  const nameMatches = Armature.all.filter((armature) => armature.name === id);
+  if (nameMatches.length > 1) {
+    throw new Error(
+      `Armature name "${id}" is ambiguous (${nameMatches.length} matches: ` +
+        `${nameMatches.map((armature) => armature.uuid).join(", ")}). Use an exact UUID.`
+    );
+  }
+  return nameMatches[0];
 }
 
 /**
@@ -37,9 +50,16 @@ function findArmatureOrThrow(id: string): Armature {
  * Find an armature bone by UUID or name
  */
 function findArmatureBone(id: string): ArmatureBone | undefined {
-  return ArmatureBone.all.find(
-    (b) => b.uuid === id || b.name === id || b.uuid.startsWith(id)
-  );
+  const uuidMatch = ArmatureBone.all.find((bone) => bone.uuid === id);
+  if (uuidMatch) return uuidMatch;
+  const nameMatches = ArmatureBone.all.filter((bone) => bone.name === id);
+  if (nameMatches.length > 1) {
+    throw new Error(
+      `Armature bone name "${id}" is ambiguous (${nameMatches.length} matches: ` +
+        `${nameMatches.map((bone) => bone.uuid).join(", ")}). Use an exact UUID.`
+    );
+  }
+  return nameMatches[0];
 }
 
 /**
@@ -123,6 +143,9 @@ export const getArmatureParameters = z.object({
 });
 
 export const addArmatureParameters = z.object({
+  parent: z
+    .literal("root")
+    .describe("Armatures are root-only; pass the exact literal 'root' explicitly."),
   name: z.string().optional().default("armature").describe("Name for the new armature."),
   visibility: z.boolean().optional().default(true),
   locked: z.boolean().optional().default(false),
@@ -298,7 +321,7 @@ export const armatureToolDocs: ToolSpec[] = [
   {
     name: "add_armature",
     description:
-      "Creates a new armature in the project. An armature is a skeletal rig used for mesh deformation.",
+      "Creates a new root-level armature. The caller must explicitly pass parent='root'. An armature is a skeletal rig used for mesh deformation.",
     annotations: {
       title: "Add Armature",
       destructiveHint: true,
@@ -498,26 +521,30 @@ export function registerArmatureTools() {
 
       Undo.initEdit({ outliner: true, elements: [] });
 
-      const armature = new Armature({
-        name,
-        visibility,
-        locked,
-      });
-      armature.addTo(Outliner.root as any);
-      armature.isOpen = true;
-      armature.createUniqueName();
-      armature.init();
+      let armature: Armature | undefined;
+      try {
+        armature = new Armature({
+          name,
+          visibility,
+          locked,
+        });
+        armature.addTo("root");
+        armature.isOpen = true;
+        armature.createUniqueName();
+        armature.init();
 
-      const elements: OutlinerElement[] = [armature];
-
-      if (add_initial_bone) {
-        const bone = new ArmatureBone({ name: "bone" });
-        bone.addTo(armature);
-        bone.init();
-        elements.push(bone);
+        if (add_initial_bone) {
+          const bone = new ArmatureBone({ name: "bone" });
+          bone.addTo(armature);
+          bone.init();
+        }
+      } catch (error) {
+        if (armature) rollbackCreatedOutlinerEdit([armature]);
+        else Undo.cancelEdit();
+        throw error;
       }
 
-      Undo.finishEdit("Agent added armature", { outliner: true, elements });
+      finishCreatedOutlinerEdit("Agent added armature", [armature]);
       Canvas.updateAll();
 
       return JSON.stringify(
@@ -539,10 +566,20 @@ export function registerArmatureTools() {
     async execute({ id }) {
       const armature = findArmatureOrThrow(id);
       const name = armature.name;
-
-      Undo.initEdit({ outliner: true, elements: [] });
-      armature.remove();
-      Undo.finishEdit("Agent removed armature");
+      const deleted = collectOutlinerSubtree([armature]);
+      Undo.initEdit({
+        outliner: true,
+        elements: deleted.elements,
+        groups: deleted.groups,
+      });
+      armature.remove(false);
+      deleted.elements.length = 0;
+      deleted.groups.length = 0;
+      Undo.finishEdit("Agent removed armature", {
+        outliner: true,
+        elements: deleted.elements,
+        groups: deleted.groups,
+      });
       Canvas.updateAll();
 
       return `Removed armature "${name}"`;
@@ -642,40 +679,44 @@ export function registerArmatureTools() {
       connected,
       color,
     }) {
-      // Find parent (can be Armature or ArmatureBone)
-      let parent: Armature | ArmatureBone | undefined = findArmature(parent_id);
-      if (!parent) {
-        parent = findArmatureBone(parent_id);
-      }
-      if (!parent) {
-        throw new Error(`Parent not found: ${parent_id}. Must be an armature or bone.`);
-      }
+      const parent = resolveUniqueReference<Armature | ArmatureBone>(
+        parent_id,
+        [...Armature.all, ...ArmatureBone.all],
+        "Armature parent",
+        "list_armatures or list_armature_bones"
+      );
 
       // Calculate default origin if not provided
       const defaultOrigin: [number, number, number] =
         parent instanceof ArmatureBone ? [0, parent.length ?? 8, 0] : [0, 0, 0];
 
-      Undo.initEdit({ outliner: true, elements: [] });
+      Undo.initEdit({ outliner: true, elements: [], groups: [] });
+      let bone: ArmatureBone | undefined;
+      try {
+        bone = new ArmatureBone({
+          name,
+          origin: (origin ?? defaultOrigin) as [number, number, number],
+          rotation: rotation as [number, number, number],
+          length,
+          width,
+          connected,
+          color,
+        });
+        bone.addTo(parent);
+        bone.isOpen = true;
 
-      const bone = new ArmatureBone({
-        name,
-        origin: (origin ?? defaultOrigin) as [number, number, number],
-        rotation: rotation as [number, number, number],
-        length,
-        width,
-        connected,
-        color,
-      });
-      bone.addTo(parent);
-      bone.isOpen = true;
+        if (Format.bone_rig) {
+          bone.createUniqueName();
+        }
 
-      if (Format.bone_rig) {
-        bone.createUniqueName();
+        bone.init();
+      } catch (error) {
+        if (bone) rollbackCreatedOutlinerEdit([bone]);
+        else Undo.cancelEdit();
+        throw error;
       }
 
-      bone.init();
-
-      Undo.finishEdit("Agent added armature bone", { outliner: true, elements: [bone] });
+      finishCreatedOutlinerEdit("Agent added armature bone", [bone]);
       Canvas.updateAll();
 
       return JSON.stringify(
@@ -697,8 +738,15 @@ export function registerArmatureTools() {
     async execute({ id, remove_children }) {
       const bone = findArmatureBoneOrThrow(id);
       const name = bone.name;
+      const deleted = remove_children
+        ? collectOutlinerSubtree([bone])
+        : { elements: [bone] as OutlinerElement[], groups: [] as Group[] };
 
-      Undo.initEdit({ outliner: true, elements: [] });
+      Undo.initEdit({
+        outliner: true,
+        elements: deleted.elements,
+        groups: deleted.groups,
+      });
 
       if (!remove_children && bone.children.length > 0) {
         // Re-parent children to bone's parent
@@ -708,8 +756,14 @@ export function registerArmatureTools() {
         }
       }
 
-      bone.remove();
-      Undo.finishEdit("Agent removed armature bone");
+      bone.remove(false);
+      deleted.elements.length = 0;
+      deleted.groups.length = 0;
+      Undo.finishEdit("Agent removed armature bone", {
+        outliner: true,
+        elements: deleted.elements,
+        groups: deleted.groups,
+      });
       Canvas.updateAll();
 
       return `Removed bone "${name}"`;

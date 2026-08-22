@@ -11,7 +11,10 @@ import {
   getChannelTextureInfo,
 } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
-import { applyTextureRenderSettings } from "@/lib/toolFixes";
+import {
+  applyTextureCreationSettings,
+  applyTextureRenderSettings,
+} from "@/lib/toolFixes";
 import {
   colorSchema,
   elementIdSchema,
@@ -229,6 +232,84 @@ export const saveMaterialConfigParameters = z.object({
   material: z.string().describe("Material name or UUID to save."),
 });
 
+const TEXTURE_LOAD_TIMEOUT_MS = 15_000;
+
+function waitForTextureImage(
+  texture: Texture,
+  startLoading: () => void,
+  sourceDescription: string
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      finish(new Error(`Timed out while loading ${sourceDescription}.`));
+    }, TEXTURE_LOAD_TIMEOUT_MS);
+
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      texture.img.removeEventListener("load", onLoad);
+      texture.img.removeEventListener("error", onError);
+    };
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error) reject(error);
+      else resolve();
+    };
+    const onLoad = () => {
+      if (!texture.img.naturalWidth || !texture.img.naturalHeight) {
+        finish(new Error(`${sourceDescription} did not contain a usable image.`));
+        return;
+      }
+      finish();
+    };
+    const onError = () => {
+      finish(new Error(`Could not load ${sourceDescription}.`));
+    };
+
+    texture.img.addEventListener("load", onLoad);
+    texture.img.addEventListener("error", onError);
+    try {
+      startLoading();
+    } catch (error) {
+      finish(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
+function createSizedTextureDataUrl(
+  width: number,
+  height: number,
+  draw?: (ctx: CanvasRenderingContext2D) => void
+): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Blockbench could not create a 2D texture canvas.");
+  ctx.imageSmoothingEnabled = false;
+  draw?.(ctx);
+  return canvas.toDataURL("image/png", 1);
+}
+
+async function resizeTextureSource(
+  texture: Texture,
+  width: number,
+  height: number
+): Promise<void> {
+  if (texture.width === width && texture.height === height) return;
+  const resizedSource = createSizedTextureDataUrl(width, height, (ctx) => {
+    ctx.drawImage(texture.canvas, 0, 0, width, height);
+  });
+  (texture as Texture & { keep_size?: boolean }).keep_size = true;
+  await waitForTextureImage(
+    texture,
+    () => texture.fromDataURL(resizedSource),
+    `resized ${width}×${height} texture`
+  );
+}
+
 // ============================================================================
 // Texture Tool Docs
 // ============================================================================
@@ -399,80 +480,107 @@ export function registerTextureTools() {
       render_mode,
       render_sides,
     }) {
+      const textureGroup = group ? findTextureGroupOrThrow(group) : undefined;
+      const resolvedGroup = textureGroup?.uuid;
       Undo.initEdit({
         textures: [],
+        selected_texture: true,
+        bitmap: true,
         collections: [],
       });
 
-      let texture = new Texture({
+      const texture = new Texture({
         name,
         width,
         height,
-        group,
+        group: resolvedGroup,
         pbr_channel,
         render_mode,
         render_sides,
         internal: true,
       });
-
-      if (data) {
-        if (data.startsWith("data:image/")) {
-          texture.source = data;
-          texture.width = width;
-          texture.height = height;
-        } else {
-          texture = texture.fromFile({
-            name: data.split(/[\/\\]/).pop() || data,
-            path: data.replace(/^file:\/\//, ""),
-          });
-        }
-
-        texture.load();
-        texture.fillParticle();
-        texture.layers_enabled = false;
-      } else {
-        const { ctx } = texture.getActiveCanvas();
-
-        if (fill_color) {
-          const color = Array.isArray(fill_color)
-            // @ts-ignore - tinycolor is available globally in Blockbench
-            ? tinycolor({
-              r: Number(fill_color[0]),
-              g: Number(fill_color[1]),
-              b: Number(fill_color[2]),
-              a: Number(fill_color[3] ?? 255),
-            })
-            // @ts-ignore - tinycolor ok
-            : tinycolor(fill_color);
-
-          ctx.fillStyle = color.toRgbString().toLowerCase();
-          ctx.fillRect(0, 0, texture.width, texture.height);
-        } else {
-          ctx.clearRect(0, 0, texture.width, texture.height);
-        }
-
-        texture.updateSource(ctx.canvas.toDataURL("image/png", 1));
-        texture.updateLayerChanges(true);
-      }
-
       texture.add();
 
-      if (layer_name) {
-        if (!texture.layers_enabled) texture.activateLayers(true);
-        if (texture.selected_layer) texture.selected_layer.name = layer_name;
+      try {
+        if (data) {
+          (texture as Texture & { keep_size?: boolean }).keep_size = true;
+          if (data.startsWith("data:image/")) {
+            await waitForTextureImage(
+              texture,
+              () => texture.fromDataURL(data),
+              "the supplied data URL"
+            );
+          } else {
+            const localPath = data.replace(/^file:\/\/\/?/, "");
+            await waitForTextureImage(
+              texture,
+              () => {
+                texture.fromFile({
+                  name: localPath.split(/[\/\\]/).pop() || localPath,
+                  path: localPath,
+                });
+              },
+              `texture file "${localPath}"`
+            );
+          }
+          await resizeTextureSource(texture, width, height);
+        } else {
+          const source = createSizedTextureDataUrl(width, height, (ctx) => {
+            if (!fill_color) return;
+            const color = Array.isArray(fill_color)
+              // @ts-ignore - tinycolor is available globally in Blockbench
+              ? tinycolor({
+                r: Number(fill_color[0]),
+                g: Number(fill_color[1]),
+                b: Number(fill_color[2]),
+                a: Number(fill_color[3] ?? 255) / 255,
+              })
+              // @ts-ignore - tinycolor is available globally in Blockbench
+              : tinycolor(fill_color);
+            ctx.fillStyle = color.toRgbString().toLowerCase();
+            ctx.fillRect(0, 0, width, height);
+          });
+          (texture as Texture & { keep_size?: boolean }).keep_size = true;
+          await waitForTextureImage(
+            texture,
+            () => texture.fromDataURL(source),
+            `${width}×${height} texture canvas`
+          );
+        }
+
+        texture.layers_enabled = false;
+        if (data) texture.fillParticle();
+        applyTextureCreationSettings(texture, {
+          name,
+          width,
+          height,
+          group: resolvedGroup,
+          pbrChannel: pbr_channel,
+          renderMode: render_mode,
+          renderSides: render_sides,
+        });
+
+        if (layer_name) {
+          if (!texture.layers_enabled) texture.activateLayers(true);
+          if (texture.selected_layer) texture.selected_layer.name = layer_name;
+        }
+
+        Undo.finishEdit("Agent created texture", {
+          textures: [texture],
+          selected_texture: true,
+          bitmap: true,
+          collections: [],
+        });
+        Canvas.updateAll();
+
+        return imageContent({
+          url: texture.getDataURL(),
+        });
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        if (Texture.all.includes(texture)) texture.remove(true);
+        throw error;
       }
-
-      // Importing from a file may replace the original Texture instance, so
-      // re-apply the validated settings to the final object and rebuild its
-      // viewport material on both creation paths.
-      applyTextureRenderSettings(texture, render_mode, render_sides);
-
-      Undo.finishEdit("Agent created texture");
-      Canvas.updateAll();
-
-      return imageContent({
-        url: texture.getDataURL(),
-      });
     },
   }, textureToolDocs[0].status);
 
@@ -591,35 +699,36 @@ export function registerTextureTools() {
   createTool(textureToolDocs[2].name, {
     ...textureToolDocs[2],
     async execute({ name, textures, is_material }) {
-      Undo.initEdit({
-        elements: [],
-        outliner: true,
+      const textureList = [...new Map<string, Texture>(
+        ((textures ?? []) as string[]).map((reference: string) => {
+          const texture = findTextureOrThrow(reference);
+          return [texture.uuid, texture] as const;
+        })
+      ).values()];
+      const beforeAspects = {
+        textures: textureList,
+        texture_groups: [] as TextureGroup[],
         collections: [],
-        textures: [],
-      });
+      } as UndoAspects & { texture_groups: TextureGroup[] };
+      Undo.initEdit(beforeAspects);
 
-      const textureGroup = new TextureGroup({
-        name,
-        is_material,
-      }).add();
-
-      if (textures) {
-        const textureList = textures
-          .map((texture) => getProjectTexture(texture))
-          .filter(Boolean);
-
-        if (textureList.length === 0) {
-          throw new Error(`No textures found for "${textures}".`);
+      let textureGroup: TextureGroup | undefined;
+      try {
+        textureGroup = new TextureGroup({ name, is_material }).add();
+        for (const texture of textureList) {
+          texture.extend({ group: textureGroup.uuid });
         }
-
-        textureList.forEach((texture) => {
-          texture?.extend({
-            group: textureGroup.uuid,
-          });
-        });
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        if (textureGroup && TextureGroup.all.includes(textureGroup)) textureGroup.remove();
+        throw error;
       }
 
-      Undo.finishEdit("Agent added texture group");
+      Undo.finishEdit("Agent added texture group", {
+        textures: textureList,
+        texture_groups: [textureGroup],
+        collections: [],
+      } as UndoAspects & { texture_groups: TextureGroup[] });
       Canvas.updateAll();
 
       return `Added texture group ${textureGroup.name} with ID ${textureGroup.uuid}`;
@@ -672,73 +781,58 @@ export function registerTextureTools() {
       mer_value,
       subsurface_value,
     }) {
-      const texturesToAdd: Texture[] = [];
-
-      // Find textures to add
-      if (color_texture) {
-        const tex = findTextureOrThrow(color_texture);
-        texturesToAdd.push(tex);
-      }
-      if (normal_texture) {
-        const tex = findTextureOrThrow(normal_texture);
-        texturesToAdd.push(tex);
-      }
-      if (height_texture) {
-        const tex = findTextureOrThrow(height_texture);
-        texturesToAdd.push(tex);
-      }
-      if (mer_texture) {
-        const tex = findTextureOrThrow(mer_texture);
-        texturesToAdd.push(tex);
-      }
-
+      const channelReferences = [
+        [color_texture, "color"],
+        [normal_texture, "normal"],
+        [height_texture, "height"],
+        [mer_texture, "mer"],
+      ] as const;
+      const channelAssignments = channelReferences
+        .filter((entry): entry is [string, typeof entry[1]] => Boolean(entry[0]))
+        .map(([reference, channel]) => ({
+          texture: findTextureOrThrow(reference),
+          channel,
+        }));
+      const texturesToAdd = [...new Map(
+        channelAssignments.map(({ texture }) => [texture.uuid, texture] as const)
+      ).values()];
       Undo.initEdit({
         texture_groups: [],
         textures: texturesToAdd,
-      });
+        collections: [],
+      } as UndoAspects & { texture_groups: TextureGroup[] });
 
-      // @ts-ignore - TextureGroup is globally available
-      const textureGroup = new TextureGroup({
-        name,
-        is_material: true,
-      });
+      let textureGroup: TextureGroup | undefined;
+      try {
+        textureGroup = new TextureGroup({ name, is_material: true });
 
-      // Set material config values
-      if (color_value) {
-        textureGroup.material_config.color_value = color_value;
-      }
-      if (mer_value) {
-        textureGroup.material_config.mer_value = mer_value;
-      }
-      if (subsurface_value !== undefined) {
-        textureGroup.material_config.subsurface_value = subsurface_value;
-      }
-      textureGroup.material_config.saved = false;
+        if (color_value) textureGroup.material_config.color_value = color_value;
+        if (mer_value) textureGroup.material_config.mer_value = mer_value;
+        if (subsurface_value !== undefined) {
+          (
+            textureGroup.material_config as TextureGroupMaterialConfig & {
+              subsurface_value?: number;
+            }
+          ).subsurface_value = subsurface_value;
+        }
+        textureGroup.material_config.saved = false;
+        textureGroup.add();
 
-      textureGroup.add();
-
-      // Assign textures to channels
-      if (color_texture) {
-        const tex = findTextureOrThrow(color_texture);
-        tex.extend({ group: textureGroup.uuid, pbr_channel: "color" });
-      }
-      if (normal_texture) {
-        const tex = findTextureOrThrow(normal_texture);
-        tex.extend({ group: textureGroup.uuid, pbr_channel: "normal" });
-      }
-      if (height_texture) {
-        const tex = findTextureOrThrow(height_texture);
-        tex.extend({ group: textureGroup.uuid, pbr_channel: "height" });
-      }
-      if (mer_texture) {
-        const tex = findTextureOrThrow(mer_texture);
-        tex.extend({ group: textureGroup.uuid, pbr_channel: "mer" });
+        for (const { texture, channel } of channelAssignments) {
+          texture.extend({ group: textureGroup.uuid, pbr_channel: channel });
+        }
+        textureGroup.updateMaterial();
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        if (textureGroup && TextureGroup.all.includes(textureGroup)) textureGroup.remove();
+        throw error;
       }
 
-      // Update material preview
-      textureGroup.updateMaterial();
-
-      Undo.finishEdit("Agent created PBR material");
+      Undo.finishEdit("Agent created PBR material", {
+        texture_groups: [textureGroup],
+        textures: texturesToAdd,
+        collections: [],
+      } as UndoAspects & { texture_groups: TextureGroup[] });
       Canvas.updateAll();
 
       return JSON.stringify({

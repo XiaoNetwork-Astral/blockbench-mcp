@@ -22,6 +22,7 @@ import { registerPreviewTools } from "./tools/preview";
 import { registerCodexTextureTools } from "./tools/codex-texture";
 import { registerYsmTools } from "./tools/ysm";
 import { registerWorkflowTools } from "./tools/workflow";
+import { registerSpatialTools } from "./tools/spatial";
 
 // Core resource registrations
 import { registerValidatorResources } from "./resources/validator";
@@ -42,6 +43,7 @@ const registrationFunctions = [
   registerPaintTools,
   registerPreviewTools,
   registerProjectTools,
+  registerSpatialTools,
   registerTextureTools,
   registerUVTools,
   registerYsmTools,

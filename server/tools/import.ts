@@ -4,12 +4,16 @@ import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { captureAppScreenshot } from "@/lib/util";
 import { STATUS_STABLE } from "@/lib/constants";
+import {
+  assertGeometryJsonSize,
+  classifyGeometryJsonSource,
+} from "@/lib/importSource";
 
 export const fromGeoJsonParameters = z.object({
   geojson: z
     .string()
     .describe(
-      "Path to the GeoJSON file or data URL, or the GeoJSON string itself."
+      "Inline Bedrock geometry JSON, a JSON data URL, or a local JSON file path. HTTP(S) URLs are intentionally rejected."
     ),
 });
 
@@ -17,7 +21,7 @@ export const importToolDocs: ToolSpec[] = [
   {
     name: "from_geo_json",
     description:
-      "Imports existing Bedrock geometry from serialized JSON. Use add_group/place_cube/modify_cube when constructing a new model from scratch instead of using this as a shortcut.",
+      "Imports existing Bedrock geometry from serialized JSON (the tool name is retained for compatibility; this is not geographic GeoJSON). Accepts inline JSON, JSON data URLs, and local files only. Remote HTTP(S) fetching is disabled. Use add_group/place_cube/modify_cube when constructing a new model from scratch instead of using this as a shortcut.",
     annotations: {
       title: "Import GeoJSON",
       destructiveHint: true,
@@ -27,50 +31,66 @@ export const importToolDocs: ToolSpec[] = [
   },
 ];
 
+function readLocalGeometryJson(path: string): Promise<string> {
+  if (!/\.json$/i.test(path)) {
+    throw new Error(`Local geometry source must be a .json file: "${path}".`);
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(
+      () => reject(new Error(`Timed out while reading local geometry file "${path}".`)),
+      15_000
+    );
+    const result = Blockbench.read(
+      [path],
+      { readtype: "text", errorbox: false, extensions: ["json"] },
+      (files: Filesystem.FileResult[]) => {
+        window.clearTimeout(timeoutId);
+        const content = files[0]?.content;
+        if (typeof content !== "string") {
+          reject(new Error(`Blockbench could not read text from "${path}".`));
+          return;
+        }
+        try {
+          assertGeometryJsonSize(content);
+          resolve(content);
+        } catch (error) {
+          reject(error);
+        }
+      }
+    );
+    if (result === false) {
+      window.clearTimeout(timeoutId);
+      reject(new Error(`Blockbench refused to read local geometry file "${path}".`));
+    }
+  });
+}
+
 export function registerImportTools() {
   createTool(importToolDocs[0].name, {
     ...importToolDocs[0],
     async execute({ geojson }) {
-      // If input looks like JSON, use it directly
-      if (!geojson.startsWith("{") && !geojson.startsWith("[")) {
-        let parsed: URL;
-        try {
-          parsed = new URL(geojson);
-        } catch {
-          throw new Error(
-            `Invalid URL or file path: "${geojson}". Expected a URL (http/https) or inline GeoJSON.`
-          );
-        }
+      const source = classifyGeometryJsonSource(geojson);
+      const jsonText = source.kind === "inline"
+        ? source.text
+        : await readLocalGeometryJson(source.path);
 
-        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-          throw new Error(
-            `Unsupported protocol "${parsed.protocol}". Only http: and https: URLs are allowed.`
-          );
-        }
-
-        const hostname = parsed.hostname.toLowerCase();
-        const blockedPatterns: Array<RegExp> = []; // TODO: Add patterns for private IPs, localhost, etc. if needed
-
-        if (blockedPatterns.some((p) => p.test(hostname))) {
-          throw new Error(
-            `Blocked request to address "${hostname}".`
-          );
-        }
-
-        const res = await fetch(parsed.href);
-        if (!res.ok) {
-          throw new Error(
-            `Failed to fetch GeoJSON from "${parsed.href}": ${res.status} ${res.statusText}`
-          );
-        }
-        geojson = await res.text();
+      let document: unknown;
+      try {
+        document = JSON.parse(jsonText);
+      } catch (error) {
+        throw new Error(
+          `Invalid Bedrock geometry JSON: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
-      // Parse the GeoJSON string
-      if (typeof geojson !== "string") {
-        throw new Error("Invalid GeoJSON input. Expected a string.");
+      if (!document || typeof document !== "object") {
+        throw new Error("Bedrock geometry JSON must contain an object or array document.");
+      }
+      if (!Codecs.bedrock?.parse) {
+        throw new Error("The Bedrock geometry codec is unavailable in the current Blockbench session.");
       }
 
-      Codecs.bedrock.parse!(JSON.parse(geojson), "");
+      Codecs.bedrock.parse(document, source.kind === "local_file" ? source.path : "");
 
       return new Promise((resolve, reject) => {
         setTimeout(() => {

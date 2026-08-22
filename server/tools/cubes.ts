@@ -5,6 +5,17 @@ import { createTool, type ToolSpec } from "@/lib/factories";
 import { cubeSchema } from "@/lib/zodObjects";
 import { STATUS_STABLE } from "@/lib/constants";
 import { getProjectTexture } from "@/lib/util";
+import {
+  applyCubeTextureMapping,
+  type CubeFaceKey,
+  type CubeFaceUV,
+  type CubeTextureFaceSelection,
+} from "@/lib/toolFixes";
+import {
+  finishCreatedOutlinerEdit,
+  resolveOutlinerParentOrThrow,
+  rollbackCreatedOutlinerEdit,
+} from "@/lib/modelSafety";
 
 type CubeInput = z.infer<typeof cubeSchema>;
 
@@ -16,8 +27,10 @@ export const placeCubeParameters = z.object({
     .describe("Texture ID or name to apply to the cube."),
   group: z
     .string()
-    .optional()
-    .describe("Group/bone to which the cube belongs."),
+    .min(1)
+    .describe(
+      "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level cube."
+    ),
   faces: z
     .union([
       z
@@ -103,7 +116,7 @@ export const cubeToolDocs: ToolSpec[] = [
   {
     name: "place_cube",
     description:
-      "Places a cube of the given size at the specified position. Texture and group are optional.",
+      "Places one or more cubes under a mandatory explicit parent. Use group='root' only for intentional root-level cubes; omitted, missing, or ambiguous parents are rejected before mutation.",
     annotations: {
       title: "Place Cube",
       destructiveHint: true,
@@ -128,78 +141,56 @@ export function registerCubesTools() {
 createTool(cubeToolDocs[0].name, {
   ...cubeToolDocs[0],
   async execute({ elements, texture, faces, group }) {
-    Undo.initEdit({
-      elements: [],
-      outliner: true,
-      collections: [],
-    });
-    const total = elements.length;
-
     const projectTexture = texture
       ? getProjectTexture(texture)
       : Texture.getDefault();
 
-    if (!projectTexture) {
+    if (texture && !projectTexture) {
       throw new Error(`No texture found for "${texture}".`);
     }
-
-    // @ts-expect-error Blockbench global utility available at runtime
-    const groups = getAllGroups();
-    const outlinerGroup = group === "root"
-      ? "root"
-      : groups.find((g: any) => g.name === group || g.uuid === group) ?? "root";
+    const outlinerParent = resolveOutlinerParentOrThrow(group, "cube");
 
     const autouv =
       faces === true ||
       (Array.isArray(faces) &&
         faces.every((face) => typeof face === "string"));
 
-    const cubes = elements.map((element: CubeInput) => {
-      const elementAutouv = element.autouv === undefined
-        ? (autouv ? 1 : 0)
-        : Number(element.autouv) as 0 | 1 | 2;
-      const cube = new Cube({
-        autouv: elementAutouv,
-        name: element.name,
-        from: element.from as [number, number, number],
-        to: element.to as [number, number, number],
-        origin: element.origin as [number, number, number],
-        rotation: element.rotation as [number, number, number],
-        inflate: element.inflate,
-        mirror_uv: element.mirror_uv,
-        shade: element.shade,
-        visibility: element.visibility,
-        uv_offset: element.uv_offset as [number, number] | undefined,
-      }).init();
+    const cubes: Cube[] = [];
+    Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
+    try {
+      for (const element of elements as CubeInput[]) {
+        const elementAutouv = element.autouv === undefined
+          ? (autouv ? 1 : 0)
+          : Number(element.autouv) as 0 | 1 | 2;
+        const cube = new Cube({
+          autouv: elementAutouv,
+          name: element.name,
+          from: element.from as [number, number, number],
+          to: element.to as [number, number, number],
+          origin: element.origin as [number, number, number],
+          rotation: element.rotation as [number, number, number],
+          inflate: element.inflate,
+          mirror_uv: element.mirror_uv,
+          shade: element.shade,
+          visibility: element.visibility,
+          uv_offset: element.uv_offset as [number, number] | undefined,
+        }).init();
+        cubes.push(cube);
+        cube.addTo(outlinerParent);
 
-      cube.addTo(outlinerGroup);
-
-      if (element.face_uv) {
-        cube.applyTexture(projectTexture, true);
-        for (const [face, uv] of Object.entries(element.face_uv)) {
-          if (!uv) continue;
-          cube.faces[face as keyof Cube["faces"]].extend({
-            uv: uv as [number, number, number, number],
-          });
-        }
-      } else if (!autouv && Array.isArray(faces)) {
-        faces.forEach(({ face, uv }) => {
-          cube.faces[face].extend({
-            uv: uv as [number, number, number, number],
-          });
-        });
-      } else {
-        cube.applyTexture(
+        applyCubeTextureMapping(
+          cube,
           projectTexture,
-          faces !== false ? faces : undefined
+          element.face_uv as Partial<Record<CubeFaceKey, CubeFaceUV>> | undefined,
+          faces as CubeTextureFaceSelection
         );
-        cube.mapAutoUV();
       }
+    } catch (error) {
+      rollbackCreatedOutlinerEdit(cubes);
+      throw error;
+    }
 
-      return cube;
-    });
-
-    Undo.finishEdit("Agent placed cubes");
+    finishCreatedOutlinerEdit("Agent placed cubes", cubes);
     Canvas.updateAll();
 
     return await Promise.resolve(

@@ -171,14 +171,21 @@ export function getAndActivateTexture(id?: string): Texture {
  * @throws Error with suggestion to use list_outline
  */
 export function findGroupOrThrow(name: string): Group {
-  // @ts-ignore - Group is globally available in Blockbench
-  const group = Group.all.find((g: Group) => g.name === name);
-  if (!group) {
+  const uuidMatch = Group.all.find((group: Group) => group.uuid === name);
+  if (uuidMatch) return uuidMatch;
+  const nameMatches = Group.all.filter((group: Group) => group.name === name);
+  if (nameMatches.length > 1) {
+    throw new Error(
+      `Bone/group name "${name}" is ambiguous (${nameMatches.length} matches: ` +
+        `${nameMatches.map((group: Group) => group.uuid).join(", ")}). Use an exact UUID.`
+    );
+  }
+  if (nameMatches.length === 0) {
     throw new Error(
       `Bone/group "${name}" not found. Use the list_outline tool to see available groups and bones.`
     );
   }
-  return group;
+  return nameMatches[0];
 }
 
 /**
@@ -188,14 +195,21 @@ export function findGroupOrThrow(name: string): Group {
  * @throws Error with suggestion to use list_outline
  */
 export function findMeshOrThrow(id: string): Mesh {
-  // @ts-ignore - Mesh is globally available in Blockbench
-  const mesh = Mesh.all.find((m: Mesh) => m.uuid === id || m.name === id);
-  if (!mesh) {
+  const uuidMatch = Mesh.all.find((mesh: Mesh) => mesh.uuid === id);
+  if (uuidMatch) return uuidMatch;
+  const nameMatches = Mesh.all.filter((mesh: Mesh) => mesh.name === id);
+  if (nameMatches.length > 1) {
+    throw new Error(
+      `Mesh name "${id}" is ambiguous (${nameMatches.length} matches: ` +
+        `${nameMatches.map((mesh: Mesh) => mesh.uuid).join(", ")}). Use an exact UUID.`
+    );
+  }
+  if (nameMatches.length === 0) {
     throw new Error(
       `Mesh "${id}" not found. Use the list_outline tool to see available meshes.`
     );
   }
-  return mesh;
+  return nameMatches[0];
 }
 
 /**
@@ -204,16 +218,31 @@ export function findMeshOrThrow(id: string): Mesh {
  * @returns The found OutlinerElement
  * @throws Error with suggestion to use list_outline
  */
-export function findElementOrThrow(id: string): OutlinerElement {
-  const element = Outliner.elements.find(
-    (el: OutlinerElement) => el.uuid === id || el.name === id
-  ) || Group.all.find((g: Group) => g.uuid === id || g.name === id);
-  if (!element) {
+export function findElementOrThrow(id: string): OutlinerElement | Group {
+  const candidates: Array<OutlinerElement | Group> = [
+    ...Outliner.elements,
+    ...Group.all,
+  ];
+  const uuidMatches = candidates.filter((element) => element.uuid === id);
+  if (uuidMatches.length === 1) return uuidMatches[0];
+  if (uuidMatches.length > 1) {
+    throw new Error(
+      `Element UUID "${id}" is duplicated in the current project. Stop editing and repair the project before continuing.`
+    );
+  }
+  const nameMatches = candidates.filter((element) => element.name === id);
+  if (nameMatches.length > 1) {
+    throw new Error(
+      `Element name "${id}" is ambiguous (${nameMatches.length} matches: ` +
+        `${nameMatches.map((element) => element.uuid).join(", ")}). Use an exact UUID.`
+    );
+  }
+  if (nameMatches.length === 0) {
     throw new Error(
       `Element "${id}" not found. Use the list_outline tool to see available elements.`
     );
   }
-  return element;
+  return nameMatches[0];
 }
 
 /**
