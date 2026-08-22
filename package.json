@@ -1,21 +1,33 @@
 {
   "name": "codex-blockbench-mcp",
   "version": "1.7.0-codex.24",
-  "description": "Local-first Blockbench MCP server with YSM workflow support",
+  "description": "Local-first Blockbench MCP plugin with guarded modeling and optional workflow integrations",
   "keywords": [
     "Blockbench",
     "MCP"
   ],
   "license": "GPL-3.0-only",
   "author": "Jason J. Gardner and OpenAI Codex",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/XiaoNetwork-Astral/blockbench-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/XiaoNetwork-Astral/blockbench-mcp/issues"
+  },
   "type": "module",
   "main": "dist/codex_blockbench_mcp.js",
   "scripts": {
     "test": "bun test tests",
     "test:codex": "bun test tests",
-    "dev": "bun run ./build --clean --sourcemap",
+    "check": "bun test tests",
+    "prompts:build": "bun run ./build/generate-manifest.ts",
+    "dev": "bun run prompts:build && bun run ./build --clean --sourcemap",
     "dev:watch": "bun run dev --watch",
-    "build": "bun run ./build --clean --minify",
+    "build": "bun run prompts:build && bun run ./build --clean --minify",
+    "docs:build": "bun run ./build/docs.ts",
+    "docs:serve": "bun run docs/index.html",
+    "docs": "bun run prompts:build && bun run docs:build",
     "inspect": "bunx @modelcontextprotocol/inspector"
   },
   "dependencies": {

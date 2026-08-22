@@ -1,9 +1,19 @@
 {
 	"servers": {
 		"blockbench": {
-			"url": "http://localhost:3000/bb-mcp",
-			"type": "http"
+			"type": "http",
+			"url": "http://127.0.0.1:3000/bb-mcp",
+			"headers": {
+				"Authorization": "Bearer ${input:blockbench-mcp-token}"
+			}
 		}
 	},
-	"inputs": []
+	"inputs": [
+		{
+			"type": "promptString",
+			"id": "blockbench-mcp-token",
+			"description": "Bearer token shown in Blockbench MCP settings",
+			"password": true
+		}
+	]
 }
