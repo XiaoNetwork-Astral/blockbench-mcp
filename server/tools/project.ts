@@ -3,6 +3,9 @@
 import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
+import {
+  describeProject,
+} from "@/lib/projectRoles";
 
 export const createProjectParameters = z.object({
   name: z.string(),
@@ -13,6 +16,12 @@ export const createProjectParameters = z.object({
 });
 
 export const getProjectInfoParameters = z.object({});
+
+export const listProjectsParameters = z.object({});
+
+export const selectProjectParameters = z.object({
+  project: z.string().describe("Project UUID, exact name, or exact save path."),
+});
 
 export const projectToolDocs: ToolSpec[] = [
   {
@@ -29,7 +38,7 @@ export const projectToolDocs: ToolSpec[] = [
   {
     name: "get_project_info",
     description:
-      "Returns read-only project orientation: format id and display name, project name/UUID, texture resolution (texture_width/height), element counts, and a summary of top-level groups. Prefer this over `risky_eval` for first-look inspection — no JavaScript execution required.",
+      "Returns read-only project orientation: format id and display name, project name/UUID, texture resolution (texture_width/height), element counts, and a summary of top-level groups.",
     annotations: {
       title: "Get Project Info",
       readOnlyHint: true,
@@ -37,7 +46,38 @@ export const projectToolDocs: ToolSpec[] = [
     parameters: getProjectInfoParameters,
     status: STATUS_STABLE,
   },
+  {
+    name: "list_projects",
+    description:
+      "Lists every open Blockbench project tab, its active state, persistent workflow role, and whether MCP model mutations are allowed.",
+    annotations: {
+      title: "List Projects",
+      readOnlyHint: true,
+    },
+    parameters: listProjectsParameters,
+    status: STATUS_STABLE,
+  },
+  {
+    name: "select_project",
+    description:
+      "Selects an existing Blockbench project tab by UUID, exact name, or exact save path without closing any other tab.",
+    annotations: {
+      title: "Select Project",
+      destructiveHint: false,
+    },
+    parameters: selectProjectParameters,
+    status: STATUS_STABLE,
+  },
 ];
+
+function findProject(reference: string): ModelProject | undefined {
+  return ModelProject.all.find(
+    (project) =>
+      project.uuid === reference ||
+      project.name === reference ||
+      Boolean(project.save_path && project.save_path === reference)
+  );
+}
 
 export function registerProjectTools() {
   createTool(projectToolDocs[0].name, {
@@ -103,4 +143,36 @@ export function registerProjectTools() {
       );
     },
   }, projectToolDocs[1].status);
+
+  createTool(projectToolDocs[2].name, {
+    ...projectToolDocs[2],
+    async execute() {
+      return JSON.stringify(
+        {
+          active_project: Project?.uuid ?? null,
+          count: ModelProject.all.length,
+          projects: ModelProject.all.map(describeProject),
+        },
+        null,
+        2
+      );
+    },
+  }, projectToolDocs[2].status);
+
+  createTool(projectToolDocs[3].name, {
+    ...projectToolDocs[3],
+    async execute({ project }) {
+      const target = findProject(project);
+      if (!target) {
+        throw new Error(
+          `Project "${project}" not found. Use list_projects to inspect open tabs.`
+        );
+      }
+      if (!target.selected && !target.select()) {
+        throw new Error(`Blockbench refused to select project "${target.name}".`);
+      }
+      return JSON.stringify(describeProject(target), null, 2);
+    },
+  }, projectToolDocs[3].status);
+
 }

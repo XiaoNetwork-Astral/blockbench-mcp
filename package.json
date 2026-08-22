@@ -1,24 +1,21 @@
 {
-  "name": "blockbench-mcp",
-  "version": "1.6.1",
-  "description": "Blockbench MCP server plugin",
+  "name": "codex-blockbench-mcp",
+  "version": "1.7.0-codex.24",
+  "description": "Local-first Blockbench MCP server with YSM workflow support",
   "keywords": [
     "Blockbench",
     "MCP"
   ],
   "license": "GPL-3.0-only",
-  "author": "Jason J. Gardner",
+  "author": "Jason J. Gardner and OpenAI Codex",
   "type": "module",
-  "main": "dist/mcp.js",
+  "main": "dist/codex_blockbench_mcp.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prompts:build": "bun run ./build/generate-manifest.ts",
-    "dev": "bun run prompts:build && bun run ./build --sourcemap",
-    "dev:watch": "bun run prompts:build && bun run dev --watch",
-    "build": "bun run prompts:build && bun run ./build --minify",
-    "docs:build": "bun run ./build/docs.ts",
-    "docs:serve": "bun run docs/index.html",
-    "docs": "bun run prompts:build && bun run docs:build && bun run docs:serve",
+    "test": "bun test tests",
+    "test:codex": "bun test tests",
+    "dev": "bun run ./build --clean --sourcemap",
+    "dev:watch": "bun run dev --watch",
+    "build": "bun run ./build --clean --minify",
     "inspect": "bunx @modelcontextprotocol/inspector"
   },
   "dependencies": {

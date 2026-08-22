@@ -16,6 +16,14 @@ export const vector3Schema = z
   .length(3)
   .describe("3D vector [x, y, z].");
 
+/**
+ * Creates a fresh vector schema. Reusing one Zod instance in a top-level tool
+ * object makes some MCP schema converters emit an unresolved local $ref.
+ */
+export function vec3(description = "3D vector [x, y, z].") {
+  return z.tuple([z.number(), z.number(), z.number()]).describe(description);
+}
+
 // ============================================================================
 // Enum Schemas
 // ============================================================================
@@ -272,41 +280,58 @@ export const size2dSchema = z
 /** Cube element schema */
 export const cubeSchema = z.object({
   name: z.string(),
-  origin: vector3Schema
+  origin: vec3()
     .optional()
     .default([0, 0, 0])
     .describe("Pivot point of the cube."),
-  from: vector3Schema
+  from: vec3()
     .optional()
     .default([0, 0, 0])
     .describe("Starting point of the cube."),
-  to: vector3Schema
+  to: vec3()
     .optional()
     .default([1, 1, 1])
     .describe("Ending point of the cube."),
-  rotation: vector3Schema
+  rotation: vec3()
     .optional()
     .default([0, 0, 0])
     .describe("Rotation of the cube."),
+  inflate: z.number().optional().default(0),
+  mirror_uv: z.boolean().optional().default(false),
+  shade: z.boolean().optional().default(true),
+  visibility: z.boolean().optional().default(true),
+  autouv: autoUvEnum.optional(),
+  uv_offset: vector2Schema.optional(),
+  face_uv: z
+    .object({
+      north: z.array(z.number()).length(4).optional(),
+      south: z.array(z.number()).length(4).optional(),
+      east: z.array(z.number()).length(4).optional(),
+      west: z.array(z.number()).length(4).optional(),
+      up: z.array(z.number()).length(4).optional(),
+      down: z.array(z.number()).length(4).optional(),
+    })
+    .optional()
+    .describe("Optional per-face Blockbench UV rectangles [u1,v1,u2,v2]."),
 });
 
 /** Mesh element schema */
 export const meshSchema = z.object({
   name: z.string(),
-  position: vector3Schema
+  position: vec3()
     .optional()
     .default([0, 0, 0])
     .describe("Position of the mesh."),
-  rotation: vector3Schema
+  rotation: vec3()
     .optional()
     .default([0, 0, 0])
     .describe("Rotation of the mesh."),
-  scale: vector3Schema
+  scale: vec3()
     .optional()
     .default([1, 1, 1])
     .describe("Scale of the mesh."),
   vertices: z
-    .array(vector3Schema.describe("Vertex coordinates in the mesh."))
+    .array(vec3("Vertex coordinates in the mesh."))
     .optional()
     .default([])
     .describe("Vertices of the mesh."),
@@ -316,7 +341,7 @@ export const meshSchema = z.object({
 export const keyframeDataSchema = z.object({
   time: z.number().describe("Time in seconds for the keyframe."),
   values: z
-    .union([vector3Schema, z.number()])
+    .union([vec3(), z.number()])
     .optional()
     .describe("Values: [x,y,z] for position/rotation, number for uniform scale."),
   interpolation: interpolationEnum
@@ -326,9 +351,9 @@ export const keyframeDataSchema = z.object({
   bezier_handles: z
     .object({
       left_time: z.number().optional(),
-      left_value: z.union([vector3Schema, z.number()]).optional(),
+      left_value: z.union([vec3(), z.number()]).optional(),
       right_time: z.number().optional(),
-      right_value: z.union([vector3Schema, z.number()]).optional(),
+      right_value: z.union([vec3(), z.number()]).optional(),
     })
     .optional()
     .describe("Bezier handle positions for bezier interpolation."),

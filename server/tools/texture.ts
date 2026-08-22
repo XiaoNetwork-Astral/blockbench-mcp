@@ -11,6 +11,7 @@ import {
   getChannelTextureInfo,
 } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
+import { applyTextureRenderSettings } from "@/lib/toolFixes";
 import {
   colorSchema,
   elementIdSchema,
@@ -395,6 +396,8 @@ export function registerTextureTools() {
       fill_color,
       group,
       layer_name,
+      render_mode,
+      render_sides,
     }) {
       Undo.initEdit({
         textures: [],
@@ -407,6 +410,8 @@ export function registerTextureTools() {
         height,
         group,
         pbr_channel,
+        render_mode,
+        render_sides,
         internal: true,
       });
 
@@ -451,6 +456,16 @@ export function registerTextureTools() {
       }
 
       texture.add();
+
+      if (layer_name) {
+        if (!texture.layers_enabled) texture.activateLayers(true);
+        if (texture.selected_layer) texture.selected_layer.name = layer_name;
+      }
+
+      // Importing from a file may replace the original Texture instance, so
+      // re-apply the validated settings to the final object and rebuild its
+      // viewport material on both creation paths.
+      applyTextureRenderSettings(texture, render_mode, render_sides);
 
       Undo.finishEdit("Agent created texture");
       Canvas.updateAll();

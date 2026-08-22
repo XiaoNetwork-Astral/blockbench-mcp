@@ -5,7 +5,7 @@ import { createTool, type ToolSpec } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import {
   elementIdSchema,
-  vector3Schema,
+  vec3,
   meshIdOptionalSchema,
 } from "@/lib/zodObjects";
 
@@ -166,10 +166,10 @@ export const addArmatureBoneParameters = z.object({
     "UUID or name of parent armature or bone."
   ),
   name: z.string().optional().default("bone").describe("Name for the new bone."),
-  origin: vector3Schema
+  origin: vec3()
     .optional()
     .describe("Position of the bone. Defaults to [0, parent.length, 0] for child bones."),
-  rotation: vector3Schema.optional().default([0, 0, 0]),
+  rotation: vec3().optional().default([0, 0, 0]),
   length: z.number().optional().default(8).describe("Length of the bone."),
   width: z.number().optional().default(2).describe("Width of the bone."),
   connected: z
@@ -198,8 +198,8 @@ export const removeArmatureBoneParameters = z.object({
 export const updateArmatureBoneParameters = z.object({
   id: elementIdSchema.describe("UUID or name of the bone."),
   name: z.string().optional(),
-  origin: vector3Schema.optional().describe("New position of the bone."),
-  rotation: vector3Schema.optional().describe("New rotation [x, y, z] in degrees."),
+  origin: vec3("New position of the bone.").optional(),
+  rotation: vec3("New rotation [x, y, z] in degrees.").optional(),
   length: z.number().optional(),
   width: z.number().optional(),
   connected: z.boolean().optional(),

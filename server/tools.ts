@@ -1,7 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 
-import { tools, prompts } from "@/lib/factories";
+import { tools } from "@/lib/factories";
 
 // Import tool registration functions
 import { registerCameraTools } from "./tools/camera";
@@ -13,26 +13,25 @@ import { registerMeshTools } from "./tools/mesh";
 import { registerPaintTools } from "./tools/paint";
 import { registerProjectTools } from "./tools/project";
 import { registerTextureTools } from "./tools/texture";
-import { registerUITools } from "./tools/ui";
 import { registerUVTools } from "./tools/uv";
 import { registerMaterialInstanceTools } from "./tools/material-instances";
 import { registerArmatureTools } from "./tools/armature";
 import { registerHistoryTools } from "./tools/history";
 import { registerExportTools } from "./tools/export";
+import { registerPreviewTools } from "./tools/preview";
+import { registerCodexTextureTools } from "./tools/codex-texture";
+import { registerYsmTools } from "./tools/ysm";
+import { registerWorkflowTools } from "./tools/workflow";
 
 // Core resource registrations
 import { registerValidatorResources } from "./resources/validator";
-
-// Optional plugin integrations (conditionally registered)
-import { registerHytaleTools } from "./tools/hytale";
-import { registerHytaleResources } from "./resources/hytale";
-import { registerHytalePrompts } from "./prompts/hytale";
 
 // All registration functions - MUST be used to prevent tree-shaking
 const registrationFunctions = [
   registerAnimationTools,
   registerArmatureTools,
   registerCameraTools,
+  registerCodexTextureTools,
   registerCubesTools,
   registerElementTools,
   registerExportTools,
@@ -41,29 +40,17 @@ const registrationFunctions = [
   registerMaterialInstanceTools,
   registerMeshTools,
   registerPaintTools,
+  registerPreviewTools,
   registerProjectTools,
   registerTextureTools,
-  registerUITools,
   registerUVTools,
+  registerYsmTools,
+  registerWorkflowTools,
   registerValidatorResources,
-];
-
-// Optional plugin registration functions
-// These check internally if their plugin is installed before registering
-const optionalRegistrationFunctions = [
-  registerHytaleTools,
-  registerHytaleResources,
-  registerHytalePrompts,
 ];
 
 // Register all core tools immediately when this module loads
 for (const register of registrationFunctions) {
-  register();
-}
-
-// Register optional plugin integrations
-// Each function checks if its plugin is installed before registering
-for (const register of optionalRegistrationFunctions) {
   register();
 }
 
@@ -72,5 +59,4 @@ export function getToolCount(): number {
   return Object.keys(tools).length;
 }
 
-// Re-export tools and prompts for use by other modules
-export { tools, prompts };
+export { tools };

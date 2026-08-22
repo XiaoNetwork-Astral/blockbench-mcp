@@ -8,7 +8,7 @@ import {
   meshIdSchema,
   textureIdOptionalSchema,
   groupIdOptionalSchema,
-  vector3Schema,
+  vec3,
   meshSelectionModeEnum,
   selectionActionEnum,
 } from "@/lib/zodObjects";
@@ -52,7 +52,7 @@ export const createSphereParameters = z.object({
     .array(
       z.object({
         name: z.string().describe("Name of the sphere."),
-        position: vector3Schema.describe("Position of the sphere center."),
+        position: vec3("Position of the sphere center."),
         diameter: z
           .number()
           .min(1)
@@ -67,7 +67,7 @@ export const createSphereParameters = z.object({
           .describe(
             "Number of horizontal divisions (affects sphere quality)."
           ),
-        rotation: vector3Schema
+        rotation: vec3()
           .optional()
           .default([0, 0, 0])
           .describe("Rotation of the sphere."),
@@ -107,7 +107,7 @@ export const selectMeshElementsParameters = z.object({
 
 export const moveMeshVerticesParameters = z.object({
   mesh_id: meshIdOptionalSchema,
-  offset: vector3Schema.describe("Offset to move vertices by [x, y, z]."),
+  offset: vec3("Offset to move vertices by [x, y, z]."),
   vertices: z
     .array(z.string())
     .optional()
@@ -157,11 +157,11 @@ export const createCylinderParameters = z.object({
     .array(
       z.object({
         name: z.string(),
-        position: vector3Schema,
+        position: vec3(),
         height: z.number().min(1).max(64).default(16),
         diameter: z.number().min(1).max(64).default(16),
         sides: z.number().min(3).max(64).default(12),
-        rotation: vector3Schema.optional().default([0, 0, 0]),
+        rotation: vec3().optional().default([0, 0, 0]),
         capped: z.boolean().optional().default(true),
       })
     )
@@ -175,7 +175,7 @@ export const knifeToolParameters = z.object({
   points: z
     .array(
       z.object({
-        position: vector3Schema.describe("3D position of the cut point."),
+        position: vec3("3D position of the cut point."),
         face: z
           .string()
           .optional()

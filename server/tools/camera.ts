@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { captureScreenshot, captureAppScreenshot } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
-import { vector3Schema, projectionEnum } from "@/lib/zodObjects";
+import { vec3, projectionEnum } from "@/lib/zodObjects";
 
 export const captureScreenshotParameters = z.object({
   project: z.string().optional().describe("Project name or UUID."),
@@ -13,9 +13,9 @@ export const captureScreenshotParameters = z.object({
 export const captureAppScreenshotParameters = z.object({});
 
 export const setCameraAngleParameters = z.object({
-  position: vector3Schema.describe("Camera position."),
-  target: vector3Schema.optional().describe("Camera target position."),
-  rotation: vector3Schema.optional().describe("Camera rotation."),
+  position: vec3("Camera position."),
+  target: vec3("Camera target position.").optional(),
+  rotation: vec3("Camera rotation.").optional(),
   projection: projectionEnum.describe("Camera projection type."),
 });
 

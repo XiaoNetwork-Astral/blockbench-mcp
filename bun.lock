@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "blockbench-mcp",
+      "name": "codex-blockbench-mcp",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.25.3",
         "zod": "^3.25.76",

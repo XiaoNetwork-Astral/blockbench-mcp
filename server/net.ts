@@ -4,11 +4,16 @@ import type { Server as NetServer, Socket } from 'node:net'
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   registerToolsOnServer,
-  registerResourcesOnServer,
-  registerPromptsOnServer
+  registerResourcesOnServer
 } from '@/lib/factories'
 import { createServer as createMcpServer } from '@/server/server'
-import { sessionManager, type SessionConfig } from '@/lib/sessions'
+import {
+  sessionManager,
+  type SessionClientMetadata,
+  type SessionConfig
+} from '@/lib/sessions'
+import { isAuthorizedMcpRequest } from '@/lib/security'
+import { formatMcpHostForUrl } from '@/lib/pluginSettings'
 
 export type { NetServer }
 
@@ -54,6 +59,55 @@ export type SessionTransports = Map<
   { transport: WebStandardStreamableHTTPServerTransport; server: McpServer }
 >
 
+const serverSockets = new WeakMap<NetServer, Set<Socket>>()
+
+/**
+ * Stop the in-Blockbench HTTP server without leaving long-lived MCP streams or
+ * TCP sockets behind. Blockbench does not await plugin unload hooks, so this
+ * function starts closing transports immediately and force-closes only the
+ * sockets that still belong to this server after the bounded grace period.
+ */
+export async function stopNetServer (
+  server: NetServer,
+  sessionTransports: SessionTransports,
+  timeoutMs = 5000
+): Promise<void> {
+  const deadline = Date.now() + Math.max(0, timeoutMs)
+  // Stop accepting new connections first. Otherwise a client can reconnect
+  // while existing transports are being drained and keep shutdown alive.
+  const closed = new Promise<void>((resolve) => {
+    try {
+      server.close(() => resolve())
+    } catch {
+      resolve()
+    }
+  })
+  const sessions = Array.from(sessionTransports.values())
+  sessionTransports.clear()
+  const closeSessions = Promise.allSettled(
+    sessions.map(async ({ transport }) => {
+      await transport.close()
+    })
+  )
+  await Promise.race([
+    closeSessions,
+    new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, timeoutMs)))
+  ])
+  sessionManager.clear({ keepListeners: true })
+
+  const sockets = serverSockets.get(server) ?? new Set<Socket>()
+  const remaining = Math.max(0, deadline - Date.now())
+  await Promise.race([
+    closed,
+    new Promise<void>((resolve) => setTimeout(resolve, remaining))
+  ])
+  for (const socket of sockets) {
+    if (!socket.destroyed) socket.destroy()
+  }
+  sockets.clear()
+  serverSockets.delete(server)
+}
+
 function getStatusText (status: number): string {
   const texts: Record<number, string> = {
     200: 'OK',
@@ -61,6 +115,8 @@ function getStatusText (status: number): string {
     202: 'Accepted',
     204: 'No Content',
     400: 'Bad Request',
+    401: 'Unauthorized',
+    403: 'Forbidden',
     404: 'Not Found',
     405: 'Method Not Allowed',
     409: 'Conflict',
@@ -75,18 +131,27 @@ function getStatusText (status: number): string {
  * a client error, not a new connection. Per spec an InitializeRequest must
  * not be part of a JSON-RPC batch, so only a sole non-batched message counts.
  */
-function isInitializeRequestBody (method: string, body: string): boolean {
-  if (method !== 'POST' || !body) return false
+function parseInitializeRequestBody (
+  method: string,
+  body: string
+): Pick<SessionClientMetadata, 'clientName' | 'clientVersion'> | null {
+  if (method !== 'POST' || !body) return null
   try {
     const parsed: unknown = JSON.parse(body)
-    if (Array.isArray(parsed)) return false
-    return (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      (parsed as { method?: unknown }).method === 'initialize'
-    )
+    if (Array.isArray(parsed)) return null
+    if (typeof parsed !== 'object' || parsed === null) return null
+    const request = parsed as {
+      method?: unknown
+      params?: { clientInfo?: { name?: unknown; version?: unknown } }
+    }
+    if (request.method !== 'initialize') return null
+    const clientInfo = request.params?.clientInfo
+    return {
+      clientName: typeof clientInfo?.name === 'string' ? clientInfo.name : undefined,
+      clientVersion: typeof clientInfo?.version === 'string' ? clientInfo.version : undefined
+    }
   } catch {
-    return false
+    return null
   }
 }
 
@@ -96,19 +161,23 @@ export default function createNetServer (
   }: { createServer: (callback: (socket: Socket) => void) => NetServer },
   {
     port,
+    host,
     endpoint,
+    authToken,
     keepAlive = DEFAULT_KEEP_ALIVE,
     sessionConfig
   }: {
     endpoint: string
+    host: string
     port: number
-    host?: string
+    authToken: string
     keepAlive?: Partial<KeepAliveConfig>
     sessionConfig?: Partial<SessionConfig>
   }
 ): [NetServer, SessionTransports] {
   const sessionTransports: SessionTransports = new Map()
   const keepAliveConfig = { ...DEFAULT_KEEP_ALIVE, ...keepAlive }
+  const sockets = new Set<Socket>()
 
   // Apply session configuration if provided
   if (sessionConfig) {
@@ -144,18 +213,20 @@ export default function createNetServer (
   sessionManager.setRemovalCallback(async (sessionId: string) => {
     const session = sessionTransports.get(sessionId)
     if (session) {
-      console.log(`[MCP] Closing transport for session: ${sessionId.slice(0, 8)}...`)
+      // Make the session unreachable before awaiting transport shutdown so a
+      // concurrent request cannot slip through after the user disconnects or
+      // blocks it.
+      sessionTransports.delete(sessionId)
       try {
         await session.transport.close()
       } catch (error) {
         console.error('[MCP] Error closing transport:', error)
-      } finally {
-        sessionTransports.delete(sessionId)
       }
     }
   })
 
   const httpServer = createServer((socket: Socket) => {
+    sockets.add(socket)
     let buffer = Buffer.alloc(0)
     let socketEnded = false
 
@@ -171,7 +242,6 @@ export default function createNetServer (
       socket.setTimeout(keepAliveConfig.idleTimeoutMs)
       socket.on('timeout', () => {
         if (!socket.destroyed) {
-          console.log('[MCP] Socket idle timeout — closing connection')
           socket.destroy()
         }
       })
@@ -212,6 +282,7 @@ export default function createNetServer (
     socket.on('close', () => {
       // Clean up buffer when socket closes
       buffer = Buffer.alloc(0)
+      sockets.delete(socket)
     })
 
     async function processHttpRequests () {
@@ -252,7 +323,7 @@ export default function createNetServer (
         buffer = buffer.subarray(requestEnd)
 
         // Build Web Standard Request
-        const url = `http://localhost:${port}${path}`
+        const url = `http://${formatMcpHostForUrl(host)}:${port}${path}`
         const webHeaders = new Headers()
         for (const [key, value] of Object.entries(headers)) {
           webHeaders.set(key, value)
@@ -270,12 +341,29 @@ export default function createNetServer (
 
         const webRequest = new Request(url, requestInit)
 
+        if (!isAuthorizedMcpRequest(headers, authToken)) {
+          sendResponse(
+            socket,
+            401,
+            {
+              'content-type': 'application/json',
+              'www-authenticate': 'Bearer realm="Blockbench MCP"'
+            },
+            JSON.stringify({ error: 'Unauthorized' }),
+            headers['connection']
+          )
+          continue
+        }
+
         // Health check endpoint for monitoring
         const pathWithoutQuery = path.split('?')[0]
         if (pathWithoutQuery === '/health' || pathWithoutQuery === endpoint + '/health') {
           const healthStatus = {
             status: 'ok',
             timestamp: new Date().toISOString(),
+            clients: {
+              active: sessionManager.getClientCount()
+            },
             sessions: {
               active: sessionManager.getCount(),
               config: sessionManager.getConfig()
@@ -323,15 +411,13 @@ export default function createNetServer (
           // Get or create transport for this session
           const sessionId = headers['mcp-session-id']
           let session = sessionId ? sessionTransports.get(sessionId) : null
+          const initializeRequest = parseInitializeRequestBody(method, body)
 
           // Per MCP spec, an unknown or expired session ID gets 404 Not Found,
           // signalling spec-compliant clients to transparently start a new
           // session with a fresh InitializeRequest. (409 is not in the spec
           // and leaves clients stuck until restart.)
           if (sessionId && !session) {
-            console.log(
-              `[MCP] Unknown session ID: ${sessionId.slice(0, 8)}... (session expired or not found)`
-            )
             sendResponse(
               socket,
               404,
@@ -354,7 +440,7 @@ export default function createNetServer (
           // notifications, or DELETEs without a session header while an
           // initialize is in flight — those must be rejected, not treated
           // as new connections.
-          if (!session && !isInitializeRequestBody(method, body)) {
+          if (!session && !initializeRequest) {
             sendResponse(
               socket,
               400,
@@ -375,12 +461,33 @@ export default function createNetServer (
           // No session yet and this is an initialize request: create a new
           // session with its own server and transport
           if (!session) {
+            const clientMetadata: SessionClientMetadata = {
+              ...initializeRequest,
+              remoteAddress: socket.remoteAddress,
+              userAgent: headers['user-agent']
+            }
+            if (sessionManager.isClientBlocked(clientMetadata)) {
+              sendResponse(
+                socket,
+                403,
+                { 'content-type': 'application/json' },
+                JSON.stringify({
+                  jsonrpc: '2.0',
+                  error: {
+                    code: -32003,
+                    message: 'This client identity is blocked until the MCP server restarts.'
+                  },
+                  id: null
+                }),
+                headers['connection']
+              )
+              continue
+            }
             const sessionServer = createMcpServer()
 
-            // Register all tools, resources, and prompts on this session's server
+            // Register the private fork's tools and resources on this session.
             registerToolsOnServer(sessionServer)
             registerResourcesOnServer(sessionServer)
-            registerPromptsOnServer(sessionServer)
 
             // Filled in below before handleRequest runs; onsessioninitialized
             // (fired during handleRequest) closes over this object, which
@@ -395,10 +502,10 @@ export default function createNetServer (
               sessionIdGenerator: () => crypto.randomUUID(),
               enableJsonResponse: true,
               onsessioninitialized: (newSessionId: string) => {
-                console.log(
-                  `[MCP] Session initialized: ${newSessionId.slice(0, 8)}...`
-                )
-                sessionManager.add(newSessionId)
+                if (!sessionManager.add(newSessionId, clientMetadata)) {
+                  void newSession.transport.close().catch(() => {})
+                  return
+                }
                 sessionTransports.set(newSessionId, newSession)
 
                 // Hook into oninitialized to capture client info
@@ -415,9 +522,6 @@ export default function createNetServer (
                 }
               },
               onsessionclosed: (closedSessionId: string) => {
-                console.log(
-                  `[MCP] Session closed: ${closedSessionId.slice(0, 8)}...`
-                )
                 // Delete from sessionTransports BEFORE calling sessionManager.remove()
                 // to prevent the removal callback from trying to close an already-closing transport
                 sessionTransports.delete(closedSessionId)
@@ -434,7 +538,7 @@ export default function createNetServer (
 
           // Update session activity
           if (sessionId) {
-            sessionManager.updateActivity(sessionId)
+            sessionManager.recordRequest(sessionId)
           }
 
           // Let the transport handle the MCP protocol
@@ -614,8 +718,12 @@ export default function createNetServer (
     }
   })
 
-  httpServer.listen(port, () => {
-    console.log(`[MCP] Server listening on http://localhost:${port}${endpoint}`)
+  serverSockets.set(httpServer, sockets)
+  httpServer.listen(port, host, () => {
+    Blockbench.showStatusMessage(
+      `Blockbench MCP: http://${formatMcpHostForUrl(host)}:${port}${endpoint}`,
+      3500
+    )
   })
 
   httpServer.on('error', (err: Error) => {

@@ -4,8 +4,9 @@ import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { findGroupOrThrow } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
+import { applyKeyframeValues } from "@/lib/toolFixes";
 import {
-  vector3Schema,
+  vec3,
   animationIdOptionalSchema,
   animationChannelEnum,
   interpolationEnum,
@@ -32,9 +33,9 @@ export const createAnimationParameters = z.object({
       z.array(
         z.object({
           time: z.number(),
-          position: vector3Schema.optional(),
-          rotation: vector3Schema.optional(),
-          scale: z.union([vector3Schema, z.number()]).optional(),
+          position: vec3().optional(),
+          rotation: vec3().optional(),
+          scale: z.union([vec3(), z.number()]).optional(),
         })
       )
     )
@@ -112,8 +113,8 @@ export const boneRiggingParameters = z.object({
     .object({
       name: z.string().describe("Name of the bone."),
       parent: z.string().optional().describe("Parent bone name."),
-      origin: vector3Schema.optional().describe("Pivot point of the bone."),
-      rotation: vector3Schema.optional().describe("Initial rotation of the bone."),
+      origin: vec3("Pivot point of the bone.").optional(),
+      rotation: vec3("Initial rotation of the bone.").optional(),
       children: z
         .array(z.string())
         .optional()
@@ -185,7 +186,7 @@ export const batchKeyframeOperationsParameters = z.object({
   parameters: z
     .object({
       offset_time: z.number().optional().describe("Time offset to apply."),
-      offset_values: vector3Schema.optional().describe("Value offset to apply."),
+      offset_values: vec3("Value offset to apply.").optional(),
       scale_factor: z
         .number()
         .optional()
@@ -417,13 +418,16 @@ createTool(
               {
                 time: kf.time,
                 channel,
-                values: kf.values,
                 interpolation: kf.interpolation,
               },
               kf.time,
               channel,
               false
             );
+
+            if (kf.values !== undefined) {
+              applyKeyframeValues(keyframe, kf.values);
+            }
 
             if (kf.interpolation === "bezier" && kf.bezier_handles) {
               // @ts-ignore
@@ -459,8 +463,8 @@ createTool(
               (k) => Math.abs(k.time - kf.time) < 0.001
             );
             if (keyframe) {
-              if (kf.values) {
-                keyframe.set("values", kf.values);
+              if (kf.values !== undefined) {
+                applyKeyframeValues(keyframe, kf.values);
               }
               if (kf.interpolation) {
                 keyframe.interpolation = kf.interpolation;
@@ -909,7 +913,7 @@ createTool(
             }
             if (parameters.offset_values) {
               const values = kf.getArray();
-              kf.set("values", [
+              applyKeyframeValues(kf, [
                 values[0] + parameters.offset_values[0],
                 values[1] + parameters.offset_values[1],
                 values[2] + parameters.offset_values[2],
@@ -948,7 +952,7 @@ createTool(
           keyframes.forEach((kf) => {
             const values = kf.getArray();
             values[axisIndex] *= -1;
-            kf.set("values", values);
+            applyKeyframeValues(kf, values);
           });
           break;
 
@@ -978,20 +982,13 @@ createTool(
                   !channelKfs.find((kf) => Math.abs(kf.time - time) < 0.001)
                 ) {
                   Timeline.time = time;
-                  animator.fillValues(
-                    animator.createKeyframe(
-                      {
-                        time,
-                        channel,
-                        values: animator.interpolate(channel, true),
-                      },
-                      time,
-                      channel,
-                      false
-                    ),
-                    null,
+                  const keyframe = animator.createKeyframe(
+                    { time, channel },
+                    time,
+                    channel,
                     false
                   );
+                  applyKeyframeValues(keyframe, animator.interpolate(channel, true));
                 }
               }
             });
@@ -1154,13 +1151,13 @@ createTool(
                   {
                     time: kfData.time + (target.time_offset || 0),
                     channel,
-                    values,
                     interpolation: kfData.interpolation,
                   },
                   kfData.time + (target.time_offset || 0),
                   channel,
                   false
                 );
+                applyKeyframeValues(keyframe, values);
 
                 // Copy bezier data if present
                 if (kfData.interpolation === "bezier") {

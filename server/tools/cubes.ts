@@ -6,6 +6,8 @@ import { cubeSchema } from "@/lib/zodObjects";
 import { STATUS_STABLE } from "@/lib/constants";
 import { getProjectTexture } from "@/lib/util";
 
+type CubeInput = z.infer<typeof cubeSchema>;
+
 export const placeCubeParameters = z.object({
   elements: z.array(cubeSchema).min(1).describe("Array of cubes to place."),
   texture: z
@@ -152,19 +154,35 @@ createTool(cubeToolDocs[0].name, {
       (Array.isArray(faces) &&
         faces.every((face) => typeof face === "string"));
 
-    const cubes = elements.map((element: Cube) => {
+    const cubes = elements.map((element: CubeInput) => {
+      const elementAutouv = element.autouv === undefined
+        ? (autouv ? 1 : 0)
+        : Number(element.autouv) as 0 | 1 | 2;
       const cube = new Cube({
-        autouv: autouv ? 1 : 0,
+        autouv: elementAutouv,
         name: element.name,
         from: element.from as [number, number, number],
         to: element.to as [number, number, number],
         origin: element.origin as [number, number, number],
         rotation: element.rotation as [number, number, number],
+        inflate: element.inflate,
+        mirror_uv: element.mirror_uv,
+        shade: element.shade,
+        visibility: element.visibility,
+        uv_offset: element.uv_offset as [number, number] | undefined,
       }).init();
 
       cube.addTo(outlinerGroup);
 
-      if (!autouv && Array.isArray(faces)) {
+      if (element.face_uv) {
+        cube.applyTexture(projectTexture, true);
+        for (const [face, uv] of Object.entries(element.face_uv)) {
+          if (!uv) continue;
+          cube.faces[face as keyof Cube["faces"]].extend({
+            uv: uv as [number, number, number, number],
+          });
+        }
+      } else if (!autouv && Array.isArray(faces)) {
         faces.forEach(({ face, uv }) => {
           cube.faces[face].extend({
             uv: uv as [number, number, number, number],

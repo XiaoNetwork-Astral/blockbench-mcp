@@ -6,7 +6,7 @@ import { findElementOrThrow, findTextureOrThrow } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import {
   elementIdSchema,
-  vector3Schema,
+  vec3,
   autoUvEnum,
 } from "@/lib/zodObjects";
 
@@ -37,12 +37,12 @@ export const findElementsByCriteriaParameters = z.object({
     .describe(
       "UUID or name of a parent group. Only descendants of this group are returned."
     ),
-  min_size: vector3Schema
-    .optional()
-    .describe("Minimum [x,y,z] size for cubes. Cubes smaller on any axis are excluded."),
-  max_size: vector3Schema
-    .optional()
-    .describe("Maximum [x,y,z] size for cubes. Cubes larger on any axis are excluded."),
+  min_size: vec3(
+    "Minimum [x,y,z] size for cubes. Cubes smaller on any axis are excluded."
+  ).optional(),
+  max_size: vec3(
+    "Maximum [x,y,z] size for cubes. Cubes larger on any axis are excluded."
+  ).optional(),
   selected_only: z
     .boolean()
     .optional()
@@ -92,8 +92,12 @@ export const getSelectionParameters = z.object({});
 
 export const addGroupParameters = z.object({
   name: z.string(),
-  origin: vector3Schema,
-  rotation: vector3Schema,
+  origin: vec3("Pivot point of the group as [x, y, z].")
+    .optional()
+    .default([0, 0, 0]),
+  rotation: vec3("Rotation of the group in degrees as [x, y, z].")
+    .optional()
+    .default([0, 0, 0]),
   parent: z.string().optional().default("root"),
   visibility: z.boolean().optional().default(true),
   autouv: autoUvEnum
@@ -129,7 +133,7 @@ export const listOutlineParameters = z.object({
 
 export const duplicateElementParameters = z.object({
   id: elementIdSchema.describe("ID or name of the element to duplicate."),
-  offset: vector3Schema.optional().default([0, 0, 0]),
+  offset: vec3().optional().default([0, 0, 0]),
   newName: z.string().optional(),
 });
 
@@ -367,8 +371,7 @@ export function registerElementTools() {
 
       const parentGroup = parent === "root"
         ? "root"
-        : // `@ts-expect-error` getAllGroups is a Blockbench global
-          getAllGroups().find((g: Group) => g.name === parent || g.uuid === parent);
+        : Group.all.find((g) => g.name === parent || g.uuid === parent);
       group.addTo(parentGroup);
 
       Undo.finishEdit("Agent added group");
@@ -447,13 +450,19 @@ export function registerElementTools() {
     async execute({ id, offset, newName }) {
       const element = findElementOrThrow(id);
 
-      // Helper functions for each type; match patterns used in existing tools:contentReference[oaicite:5]{index=5}.
+      const withOffset = (vector: ArrayLike<number>): [number, number, number] => [
+        Number(vector[0]) + offset[0],
+        Number(vector[1]) + offset[1],
+        Number(vector[2]) + offset[2],
+      ];
+
+      // Helper functions for each supported outliner element type.
       function cloneCube(cube: Cube, parent: any) {
         const dupe = new Cube({
           name: newName || `${cube.name}_copy`,
-          from: cube.from.map((v, i) => v + offset[i]),
-          to: cube.to.map((v, i) => v + offset[i]),
-          origin: cube.origin.map((v, i) => v + offset[i]),
+          from: withOffset(cube.from),
+          to: withOffset(cube.to),
+          origin: withOffset(cube.origin),
           rotation: cube.rotation,
           autouv: cube.autouv,
           uv_offset: cube.uv_offset,
@@ -470,7 +479,7 @@ export function registerElementTools() {
       function cloneGroup(group: Group, parent: any) {
         const dupeGroup = new Group({
           name: newName || `${group.name}_copy`,
-          origin: group.origin.map((v, i) => v + offset[i]),
+          origin: withOffset(group.origin),
           rotation: group.rotation,
           autouv: group.autouv,
           selected: group.selected,
@@ -486,7 +495,7 @@ export function registerElementTools() {
         const dupe = new Mesh({
           name: newName || `${mesh.name}_copy`,
           vertices: {},
-          origin: mesh.origin.map((v, i) => v + offset[i]),
+          origin: withOffset(mesh.origin),
           rotation: mesh.rotation,
         }).init();
         const map: Record<string, any> = {};
@@ -497,7 +506,7 @@ export function registerElementTools() {
             coords[2] + offset[2],
           ])[0];
         });
-        mesh.faces.forEach((face: any) => {
+        Object.values(mesh.faces).forEach((face: any) => {
           dupe.addFaces(
             new MeshFace(dupe, {
               vertices: face.vertices.map((v: any) => map[v]),

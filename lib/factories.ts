@@ -1,7 +1,10 @@
 import { z } from "zod";
-import type { IMCPTool, IMCPPrompt, IMCPResource, StatusType } from "@/types";
+import type { IMCPTool, IMCPResource, StatusType } from "@/types";
 import { getServer } from "@/server/server";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { assertAgentMayMutateProject } from "@/lib/projectRoles";
+import { auditManager } from "@/lib/audit";
+import { assertToolRegistrationAllowed } from "@/lib/security";
 
 /**
  * Declarative tool spec for documentation and registration.
@@ -13,21 +16,11 @@ export interface ToolSpec {
   annotations?: {
     title?: string;
     destructiveHint?: boolean;
+    idempotentHint?: boolean;
     readOnlyHint?: boolean;
     openWorldHint?: boolean;
   };
   parameters: z.ZodType;
-  status: StatusType;
-}
-
-/**
- * Declarative prompt spec for documentation and registration.
- */
-export interface PromptSpec {
-  name: string;
-  description: string;
-  title?: string;
-  argsSchema?: z.ZodObject<z.ZodRawShape>;
   status: StatusType;
 }
 
@@ -47,17 +40,13 @@ export interface ResourceSpec {
 export const tools: Record<string, IMCPTool> = {};
 
 /**
- * User-visible list of prompt details.
- */
-export const prompts: Record<string, IMCPPrompt> = {};
-
-/**
  * User-visible list of resource details.
  */
 export const resources: Record<string, IMCPResource> = {};
 
 export interface ToolContext {
   reportProgress: (progress: { progress: number; total: number }) => void;
+  sessionId?: string;
 }
 
 interface TextContent {
@@ -94,21 +83,73 @@ interface ToolDefinition {
  */
 const toolDefinitions: Record<string, ToolDefinition> = {};
 
+interface ToolRequestExtra {
+  sessionId?: string;
+}
+
+function normalizeToolResult(result: ToolResult): unknown {
+  if (typeof result === "string") {
+    return {
+      content: [{ type: "text", text: result }],
+    };
+  }
+
+  if (result && typeof result === "object" && "content" in result) {
+    return result;
+  }
+
+  return {
+    content: [{ type: "text", text: JSON.stringify(result) }],
+  };
+}
+
+async function invokeTool(
+  name: string,
+  toolDef: ToolDefinition,
+  args: Record<string, unknown>,
+  extra: ToolRequestExtra
+): Promise<unknown> {
+  const handle = auditManager.beginMcpOperation({
+    toolName: name,
+    title: toolDef.title,
+    args,
+    sessionId: extra.sessionId,
+    readOnly: toolDef.annotations?.readOnlyHint === true,
+  });
+
+  try {
+    const reportProgress: ToolContext["reportProgress"] = () => {};
+    const context: ToolContext = { reportProgress, sessionId: extra.sessionId };
+    // A reference tab is writable only through the small explicit exemption
+    // list. Tools must opt into read-only status; missing metadata never grants
+    // mutation access by accident.
+    if (toolDef.annotations?.readOnlyHint !== true) {
+      assertAgentMayMutateProject(name);
+    }
+    const result = await toolDef.execute(args, context);
+    auditManager.finishMcpOperation(handle, result);
+    return normalizeToolResult(result);
+  } catch (error) {
+    auditManager.finishMcpOperation(handle, undefined, error);
+    throw error;
+  }
+}
+
 /**
  * Extracts the shape from a Zod schema, unwrapping ZodEffects if necessary.
  * Uses _def.typeName for reliable type checking across different Zod instances.
  */
 function extractShape(schema: z.ZodType): Record<string, z.ZodType> {
   const def = schema._def as { typeName?: string; schema?: z.ZodType; shape?: () => Record<string, z.ZodType> };
-  
+
   if (def.typeName === "ZodObject") {
     return def.shape?.() ?? {};
   }
-  
+
   if (def.typeName === "ZodEffects" && def.schema) {
     return extractShape(def.schema);
   }
-  
+
   return {};
 }
 
@@ -141,6 +182,7 @@ export function createTool<T extends z.ZodType>(
   status: IMCPTool["status"] = "stable",
   enabled: boolean = true
 ) {
+  assertToolRegistrationAllowed(name);
   if (tools[name]) {
     throw new Error(`Tool with name "${name}" already exists.`);
   }
@@ -181,32 +223,13 @@ export function createTool<T extends z.ZodType>(
         description: toolDef.description,
         inputSchema,
       },
-      async (args: unknown, _extra: unknown) => {
-        // Provide a no-op reportProgress function
-        // Note: Progress notifications require SSE streaming which is not enabled
-        // in the current StreamableHTTPServerTransport configuration (enableJsonResponse: true)
-        const reportProgress: ToolContext["reportProgress"] = () => {};
-
-        const context: ToolContext = { reportProgress };
-        const result = await tool.execute(args as ToolArgs, context);
-
-        // Normalize result to MCP CallToolResult format
-        // Tools may return plain strings for convenience, convert to proper format
-        if (typeof result === "string") {
-          return {
-            content: [{ type: "text", text: result }],
-          };
-        }
-
-        // If result already has content array, return as-is
-        if (result && typeof result === "object" && "content" in result) {
-          return result;
-        }
-
-        // Fallback: stringify any other result
-        return {
-          content: [{ type: "text", text: JSON.stringify(result) }],
-        };
+      async (args: unknown, extra: unknown) => {
+        return invokeTool(
+          name,
+          toolDef,
+          args as ToolArgs & Record<string, unknown>,
+          (extra ?? {}) as ToolRequestExtra
+        );
       }
     );
   }
@@ -264,24 +287,13 @@ export function registerToolsOnServer(server: unknown) {
         description: toolDef.description,
         inputSchema: toolDef.inputSchema,
       },
-      async (args: unknown, _extra: unknown) => {
-        const reportProgress: ToolContext["reportProgress"] = () => {};
-        const context: ToolContext = { reportProgress };
-        const result = await toolDef.execute(args as Record<string, unknown>, context);
-
-        if (typeof result === "string") {
-          return {
-            content: [{ type: "text", text: result }],
-          };
-        }
-
-        if (result && typeof result === "object" && "content" in result) {
-          return result;
-        }
-
-        return {
-          content: [{ type: "text", text: JSON.stringify(result) }],
-        };
+      async (args: unknown, extra: unknown) => {
+        return invokeTool(
+          name,
+          toolDef,
+          args as Record<string, unknown>,
+          (extra ?? {}) as ToolRequestExtra
+        );
       }
     );
   }
@@ -455,145 +467,6 @@ export function registerResourcesOnServer(server: unknown) {
 
         return resourceDef.readCallback(uri, normalizedVariables);
       }
-    );
-  }
-}
-
-/**
- * Prompt definition storage for dynamic server reconstruction
- */
-interface PromptDefinition {
-  name: string;
-  title: string;
-  description: string;
-  argsSchema?: Record<string, z.ZodType>;
-  generate: (args: Record<string, unknown>) => Promise<{
-    messages: Array<{
-      role: "user" | "assistant";
-      content: { type: string; text: string };
-    }>;
-  }>;
-}
-
-const promptDefinitions: Record<string, PromptDefinition> = {};
-
-/**
- * Creates a new MCP prompt and registers it with the server using the official SDK.
- * @param name - The prompt name
- * @param prompt - The prompt configuration.
- * @param prompt.description - The description of the prompt.
- * @param prompt.arguments - Zod schema for prompt arguments.
- * @param prompt.generate - Function to generate prompt messages from arguments.
- * @param status - The status of the prompt.
- * @param enabled - Whether the prompt is enabled.
- * @returns - The created prompt metadata.
- * @throws - If a prompt with the same name already exists.
- */
-export function createPrompt<T extends z.ZodRawShape = Record<string, never>>(
-  name: string,
-  prompt: {
-    title?: string;
-    description: string;
-    argsSchema?: z.ZodObject<T>;
-    generate?: (
-      args: z.infer<z.ZodObject<T>>
-    ) =>
-      | {
-      messages: Array<{
-        role: "user" | "assistant";
-        content: { type: string; text: string };
-      }>;
-    }
-      | Promise<{
-          messages: Array<{
-            role: "user" | "assistant";
-            content: { type: string; text: string };
-          }>;
-        }>;
-  },
-  status: IMCPPrompt["status"] = "stable",
-  enabled: boolean = true
-) {
-  if (prompts[name]) {
-    throw new Error(`Prompt with name "${name}" already exists.`);
-  }
-
-  // Store prompt definition for session reconstruction
-  if (enabled && prompt.generate && prompt.argsSchema) {
-    const promptDef: PromptDefinition = {
-      name,
-      title: prompt.title || prompt.description,
-      description: prompt.description,
-      argsSchema: prompt.argsSchema.shape,
-      generate: async (args: Record<string, unknown>) => {
-        const result = await prompt.generate!(args as z.infer<z.ZodObject<T>>);
-        return result;
-      },
-    };
-
-    promptDefinitions[name] = promptDef;
-
-    // Register with the singleton server
-    getServer().registerPrompt(
-      name,
-      {
-        title: promptDef.title,
-        description: promptDef.description,
-        argsSchema: promptDef.argsSchema,
-      },
-      promptDef.generate
-    );
-  }
-
-  prompts[name] = {
-    name,
-    arguments: prompt.argsSchema?.shape || {},
-    description: prompt.description,
-    enabled,
-    status,
-  };
-
-  return prompts[name];
-}
-
-/**
- * Gets all prompt definitions for server reconstruction
- */
-export function getAllPromptDefinitions() {
-  return promptDefinitions;
-}
-
-/**
- * Registers all prompts on a server instance
- * Used to set up new session servers with the same prompts
- */
-export function registerPromptsOnServer(server: unknown) {
-  const typedServer = server as {
-    registerPrompt: (
-      promptName: string,
-      definition: {
-        title: string;
-        description: string;
-        argsSchema?: Record<string, z.ZodType>;
-      },
-      callback: (args: Record<string, unknown>) => Promise<{
-        messages: Array<{
-          role: "user" | "assistant";
-          content: { type: string; text: string };
-        }>;
-      }>
-    ) => void;
-  };
-
-  for (const [name, promptDef] of Object.entries(promptDefinitions)) {
-    typedServer.registerPrompt(
-      name,
-      {
-        title: promptDef.title,
-        description: promptDef.description,
-        argsSchema: promptDef.argsSchema,
-      },
-      promptDef.generate
     );
   }
 }

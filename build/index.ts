@@ -3,7 +3,7 @@ import { mkdir, copyFile, rename, rm, stat } from "node:fs/promises";
 import { resolve, join, normalize, sep } from "node:path";
 import { log, c, isCleanMode, isProduction, isWatchMode } from "./utils";
 import { blockbenchCompatPlugin, textFileLoaderPlugin } from "./plugins";
-import { version } from "../package.json";
+import { PLUGIN_FILENAME, VERSION } from "../lib/constants";
 
 const OUTPUT_DIR = "./dist";
 // Normalized output dir name for path comparison (strips "./" prefix)
@@ -96,31 +96,43 @@ async function buildPlugin(): Promise<boolean> {
   }
 
   const indexFile = join(OUTPUT_DIR, "index.js");
-  const mcpFile = join(OUTPUT_DIR, "mcp.js");
+  // Blockbench derives a locally loaded plugin's temporary ID from its base
+  // filename before evaluating the bundle. It then requires Plugin.register()
+  // to use that exact ID, so the distributable must be named after PLUGIN_ID.
+  const pluginFile = join(OUTPUT_DIR, PLUGIN_FILENAME);
 
   if (await Bun.file(indexFile).exists()) {
-    await rename(indexFile, mcpFile);
-    log.step(`Renamed ${c.gray}index.js${c.reset} → ${c.cyan}mcp.js${c.reset}`);
+    await rename(indexFile, pluginFile);
+    log.step(
+      `Renamed ${c.gray}index.js${c.reset} → ${c.cyan}${PLUGIN_FILENAME}${c.reset}`
+    );
   }
 
-  const mcpBunFile = Bun.file(mcpFile);
-  if (await mcpBunFile.exists()) {
-    const mcpContent = await mcpBunFile.text();
-    const banner = /* js */ `/* v${version} */
+  const pluginBunFile = Bun.file(pluginFile);
+  if (await pluginBunFile.exists()) {
+    const pluginContent = await pluginBunFile.text();
+    const banner = /* js */ `/* v${VERSION} */
 let process = requireNativeModule('process');`;
-
-    if (!mcpContent.startsWith(banner)) {
-      await Bun.write(mcpFile, banner + mcpContent);
-    }
+    // The SDK bundle contains two empty SSE `data: ` lines. Removing the
+    // insignificant trailing space keeps the tracked distributable clean.
+    const normalizedContent = pluginContent.replace(/^data: $/gm, "data:");
+    await Bun.write(
+      pluginFile,
+      normalizedContent.startsWith(banner)
+        ? normalizedContent
+        : banner + normalizedContent
+    );
   }
 
   // Rename the sourcemap file
   const indexMapFile = join(OUTPUT_DIR, "index.js.map");
-  const mcpMapFile = join(OUTPUT_DIR, "mcp.js.map");
+  const pluginMapFile = join(OUTPUT_DIR, `${PLUGIN_FILENAME}.map`);
 
   if (await Bun.file(indexMapFile).exists()) {
-    await rename(indexMapFile, mcpMapFile);
-    log.step(`Renamed ${c.gray}index.js.map${c.reset} → ${c.cyan}mcp.js.map${c.reset}`);
+    await rename(indexMapFile, pluginMapFile);
+    log.step(
+      `Renamed ${c.gray}index.js.map${c.reset} → ${c.cyan}${PLUGIN_FILENAME}.map${c.reset}`
+    );
   }
 
   // Copy the README file
