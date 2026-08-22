@@ -3,12 +3,15 @@ import type { ToolSpec, PromptSpec, ResourceSpec } from "../lib/factories";
 
 // Tool docs imports — each file exports schemas at module level with zero Blockbench deps
 import { cameraToolDocs } from "../server/tools/camera";
+import { codexTextureToolDocs } from "../server/tools/codex-texture";
 import { cubeToolDocs } from "../server/tools/cubes";
 import { elementToolDocs } from "../server/tools/element";
 import { importToolDocs } from "../server/tools/import";
 import { meshToolDocs } from "../server/tools/mesh";
 import { paintToolDocs } from "../server/tools/paint";
+import { previewToolDocs } from "../server/tools/preview";
 import { projectToolDocs } from "../server/tools/project";
+import { spatialToolDocs } from "../server/tools/spatial";
 import { textureToolDocs } from "../server/tools/texture";
 import { armatureToolDocs } from "../server/tools/armature";
 import { animationToolDocs } from "../server/tools/animation";
@@ -17,6 +20,8 @@ import { materialInstanceToolDocs } from "../server/tools/material-instances";
 import { uvToolDocs } from "../server/tools/uv";
 import { historyToolDocs } from "../server/tools/history";
 import { exportToolDocs } from "../server/tools/export";
+import { workflowToolDocs } from "../server/tools/workflow";
+import { ysmToolDocs } from "../server/tools/ysm";
 
 export interface CategoryGroup {
   category: string;
@@ -26,6 +31,7 @@ export interface CategoryGroup {
 export const toolManifest: CategoryGroup[] = [
   { category: "Cubes", tools: cubeToolDocs },
   { category: "Camera & Screenshots", tools: cameraToolDocs },
+  { category: "Preview", tools: previewToolDocs },
   { category: "Animation", tools: animationToolDocs },
   { category: "Armature", tools: armatureToolDocs },
   { category: "Elements", tools: elementToolDocs },
@@ -35,10 +41,14 @@ export const toolManifest: CategoryGroup[] = [
   { category: "Material Instances", tools: materialInstanceToolDocs },
   { category: "Mesh Editing", tools: meshToolDocs },
   { category: "Paint Tools", tools: paintToolDocs },
+  { category: "Exact Texture Editing", tools: codexTextureToolDocs },
   { category: "Project", tools: projectToolDocs },
   { category: "Textures", tools: textureToolDocs },
+  { category: "Spatial Inspection", tools: spatialToolDocs },
   { category: "UV Mapping", tools: uvToolDocs },
-  { category: "Hytale Integration", tools: hytaleToolDocs },
+  { category: "YSM Workspace", tools: ysmToolDocs },
+  { category: "YSM Workflow", tools: workflowToolDocs },
+  { category: "Hytale Integration (optional)", tools: hytaleToolDocs },
 ];
 
 // Prompt specs defined inline — server/prompts.ts uses macros that complicate direct import

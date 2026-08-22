@@ -1,11 +1,11 @@
 {
-  "version": "1.6.0",
-  "generatedAt": "2026-05-22T14:18:59.107Z",
+  "version": "1.7.0-codex.24",
+  "generatedAt": "2026-08-22T13:22:31.603Z",
   "tools": [
     {
       "name": "place_cube",
       "title": "Place Cube",
-      "description": "Places a cube of the given size at the specified position. Texture and group are optional.",
+      "description": "Places one or more cubes under a mandatory explicit parent. Use group='root' only for intentional root-level cubes; omitted, missing, or ambiguous parents are rejected before mutation.",
       "status": "stable",
       "category": "Cubes",
       "annotations": {
@@ -84,6 +84,96 @@
                         0,
                         0
                       ]
+                    },
+                    "inflate": {
+                      "type": "number",
+                      "default": 0
+                    },
+                    "mirror_uv": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "shade": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "visibility": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "autouv": {
+                      "type": "string",
+                      "enum": [
+                        "0",
+                        "1",
+                        "2"
+                      ]
+                    },
+                    "uv_offset": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "description": "2D vector [x, y].",
+                      "markdownDescription": "2D vector [x, y]."
+                    },
+                    "face_uv": {
+                      "type": "object",
+                      "properties": {
+                        "north": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "south": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "east": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "west": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "up": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "down": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        }
+                      },
+                      "additionalProperties": false,
+                      "description": "Optional per-face Blockbench UV rectangles [u1,v1,u2,v2].",
+                      "markdownDescription": "Optional per-face Blockbench UV rectangles [u1,v1,u2,v2]."
                     }
                   },
                   "required": [
@@ -102,8 +192,9 @@
               },
               "group": {
                 "type": "string",
-                "description": "Group/bone to which the cube belongs.",
-                "markdownDescription": "Group/bone to which the cube belongs."
+                "minLength": 1,
+                "description": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level cube.",
+                "markdownDescription": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level cube."
               },
               "faces": {
                 "anyOf": [
@@ -180,7 +271,8 @@
               }
             },
             "required": [
-              "elements"
+              "elements",
+              "group"
             ],
             "additionalProperties": false
           }
@@ -413,6 +505,67 @@
               "position",
               "projection"
             ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "set_preview_state",
+      "title": "Set Preview State",
+      "description": "Selects a project and applies an animation/time plus temporary bone visibility for live inspection. It does not bake the pose into the model.",
+      "status": "stable",
+      "category": "Preview",
+      "annotations": {
+        "destructiveHint": false
+      },
+      "parameters": {
+        "$ref": "#/definitions/set_preview_state",
+        "definitions": {
+          "set_preview_state": {
+            "type": "object",
+            "properties": {
+              "project": {
+                "type": "string",
+                "description": "Project UUID, exact name, or exact save path. Defaults to the active tab.",
+                "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the active tab."
+              },
+              "animation": {
+                "type": "string",
+                "description": "Exact animation name. Omit to show the default pose.",
+                "markdownDescription": "Exact animation name. Omit to show the default pose."
+              },
+              "time": {
+                "type": "number",
+                "default": 0,
+                "description": "Animation time in seconds.",
+                "markdownDescription": "Animation time in seconds."
+              },
+              "hide_bones": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "show_bones": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "only_bones": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "If non-empty, isolates these bones together with their ancestors and descendants.",
+                "markdownDescription": "If non-empty, isolates these bones together with their ancestors and descendants."
+              }
+            },
             "additionalProperties": false
           }
         },
@@ -854,13 +1007,21 @@
                 "properties": {
                   "name": {
                     "type": "string",
-                    "description": "Name of the bone.",
-                    "markdownDescription": "Name of the bone."
+                    "minLength": 1,
+                    "description": "UUID or unique name of the bone.",
+                    "markdownDescription": "UUID or unique name of the bone."
                   },
                   "parent": {
                     "type": "string",
-                    "description": "Parent bone name.",
-                    "markdownDescription": "Parent bone name."
+                    "minLength": 1,
+                    "description": "Required for create, parent, unparent, and mirror. Use the literal \"root\" for the root level; otherwise provide an exact UUID or unique name.",
+                    "markdownDescription": "Required for create, parent, unparent, and mirror. Use the literal \"root\" for the root level; otherwise provide an exact UUID or unique name."
+                  },
+                  "new_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Required replacement name for the rename action.",
+                    "markdownDescription": "Required replacement name for the rename action."
                   },
                   "origin": {
                     "type": "array",
@@ -885,10 +1046,11 @@
                   "children": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
-                    "description": "Names of elements to add to this bone.",
-                    "markdownDescription": "Names of elements to add to this bone."
+                    "description": "UUIDs or unique names of existing nodes to move into a newly created bone.",
+                    "markdownDescription": "UUIDs or unique names of existing nodes to move into a newly created bone."
                   },
                   "ik_enabled": {
                     "type": "boolean",
@@ -897,8 +1059,8 @@
                   },
                   "ik_target": {
                     "type": "string",
-                    "description": "Target bone for IK chain.",
-                    "markdownDescription": "Target bone for IK chain."
+                    "description": "Target bone UUID or unique name for the IK chain.",
+                    "markdownDescription": "Target bone UUID or unique name for the IK chain."
                   },
                   "mirror_axis": {
                     "type": "string",
@@ -1353,7 +1515,7 @@
     {
       "name": "add_armature",
       "title": "Add Armature",
-      "description": "Creates a new armature in the project. An armature is a skeletal rig used for mesh deformation.",
+      "description": "Creates a new root-level armature. The caller must explicitly pass parent='root'. An armature is a skeletal rig used for mesh deformation.",
       "status": "stable",
       "category": "Armature",
       "annotations": {
@@ -1365,6 +1527,12 @@
           "add_armature": {
             "type": "object",
             "properties": {
+              "parent": {
+                "type": "string",
+                "const": "root",
+                "description": "Armatures are root-only; pass the exact literal 'root' explicitly.",
+                "markdownDescription": "Armatures are root-only; pass the exact literal 'root' explicitly."
+              },
               "name": {
                 "type": "string",
                 "default": "armature",
@@ -1386,6 +1554,9 @@
                 "markdownDescription": "Whether to add an initial bone to the armature."
               }
             },
+            "required": [
+              "parent"
+            ],
             "additionalProperties": false
           }
         },
@@ -2016,7 +2187,7 @@
     {
       "name": "add_group",
       "title": "Add Group",
-      "description": "Adds a new group with the given name and options.",
+      "description": "Adds a new group under a mandatory explicit parent. Use parent='root' only for an intentional root-level group; omitted, missing, or ambiguous parents are rejected before mutation.",
       "status": "stable",
       "category": "Elements",
       "annotations": {
@@ -2038,8 +2209,13 @@
                 },
                 "minItems": 3,
                 "maxItems": 3,
-                "description": "3D vector [x, y, z].",
-                "markdownDescription": "3D vector [x, y, z]."
+                "description": "Pivot point of the group as [x, y, z].",
+                "markdownDescription": "Pivot point of the group as [x, y, z].",
+                "default": [
+                  0,
+                  0,
+                  0
+                ]
               },
               "rotation": {
                 "type": "array",
@@ -2048,12 +2224,19 @@
                 },
                 "minItems": 3,
                 "maxItems": 3,
-                "description": "3D vector [x, y, z].",
-                "markdownDescription": "3D vector [x, y, z]."
+                "description": "Rotation of the group in degrees as [x, y, z].",
+                "markdownDescription": "Rotation of the group in degrees as [x, y, z].",
+                "default": [
+                  0,
+                  0,
+                  0
+                ]
               },
               "parent": {
                 "type": "string",
-                "default": "root"
+                "minLength": 1,
+                "description": "Required parent UUID or unique name. Use the exact literal 'root' only for an intentional root-level group.",
+                "markdownDescription": "Required parent UUID or unique name. Use the exact literal 'root' only for an intentional root-level group."
               },
               "visibility": {
                 "type": "boolean",
@@ -2081,8 +2264,7 @@
             },
             "required": [
               "name",
-              "origin",
-              "rotation"
+              "parent"
             ],
             "additionalProperties": false
           }
@@ -2135,7 +2317,7 @@
     {
       "name": "duplicate_element",
       "title": "Duplicate Element",
-      "description": "Duplicates a cube, mesh or group by ID or name.  You may offset the duplicate or assign a new name.",
+      "description": "Duplicates a cube, mesh, or group under a mandatory explicit target parent while preserving geometry, UVs, textures, and descendants. You may offset the duplicate or assign a new name.",
       "status": "experimental",
       "category": "Elements",
       "annotations": {
@@ -2151,6 +2333,12 @@
                 "type": "string",
                 "description": "ID or name of the element to duplicate.",
                 "markdownDescription": "ID or name of the element to duplicate."
+              },
+              "parent": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Required target parent UUID or unique name. Use the exact literal 'root' only for an intentional root-level duplicate.",
+                "markdownDescription": "Required target parent UUID or unique name. Use the exact literal 'root' only for an intentional root-level duplicate."
               },
               "offset": {
                 "type": "array",
@@ -2172,7 +2360,8 @@
               }
             },
             "required": [
-              "id"
+              "id",
+              "parent"
             ],
             "additionalProperties": false
           }
@@ -2602,7 +2791,7 @@
     {
       "name": "from_geo_json",
       "title": "Import GeoJSON",
-      "description": "Imports a model from a GeoJSON file.",
+      "description": "Imports existing Bedrock geometry from serialized JSON (the tool name is retained for compatibility; this is not geographic GeoJSON). Accepts inline JSON, JSON data URLs, and local files only. Remote HTTP(S) fetching is disabled. Use add_group/place_cube/modify_cube when constructing a new model from scratch instead of using this as a shortcut.",
       "status": "stable",
       "category": "Import/Export",
       "annotations": {
@@ -2616,8 +2805,8 @@
             "properties": {
               "geojson": {
                 "type": "string",
-                "description": "Path to the GeoJSON file or data URL, or the GeoJSON string itself.",
-                "markdownDescription": "Path to the GeoJSON file or data URL, or the GeoJSON string itself."
+                "description": "Inline Bedrock geometry JSON, a JSON data URL, or a local JSON file path. HTTP(S) URLs are intentionally rejected.",
+                "markdownDescription": "Inline Bedrock geometry JSON, a JSON data URL, or a local JSON file path. HTTP(S) URLs are intentionally rejected."
               }
             },
             "required": [
@@ -2872,7 +3061,7 @@
     {
       "name": "place_mesh",
       "title": "Place Mesh",
-      "description": "Places a mesh at the specified position. Texture and group are optional.",
+      "description": "Places one or more meshes under a mandatory explicit parent. Use group='root' only for intentional root-level meshes; invalid or ambiguous parents are rejected before mutation.",
       "status": "experimental",
       "category": "Mesh Editing",
       "annotations": {
@@ -2970,12 +3159,14 @@
               },
               "group": {
                 "type": "string",
-                "description": "Group/bone to which the mesh belongs.",
-                "markdownDescription": "Group/bone to which the mesh belongs."
+                "minLength": 1,
+                "description": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level mesh.",
+                "markdownDescription": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level mesh."
               }
             },
             "required": [
-              "elements"
+              "elements",
+              "group"
             ],
             "additionalProperties": false
           }
@@ -3065,7 +3256,7 @@
     {
       "name": "create_sphere",
       "title": "Create Sphere",
-      "description": "Creates a sphere mesh at the specified position with the given parameters. The sphere is created as a mesh with vertices and faces using spherical coordinates.",
+      "description": "Creates one or more sphere meshes under a mandatory explicit parent. The spheres use vertices and faces generated from spherical coordinates.",
       "status": "stable",
       "category": "Mesh Editing",
       "annotations": {
@@ -3152,12 +3343,14 @@
               },
               "group": {
                 "type": "string",
-                "description": "Group/bone to which the sphere belongs.",
-                "markdownDescription": "Group/bone to which the sphere belongs."
+                "minLength": 1,
+                "description": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level sphere.",
+                "markdownDescription": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level sphere."
               }
             },
             "required": [
-              "elements"
+              "elements",
+              "group"
             ],
             "additionalProperties": false
           }
@@ -3413,7 +3606,7 @@
     {
       "name": "create_cylinder",
       "title": "Create Cylinder",
-      "description": "Creates one or more cylinder meshes with optional end caps.",
+      "description": "Creates one or more cylinder meshes with optional end caps under a mandatory explicit parent.",
       "status": "experimental",
       "category": "Mesh Editing",
       "annotations": {
@@ -3496,12 +3689,14 @@
               },
               "group": {
                 "type": "string",
-                "description": "Group/bone ID or name.",
-                "markdownDescription": "Group/bone ID or name."
+                "minLength": 1,
+                "description": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level cylinder.",
+                "markdownDescription": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level cylinder."
               }
             },
             "required": [
-              "elements"
+              "elements",
+              "group"
             ],
             "additionalProperties": false
           }
@@ -4672,6 +4867,72 @@
       }
     },
     {
+      "name": "apply_texture_pixels_exact",
+      "title": "Apply Exact Texture Pixels",
+      "description": "Applies exact RGBA values to texture pixels inside Blockbench so the user can see the change immediately and undo it normally.",
+      "status": "stable",
+      "category": "Exact Texture Editing",
+      "annotations": {
+        "destructiveHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/apply_texture_pixels_exact",
+        "definitions": {
+          "apply_texture_pixels_exact": {
+            "type": "object",
+            "properties": {
+              "texture_id": {
+                "type": "string",
+                "description": "Texture ID, UUID, or name. Defaults to the active/default texture.",
+                "markdownDescription": "Texture ID, UUID, or name. Defaults to the active/default texture."
+              },
+              "pixels": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "rgba": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                      },
+                      "minItems": 4,
+                      "maxItems": 4
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "rgba"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1,
+                "maxItems": 65536,
+                "description": "Exact canvas pixels in top-left-origin texture coordinates.",
+                "markdownDescription": "Exact canvas pixels in top-left-origin texture coordinates."
+              }
+            },
+            "required": [
+              "pixels"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
       "name": "create_project",
       "title": "Create Project",
       "description": "Creates a new project with the given name and project type.",
@@ -4688,7 +4949,8 @@
             "type": "object",
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1
               },
               "format": {
                 "type": "string",
@@ -4709,7 +4971,7 @@
     {
       "name": "get_project_info",
       "title": "Get Project Info",
-      "description": "Returns read-only project orientation: format id and display name, project name/UUID, texture resolution (texture_width/height), element counts, and a summary of top-level groups. Prefer this over `risky_eval` for first-look inspection — no JavaScript execution required.",
+      "description": "Returns read-only project orientation: format id and display name, project name/UUID, texture resolution (texture_width/height), element counts, and a summary of top-level groups.",
       "status": "stable",
       "category": "Project",
       "annotations": {
@@ -4721,6 +4983,151 @@
           "get_project_info": {
             "type": "object",
             "properties": {},
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "list_projects",
+      "title": "List Projects",
+      "description": "Lists every open Blockbench project tab, its active state, persistent workflow role, and whether MCP model mutations are allowed.",
+      "status": "stable",
+      "category": "Project",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/list_projects",
+        "definitions": {
+          "list_projects": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "select_project",
+      "title": "Select Project",
+      "description": "Selects an existing Blockbench project tab by UUID, exact name, or exact save path without closing any other tab.",
+      "status": "stable",
+      "category": "Project",
+      "annotations": {
+        "destructiveHint": false
+      },
+      "parameters": {
+        "$ref": "#/definitions/select_project",
+        "definitions": {
+          "select_project": {
+            "type": "object",
+            "properties": {
+              "project": {
+                "type": "string",
+                "description": "Project UUID, exact name, or exact save path.",
+                "markdownDescription": "Project UUID, exact name, or exact save path."
+              }
+            },
+            "required": [
+              "project"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "set_project_texture_resolution",
+      "title": "Set Project Texture Resolution",
+      "description": "Sets the active project's texture resolution. Existing UV coordinates are preserved unless modify_uv is explicitly true.",
+      "status": "stable",
+      "category": "Project",
+      "annotations": {
+        "destructiveHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/set_project_texture_resolution",
+        "definitions": {
+          "set_project_texture_resolution": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8192
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8192
+              },
+              "modify_uv": {
+                "type": "boolean",
+                "default": false,
+                "description": "Whether to scale existing UV coordinates with the resolution change. Defaults to false so geometry UVs are preserved.",
+                "markdownDescription": "Whether to scale existing UV coordinates with the resolution change. Defaults to false so geometry UVs are preserved."
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "close_project",
+      "title": "Close Project",
+      "description": "Closes the active project, all projects, or explicitly named project tabs. The required discard_unsaved_changes flag prevents accidental data loss.",
+      "status": "stable",
+      "category": "Project",
+      "annotations": {
+        "destructiveHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/close_project",
+        "definitions": {
+          "close_project": {
+            "type": "object",
+            "properties": {
+              "targets": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "all"
+                    ]
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1
+                  }
+                ],
+                "description": "Use \"active\", \"all\", or an explicit array of project UUIDs, unique names, or exact save paths.",
+                "markdownDescription": "Use \"active\", \"all\", or an explicit array of project UUIDs, unique names, or exact save paths."
+              },
+              "discard_unsaved_changes": {
+                "type": "boolean",
+                "description": "Required safety switch. true explicitly authorizes discarding unsaved changes in every selected target.",
+                "markdownDescription": "Required safety switch. true explicitly authorizes discarding unsaved changes in every selected target."
+              }
+            },
+            "required": [
+              "targets",
+              "discard_unsaved_changes"
+            ],
             "additionalProperties": false
           }
         },
@@ -5338,198 +5745,77 @@
       }
     },
     {
-      "name": "trigger_action",
-      "title": "Trigger Action",
-      "description": "Triggers an action in the Blockbench editor.",
-      "status": "experimental",
-      "category": "UI Interaction",
-      "annotations": {
-        "destructiveHint": true,
-        "openWorldHint": true
-      },
-      "parameters": {
-        "$ref": "#/definitions/trigger_action",
-        "definitions": {
-          "trigger_action": {
-            "type": "object",
-            "properties": {
-              "action": {
-                "type": "string",
-                "description": "Action ID from Blockbench's BarItems registry.",
-                "markdownDescription": "Action ID from Blockbench's BarItems registry."
-              },
-              "confirmDialog": {
-                "type": "boolean",
-                "default": true,
-                "description": "Whether or not to automatically confirm any dialogs that appear as a result of the action.",
-                "markdownDescription": "Whether or not to automatically confirm any dialogs that appear as a result of the action."
-              },
-              "confirmEvent": {
-                "type": "string",
-                "description": "Stringified form of event arguments.",
-                "markdownDescription": "Stringified form of event arguments."
-              }
-            },
-            "required": [
-              "action"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      }
-    },
-    {
-      "name": "risky_eval",
-      "title": "Eval",
-      "description": "Evaluates the given expression and logs it to the console. Do not pass `console` commands as they will not work.",
+      "name": "inspect_spatial_relationships",
+      "title": "Inspect Spatial Relationships",
+      "description": "Reports parentage, world-space centers and bounds for Outliner nodes, then compares requested pairs along all three axes. It flags cases where a front/side/top projection overlaps while the hidden depth axis is separated. Semantic expectations are supplied by the caller; the tool does not guess which parts should connect.",
       "status": "stable",
-      "category": "UI Interaction",
+      "category": "Spatial Inspection",
       "annotations": {
-        "destructiveHint": true,
-        "openWorldHint": true
+        "readOnlyHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/risky_eval",
+        "$ref": "#/definitions/inspect_spatial_relationships",
         "definitions": {
-          "risky_eval": {
+          "inspect_spatial_relationships": {
             "type": "object",
             "properties": {
-              "code": {
-                "type": "string",
-                "description": "JavaScript code to evaluate. Do not pass `console` commands or comments.",
-                "markdownDescription": "JavaScript code to evaluate. Do not pass `console` commands or comments."
-              }
-            },
-            "required": [
-              "code"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      }
-    },
-    {
-      "name": "emulate_clicks",
-      "title": "Emulate Clicks",
-      "description": "Emulates clicks on the given interface elements.",
-      "status": "experimental",
-      "category": "UI Interaction",
-      "annotations": {
-        "destructiveHint": true,
-        "openWorldHint": true
-      },
-      "parameters": {
-        "$ref": "#/definitions/emulate_clicks",
-        "definitions": {
-          "emulate_clicks": {
-            "type": "object",
-            "properties": {
-              "position": {
-                "type": "object",
-                "properties": {
-                  "x": {
-                    "type": "number"
-                  },
-                  "y": {
-                    "type": "number"
-                  },
-                  "button": {
-                    "type": "string",
-                    "enum": [
-                      "left",
-                      "right"
-                    ],
-                    "default": "left",
-                    "description": "Mouse button to use.",
-                    "markdownDescription": "Mouse button to use."
-                  }
+              "elements": {
+                "type": "array",
+                "items": {
+                  "type": "string"
                 },
-                "required": [
-                  "x",
-                  "y"
-                ],
-                "additionalProperties": false
+                "maxItems": 100,
+                "default": [],
+                "description": "UUIDs or unique names whose world bounds should be reported.",
+                "markdownDescription": "UUIDs or unique names whose world bounds should be reported."
               },
-              "drag": {
-                "type": "object",
-                "properties": {
-                  "to": {
-                    "type": "object",
-                    "properties": {
-                      "x": {
-                        "type": "number",
-                        "description": "X coordinate.",
-                        "markdownDescription": "X coordinate."
-                      },
-                      "y": {
-                        "type": "number",
-                        "description": "Y coordinate.",
-                        "markdownDescription": "Y coordinate."
-                      }
+              "pairs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "first": {
+                      "type": "string",
+                      "description": "UUID or unique name of the first Outliner node.",
+                      "markdownDescription": "UUID or unique name of the first Outliner node."
                     },
-                    "required": [
-                      "x",
-                      "y"
-                    ],
-                    "additionalProperties": false
+                    "second": {
+                      "type": "string",
+                      "description": "UUID or unique name of the second Outliner node.",
+                      "markdownDescription": "UUID or unique name of the second Outliner node."
+                    },
+                    "expected_relation": {
+                      "type": "string",
+                      "enum": [
+                        "unspecified",
+                        "connected",
+                        "separate"
+                      ],
+                      "default": "unspecified",
+                      "description": "Caller-supplied semantic expectation. The tool never guesses whether two parts should connect.",
+                      "markdownDescription": "Caller-supplied semantic expectation. The tool never guesses whether two parts should connect."
+                    },
+                    "tolerance": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 16,
+                      "default": 0.001,
+                      "description": "Distance treated as touching, in model units.",
+                      "markdownDescription": "Distance treated as touching, in model units."
+                    }
                   },
-                  "duration": {
-                    "type": "number",
-                    "default": 100,
-                    "description": "Duration of the drag in milliseconds.",
-                    "markdownDescription": "Duration of the drag in milliseconds."
-                  }
+                  "required": [
+                    "first",
+                    "second"
+                  ],
+                  "additionalProperties": false
                 },
-                "required": [
-                  "to"
-                ],
-                "additionalProperties": false,
-                "description": "Drag options. If set, will perform a drag from position to 'to'.",
-                "markdownDescription": "Drag options. If set, will perform a drag from position to 'to'."
+                "maxItems": 100,
+                "default": [],
+                "description": "Pairs whose axis gaps and projection/depth relationship should be compared.",
+                "markdownDescription": "Pairs whose axis gaps and projection/depth relationship should be compared."
               }
             },
-            "required": [
-              "position"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      }
-    },
-    {
-      "name": "fill_dialog",
-      "title": "Fill Dialog",
-      "description": "Fills the dialog with the given values.",
-      "status": "experimental",
-      "category": "UI Interaction",
-      "annotations": {
-        "destructiveHint": true,
-        "openWorldHint": true
-      },
-      "parameters": {
-        "$ref": "#/definitions/fill_dialog",
-        "definitions": {
-          "fill_dialog": {
-            "type": "object",
-            "properties": {
-              "values": {
-                "type": "string",
-                "description": "Stringified form of values to fill the dialog with.",
-                "markdownDescription": "Stringified form of values to fill the dialog with."
-              },
-              "confirm": {
-                "type": "boolean",
-                "default": true,
-                "description": "Whether to confirm or cancel the dialog after filling it. True to confirm, false to cancel.",
-                "markdownDescription": "Whether to confirm or cancel the dialog after filling it. True to confirm, false to cancel."
-              }
-            },
-            "required": [
-              "values"
-            ],
             "additionalProperties": false
           }
         },
@@ -5682,11 +5968,292 @@
       }
     },
     {
+      "name": "ysm_set_workspace",
+      "title": "Set YSM Workspace",
+      "description": "Configures the only folder that YSM synchronization may read or write. Access remains folder-scoped and requires Blockbench permission.",
+      "status": "stable",
+      "category": "YSM Workspace",
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/ysm_set_workspace",
+        "definitions": {
+          "ysm_set_workspace": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Absolute directory path. Omit to report the currently configured workspace.",
+                "markdownDescription": "Absolute directory path. Omit to report the currently configured workspace."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "ysm_workspace_status",
+      "title": "YSM Workspace Status",
+      "description": "Reports the configured YSM workspace, open Blockbench tabs, project roles, and persisted source bindings.",
+      "status": "stable",
+      "category": "YSM Workspace",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/ysm_workspace_status",
+        "definitions": {
+          "ysm_workspace_status": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "ysm_bind_project",
+      "title": "Bind YSM Project",
+      "description": "Binds an open Bedrock project tab to its authoritative YSM geometry/texture/.bbmodel files after validating identifiers, hashes, and counts.",
+      "status": "stable",
+      "category": "YSM Workspace",
+      "annotations": {
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/ysm_bind_project",
+        "definitions": {
+          "ysm_bind_project": {
+            "type": "object",
+            "properties": {
+              "project": {
+                "type": "string",
+                "description": "Project UUID, exact name, or exact save path. Defaults to the active tab.",
+                "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the active tab."
+              },
+              "geometry": {
+                "type": "string",
+                "description": "Workspace-relative YSM geometry JSON path.",
+                "markdownDescription": "Workspace-relative YSM geometry JSON path."
+              },
+              "geometry_identifier": {
+                "type": "string"
+              },
+              "texture": {
+                "type": "string",
+                "description": "Workspace-relative texture path. Defaults to textures/default.png beside the model package.",
+                "markdownDescription": "Workspace-relative texture path. Defaults to textures/default.png beside the model package."
+              },
+              "bbmodel": {
+                "type": "string",
+                "description": "Workspace-relative .bbmodel path. Defaults to the selected project's save path when scoped.",
+                "markdownDescription": "Workspace-relative .bbmodel path. Defaults to the selected project's save path when scoped."
+              },
+              "allow_count_mismatch": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "required": [
+              "geometry"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "ysm_save_project",
+      "title": "Save Bound YSM Project",
+      "description": "Synchronizes the live Blockbench project back to bound YSM geometry, texture, and portable .bbmodel files with hash preconditions and atomic writes. Unknown YSM fields are preserved.",
+      "status": "stable",
+      "category": "YSM Workspace",
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/ysm_save_project",
+        "definitions": {
+          "ysm_save_project": {
+            "type": "object",
+            "properties": {
+              "project": {
+                "type": "string",
+                "description": "Project UUID, exact name, or exact save path. Defaults to the active tab.",
+                "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the active tab."
+              },
+              "expected_source_sha256": {
+                "type": "string",
+                "minLength": 64,
+                "maxLength": 64,
+                "description": "Optional explicit geometry hash precondition.",
+                "markdownDescription": "Optional explicit geometry hash precondition."
+              },
+              "include_texture": {
+                "type": "boolean",
+                "default": true
+              },
+              "include_bbmodel": {
+                "type": "boolean",
+                "default": true
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "ysm_unbind_project",
+      "title": "Unbind YSM Project",
+      "description": "Removes the persisted YSM source binding from an open project tab without changing model files.",
+      "status": "stable",
+      "category": "YSM Workspace",
+      "annotations": {
+        "destructiveHint": false
+      },
+      "parameters": {
+        "$ref": "#/definitions/ysm_unbind_project",
+        "definitions": {
+          "ysm_unbind_project": {
+            "type": "object",
+            "properties": {
+              "project": {
+                "type": "string",
+                "description": "Project UUID, exact name, or exact save path. Defaults to the active tab.",
+                "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the active tab."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "ysm_open_workflow_tabs",
+      "title": "Open YSM Three-Tab Workflow",
+      "description": "Validates and opens exactly three YSM .bbmodel tabs in order: old-skin reference (read-only), new-skin baseline (read-only), and writable working copy. It never changes pose or animation state.",
+      "status": "stable",
+      "category": "YSM Workflow",
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/ysm_open_workflow_tabs",
+        "definitions": {
+          "ysm_open_workflow_tabs": {
+            "type": "object",
+            "properties": {
+              "skin_name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Human-readable character/skin label used in the three tab titles.",
+                "markdownDescription": "Human-readable character/skin label used in the three tab titles."
+              },
+              "legacy_bbmodel": {
+                "type": "string",
+                "description": "Workspace-relative old-skin reference .bbmodel.",
+                "markdownDescription": "Workspace-relative old-skin reference .bbmodel."
+              },
+              "baseline_bbmodel": {
+                "type": "string",
+                "description": "Workspace-relative new-skin baseline .bbmodel.",
+                "markdownDescription": "Workspace-relative new-skin baseline .bbmodel."
+              },
+              "working_bbmodel": {
+                "type": "string",
+                "description": "Workspace-relative writable new-skin working .bbmodel.",
+                "markdownDescription": "Workspace-relative writable new-skin working .bbmodel."
+              },
+              "discard_unsaved_tabs": {
+                "type": "boolean",
+                "default": false,
+                "description": "Close and discard any currently unsaved tabs. False refuses before closing anything.",
+                "markdownDescription": "Close and discard any currently unsaved tabs. False refuses before closing anything."
+              }
+            },
+            "required": [
+              "skin_name",
+              "legacy_bbmodel",
+              "baseline_bbmodel",
+              "working_bbmodel"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "ysm_workflow_status",
+      "title": "Get YSM Workflow Status",
+      "description": "Reports the current three-tab workflow, paths, roles, protection state, and whether exactly one tab of each role is open.",
+      "status": "stable",
+      "category": "YSM Workflow",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/ysm_workflow_status",
+        "definitions": {
+          "ysm_workflow_status": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "ysm_merge_working_into_baseline",
+      "title": "Merge YSM Working Copy",
+      "description": "After explicit user approval, saves the working copy, closes the baseline, replaces its .bbmodel with the working copy, reopens it read-only, and returns focus to the still-writable working tab.",
+      "status": "stable",
+      "category": "YSM Workflow",
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/ysm_merge_working_into_baseline",
+        "definitions": {
+          "ysm_merge_working_into_baseline": {
+            "type": "object",
+            "properties": {
+              "confirmation": {
+                "type": "string",
+                "const": "merge",
+                "description": "Explicit confirmation required after the user says the current adjustment should be merged.",
+                "markdownDescription": "Explicit confirmation required after the user says the current adjustment should be merged."
+              }
+            },
+            "required": [
+              "confirmation"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
       "name": "hytale_get_format_info",
       "title": "Get Hytale Format Info",
       "description": "Returns information about the current Hytale format. Requires the Hytale plugin and a Hytale format project to be active.",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "readOnlyHint": true
       },
@@ -5707,7 +6274,7 @@
       "title": "Validate Hytale Model",
       "description": "Validates the current Hytale model against Hytale engine constraints (node count, UV sizes, etc.).",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "readOnlyHint": true
       },
@@ -5728,7 +6295,7 @@
       "title": "Set Hytale Cube Properties",
       "description": "Sets Hytale-specific properties on a cube: shading_mode (flat, standard, fullbright, reflective) and double_sided.",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "destructiveHint": false
       },
@@ -5771,7 +6338,7 @@
       "title": "Get Hytale Cube Properties",
       "description": "Gets Hytale-specific properties from a cube (shading_mode, double_sided).",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "readOnlyHint": true
       },
@@ -5796,9 +6363,9 @@
     {
       "name": "hytale_create_quad",
       "title": "Create Hytale Quad",
-      "description": "Creates a Hytale quad (2D plane) with a specified normal direction. Quads are single-face elements useful for flat surfaces.",
+      "description": "Creates a Hytale quad under a mandatory explicit parent. Use group='root' only for an intentional root-level quad; missing or ambiguous parents are rejected before mutation.",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "destructiveHint": false
       },
@@ -5858,8 +6425,9 @@
               },
               "group": {
                 "type": "string",
-                "description": "Parent group/bone name",
-                "markdownDescription": "Parent group/bone name"
+                "minLength": 1,
+                "description": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level quad.",
+                "markdownDescription": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level quad."
               },
               "double_sided": {
                 "type": "boolean",
@@ -5869,7 +6437,8 @@
               }
             },
             "required": [
-              "name"
+              "name",
+              "group"
             ],
             "additionalProperties": false
           }
@@ -5882,7 +6451,7 @@
       "title": "List Hytale Attachments",
       "description": "Lists all attachment collections in the current Hytale project.",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "readOnlyHint": true
       },
@@ -5903,7 +6472,7 @@
       "title": "Set Attachment Piece",
       "description": "Marks or unmarks a group as an attachment piece. Attachment pieces attach to like-named bones in the main model.",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "destructiveHint": false
       },
@@ -5939,7 +6508,7 @@
       "title": "List Attachment Pieces",
       "description": "Lists all groups marked as attachment pieces.",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "readOnlyHint": true
       },
@@ -5960,7 +6529,7 @@
       "title": "Create Visibility Keyframe",
       "description": "Creates a visibility keyframe for a bone. Hytale supports toggling node visibility at keyframes.",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "destructiveHint": false
       },
@@ -6007,7 +6576,7 @@
       "title": "Set Animation Loop Mode",
       "description": "Sets the loop mode for a Hytale animation. Hytale supports \"loop\" (continuous) or \"hold\" (freeze on last frame).",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "destructiveHint": false
       },
@@ -6047,7 +6616,7 @@
       "title": "Set Cube Stretch",
       "description": "Sets the stretch values for a cube. Hytale uses stretch instead of float sizes for better UV handling.",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "destructiveHint": false
       },
@@ -6087,7 +6656,7 @@
       "title": "Get Cube Stretch",
       "description": "Gets the stretch values for a cube.",
       "status": "experimental",
-      "category": "Hytale Integration",
+      "category": "Hytale Integration (optional)",
       "annotations": {
         "readOnlyHint": true
       },
@@ -6119,16 +6688,9 @@
       "arguments": null
     },
     {
-      "name": "blockbench_code_eval_safety",
-      "title": "blockbench_code_eval_safety",
-      "description": "Critical safety guide for agents using code evaluation/execution tools with Blockbench v5.0+. Contains breaking changes, quick reference, common mistakes, and safe code patterns for native module usage.",
-      "status": "stable",
-      "arguments": null
-    },
-    {
       "name": "model_creation_strategy",
-      "title": "Model Creation Strategy",
-      "description": "A strategy for creating a new 3D model in Blockbench.",
+      "title": "Safe Model Creation Strategy",
+      "description": "A staged Blockbench modeling workflow with explicit hierarchy, multi-view spatial checks, and human review checkpoints.",
       "status": "stable",
       "arguments": {
         "$ref": "#/definitions/model_creation_strategy",
@@ -6148,12 +6710,12 @@
               "approach": {
                 "type": "string",
                 "enum": [
-                  "ui",
-                  "programmatic",
+                  "incremental",
                   "import"
                 ],
-                "description": "Creation approach to use.",
-                "markdownDescription": "Creation approach to use."
+                "default": "incremental",
+                "description": "Use direct incremental tools by default; import only when explicitly requested.",
+                "markdownDescription": "Use direct incremental tools by default; import only when explicitly requested."
               }
             },
             "additionalProperties": false

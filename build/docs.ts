@@ -412,7 +412,7 @@ async function main() {
   // Write HTML
   log.step("Writing docs/index.html...");
   const htmlPath = docsDir + "/index.html";
-  const htmlContent = await generateHtml(output);
+  const htmlContent = (await generateHtml(output)).replace(/[ \t]+$/gm, "");
   await Bun.write(htmlPath, htmlContent);
   log.info(`  ${htmlPath}`);
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { toolManifest } from "@/build/docs-manifest";
 import { animationToolDocs } from "@/server/tools/animation";
 import { armatureToolDocs } from "@/server/tools/armature";
 import { cameraToolDocs } from "@/server/tools/camera";
@@ -77,5 +78,25 @@ describe("Codex MCP schema compatibility", () => {
 
     expect(hytaleToolDocs).toHaveLength(12);
     expect(failures).toEqual([]);
+  });
+
+  test("generated API docs include the complete core and optional catalogs", () => {
+    const documented = toolManifest.flatMap(({ category, tools }) =>
+      tools.map((tool) => ({ category, name: tool.name }))
+    );
+    const optional = documented.filter(({ category }) =>
+      category.endsWith("(optional)")
+    );
+    const core = documented.filter(({ category }) =>
+      !category.endsWith("(optional)")
+    );
+
+    expect(core).toHaveLength(105);
+    expect(optional).toHaveLength(12);
+    expect(documented).toHaveLength(117);
+    expect(new Set(documented.map(({ name }) => name)).size).toBe(117);
+    expect(optional.map(({ name }) => name).sort()).toEqual(
+      hytaleToolDocs.map(({ name }) => name).sort()
+    );
   });
 });

@@ -11,15 +11,15 @@
     <nav class="sidebar">
       <div class="sidebar-brand">
         <h1>Blockbench MCP</h1>
-        <p>v1.6.0 — API Reference</p>
+        <p>v1.7.0-codex.24 — API Reference</p>
       </div>
 
       <input id="search" type="text" placeholder="Search tools..." class="search-input" />
 
       <div class="nav-group">
         <p class="nav-heading">Overview</p>
-        <a href="#tools" class="nav-link">Tools <span class="count">(106)</span></a>
-        <a href="#prompts" class="nav-link">Prompts <span class="count">(6)</span></a>
+        <a href="#tools" class="nav-link">Tools <span class="count">(117)</span></a>
+        <a href="#prompts" class="nav-link">Prompts <span class="count">(5)</span></a>
         <a href="#resources" class="nav-link">Resources <span class="count">(12)</span></a>
       </div>
 
@@ -27,6 +27,7 @@
         <p class="nav-heading">Categories</p>
         <a href="#cat-cubes" class="nav-link">Cubes <span class="count">(2)</span></a>
         <a href="#cat-camera-screenshots" class="nav-link">Camera &amp; Screenshots <span class="count">(3)</span></a>
+        <a href="#cat-preview" class="nav-link">Preview <span class="count">(1)</span></a>
         <a href="#cat-animation" class="nav-link">Animation <span class="count">(7)</span></a>
         <a href="#cat-armature" class="nav-link">Armature <span class="count">(16)</span></a>
         <a href="#cat-elements" class="nav-link">Elements <span class="count">(9)</span></a>
@@ -36,31 +37,33 @@
         <a href="#cat-material-instances" class="nav-link">Material Instances <span class="count">(5)</span></a>
         <a href="#cat-mesh-editing" class="nav-link">Mesh Editing <span class="count">(11)</span></a>
         <a href="#cat-paint-tools" class="nav-link">Paint Tools <span class="count">(12)</span></a>
-        <a href="#cat-project" class="nav-link">Project <span class="count">(2)</span></a>
+        <a href="#cat-exact-texture-editing" class="nav-link">Exact Texture Editing <span class="count">(1)</span></a>
+        <a href="#cat-project" class="nav-link">Project <span class="count">(6)</span></a>
         <a href="#cat-textures" class="nav-link">Textures <span class="count">(13)</span></a>
-        <a href="#cat-ui-interaction" class="nav-link">UI Interaction <span class="count">(4)</span></a>
+        <a href="#cat-spatial-inspection" class="nav-link">Spatial Inspection <span class="count">(1)</span></a>
         <a href="#cat-uv-mapping" class="nav-link">UV Mapping <span class="count">(3)</span></a>
-        <a href="#cat-hytale-integration" class="nav-link">Hytale Integration <span class="count">(12)</span></a>
+        <a href="#cat-ysm-workspace" class="nav-link">YSM Workspace <span class="count">(5)</span></a>
+        <a href="#cat-ysm-workflow" class="nav-link">YSM Workflow <span class="count">(3)</span></a>
+        <a href="#cat-hytale-integration-optional" class="nav-link">Hytale Integration (optional) <span class="count">(12)</span></a>
       </div>
     </nav>
 
     <main class="main">
       <header class="page-header">
         <h1>Blockbench MCP Plugin</h1>
-        <p class="subtitle">API Reference — v1.6.0</p>
+        <p class="subtitle">API Reference — v1.7.0-codex.24</p>
         <nav class="stats">
-          <a href="#tools"><strong>106</strong> tools (39 stable, 67 experimental)</a>
-          <a href="#prompts"><strong>6</strong> prompts</a>
+          <a href="#tools"><strong>117</strong> tools (53 stable, 64 experimental)</a>
+          <a href="#prompts"><strong>5</strong> prompts</a>
           <a href="#resources"><strong>12</strong> resources</a>
         </nav>
       </header>
 
       <section id="install" class="doc-section">
-        <h2>Installation</h2>
-<ul>
-<li><a href="https://jasonjgardner.github.io/blockbench-mcp-plugin/mcp.js">Stable</a></li>
-<li><a href="https://jasonjgardner.github.io/blockbench-mcp-plugin/nightly/mcp.js">Latest</a></li>
-</ul>
+        <h2>本地安装与连接</h2>
+<p>本仓库不公开部署插件 URL。运行 <code>bun install</code> 与 <code>bun run build</code> 后，在 Blockbench 中从文件加载 <code>dist/codex_blockbench_mcp.js</code>；文件名必须保持不变。</p>
+<p>默认 MCP 地址是 <code>http://127.0.0.1:3000/bb-mcp</code>，Bearer 认证默认开启。请从 Blockbench 的“Codex Blockbench MCP”设置中取得当前令牌，并在客户端中发送 <code>Authorization: Bearer &lt;令牌&gt;</code>。不要把真实令牌写入仓库。</p>
+<p>Codex 的推荐配置使用 <code>bearer_token_env_var</code>。大工具目录默认采用渐进式披露；只有调试完整目录时才临时设置 <code>omit_tools_from = [&quot;deferred&quot;]</code>。完整示例见根目录的 <code>llms-install.md</code> 和 <code>README.md</code>。</p>
 
       </section>
 
@@ -77,7 +80,7 @@
         </div>
       </div>
       <p class="card-title">Place Cube</p>
-      <p class="card-desc">Places a cube of the given size at the specified position. Texture and group are optional.</p>
+      <p class="card-desc">Places one or more cubes under a mandatory explicit parent. Use group='root' only for intentional root-level cubes; omitted, missing, or ambiguous parents are rejected before mutation.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -101,8 +104,8 @@
     </tr><tr>
       <td class="col-name">group</td>
       <td class="col-type">string</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Group/bone to which the cube belongs.</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level cube. <span class="param-meta">[minLength: 1]</span></td>
     </tr><tr>
       <td class="col-name">faces</td>
       <td class="col-type">&quot;north&quot; | &quot;south&quot; | &quot;east&quot; | &quot;west&quot; | &quot;up&quot; | &quot;down&quot;[] | unknown | boolean | object[]</td>
@@ -287,6 +290,63 @@
       <td class="col-type">&quot;unset&quot; | &quot;orthographic&quot; | &quot;perspective&quot;</td>
       <td><span class="param-required">required</span></td>
       <td class="col-desc">Camera projection type.</td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+        </section>
+<section id="cat-preview" class="category-section">
+          <h3 class="category-title">Preview</h3>
+          <div id="tool-set_preview_state" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">set_preview_state</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+
+        </div>
+      </div>
+      <p class="card-title">Set Preview State</p>
+      <p class="card-desc">Selects a project and applies an animation/time plus temporary bone visibility for live inspection. It does not bake the pose into the model.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">project</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Project UUID, exact name, or exact save path. Defaults to the active tab.</td>
+    </tr><tr>
+      <td class="col-name">animation</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Exact animation name. Omit to show the default pose.</td>
+    </tr><tr>
+      <td class="col-name">time</td>
+      <td class="col-type">number</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Animation time in seconds. <span class="param-meta">(default: <code>0</code>)</span></td>
+    </tr><tr>
+      <td class="col-name">hide_bones</td>
+      <td class="col-type">string[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>[]</code>)</span></td>
+    </tr><tr>
+      <td class="col-name">show_bones</td>
+      <td class="col-type">string[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>[]</code>)</span></td>
+    </tr><tr>
+      <td class="col-name">only_bones</td>
+      <td class="col-type">string[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">If non-empty, isolates these bones together with their ancestors and descendants. <span class="param-meta">(default: <code>[]</code>)</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -687,7 +747,7 @@
         </div>
       </div>
       <p class="card-title">Add Armature</p>
-      <p class="card-desc">Creates a new armature in the project. An armature is a skeletal rig used for mesh deformation.</p>
+      <p class="card-desc">Creates a new root-level armature. The caller must explicitly pass parent='root'. An armature is a skeletal rig used for mesh deformation.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -699,6 +759,11 @@
         </tr>
       </thead>
       <tbody><tr>
+      <td class="col-name">parent</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Armatures are root-only; pass the exact literal 'root' explicitly.</td>
+    </tr><tr>
       <td class="col-name">name</td>
       <td class="col-type">string</td>
       <td><span class="param-optional">optional</span></td>
@@ -1084,7 +1149,7 @@
         <h3 class="card-name">select_armature_bones</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
-          
+
         </div>
       </div>
       <p class="card-title">Select Armature Bones</p>
@@ -1315,7 +1380,7 @@
         </div>
       </div>
       <p class="card-title">Add Group</p>
-      <p class="card-desc">Adds a new group with the given name and options.</p>
+      <p class="card-desc">Adds a new group under a mandatory explicit parent. Use parent='root' only for an intentional root-level group; omitted, missing, or ambiguous parents are rejected before mutation.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1334,18 +1399,18 @@
     </tr><tr>
       <td class="col-name">origin</td>
       <td class="col-type">number[]</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">3D vector [x, y, z]. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Pivot point of the group as [x, y, z]. <span class="param-meta">(default: <code>[0,0,0]</code>) [minItems: 3, maxItems: 3]</span></td>
     </tr><tr>
       <td class="col-name">rotation</td>
       <td class="col-type">number[]</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">3D vector [x, y, z]. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Rotation of the group in degrees as [x, y, z]. <span class="param-meta">(default: <code>[0,0,0]</code>) [minItems: 3, maxItems: 3]</span></td>
     </tr><tr>
       <td class="col-name">parent</td>
       <td class="col-type">string</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc"> <span class="param-meta">(default: <code>&quot;root&quot;</code>)</span></td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Required parent UUID or unique name. Use the exact literal 'root' only for an intentional root-level group. <span class="param-meta">[minLength: 1]</span></td>
     </tr><tr>
       <td class="col-name">visibility</td>
       <td class="col-type">boolean</td>
@@ -1418,7 +1483,7 @@
         </div>
       </div>
       <p class="card-title">Duplicate Element</p>
-      <p class="card-desc">Duplicates a cube, mesh or group by ID or name.  You may offset the duplicate or assign a new name.</p>
+      <p class="card-desc">Duplicates a cube, mesh, or group under a mandatory explicit target parent while preserving geometry, UVs, textures, and descendants. You may offset the duplicate or assign a new name.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1434,6 +1499,11 @@
       <td class="col-type">string</td>
       <td><span class="param-required">required</span></td>
       <td class="col-desc">ID or name of the element to duplicate.</td>
+    </tr><tr>
+      <td class="col-name">parent</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Required target parent UUID or unique name. Use the exact literal 'root' only for an intentional root-level duplicate. <span class="param-meta">[minLength: 1]</span></td>
     </tr><tr>
       <td class="col-name">offset</td>
       <td class="col-type">number[]</td>
@@ -1804,7 +1874,7 @@
         <h3 class="card-name">save_checkpoint</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
-          
+
         </div>
       </div>
       <p class="card-title">Save Checkpoint</p>
@@ -1840,7 +1910,7 @@
         </div>
       </div>
       <p class="card-title">Import GeoJSON</p>
-      <p class="card-desc">Imports a model from a GeoJSON file.</p>
+      <p class="card-desc">Imports existing Bedrock geometry from serialized JSON (the tool name is retained for compatibility; this is not geographic GeoJSON). Accepts inline JSON, JSON data URLs, and local files only. Remote HTTP(S) fetching is disabled. Use add_group/place_cube/modify_cube when constructing a new model from scratch instead of using this as a shortcut.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1855,7 +1925,7 @@
       <td class="col-name">geojson</td>
       <td class="col-type">string</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Path to the GeoJSON file or data URL, or the GeoJSON string itself.</td>
+      <td class="col-desc">Inline Bedrock geometry JSON, a JSON data URL, or a local JSON file path. HTTP(S) URLs are intentionally rejected.</td>
     </tr></tbody>
     </table>
       </div>
@@ -2030,7 +2100,7 @@
         </div>
       </div>
       <p class="card-title">Place Mesh</p>
-      <p class="card-desc">Places a mesh at the specified position. Texture and group are optional.</p>
+      <p class="card-desc">Places one or more meshes under a mandatory explicit parent. Use group='root' only for intentional root-level meshes; invalid or ambiguous parents are rejected before mutation.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -2054,8 +2124,8 @@
     </tr><tr>
       <td class="col-name">group</td>
       <td class="col-type">string</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Group/bone to which the mesh belongs.</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level mesh. <span class="param-meta">[minLength: 1]</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -2142,7 +2212,7 @@
         </div>
       </div>
       <p class="card-title">Create Sphere</p>
-      <p class="card-desc">Creates a sphere mesh at the specified position with the given parameters. The sphere is created as a mesh with vertices and faces using spherical coordinates.</p>
+      <p class="card-desc">Creates one or more sphere meshes under a mandatory explicit parent. The spheres use vertices and faces generated from spherical coordinates.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -2166,8 +2236,8 @@
     </tr><tr>
       <td class="col-name">group</td>
       <td class="col-type">string</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Group/bone to which the sphere belongs.</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level sphere. <span class="param-meta">[minLength: 1]</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -2381,7 +2451,7 @@
         </div>
       </div>
       <p class="card-title">Create Cylinder</p>
-      <p class="card-desc">Creates one or more cylinder meshes with optional end caps.</p>
+      <p class="card-desc">Creates one or more cylinder meshes with optional end caps under a mandatory explicit parent.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -2405,8 +2475,8 @@
     </tr><tr>
       <td class="col-name">group</td>
       <td class="col-type">string</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Group/bone ID or name.</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level cylinder. <span class="param-meta">[minLength: 1]</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -3112,6 +3182,43 @@
       </div>
     </div>
         </section>
+<section id="cat-exact-texture-editing" class="category-section">
+          <h3 class="category-title">Exact Texture Editing</h3>
+          <div id="tool-apply_texture_pixels_exact" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">apply_texture_pixels_exact</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Apply Exact Texture Pixels</p>
+      <p class="card-desc">Applies exact RGBA values to texture pixels inside Blockbench so the user can see the change immediately and undo it normally.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">texture_id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Texture ID, UUID, or name. Defaults to the active/default texture.</td>
+    </tr><tr>
+      <td class="col-name">pixels</td>
+      <td class="col-type">object[]</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Exact canvas pixels in top-left-origin texture coordinates. <span class="param-meta">[minItems: 1, maxItems: 65536]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+        </section>
 <section id="cat-project" class="category-section">
           <h3 class="category-title">Project</h3>
           <div id="tool-create_project" class="card tool-card">
@@ -3138,7 +3245,7 @@
       <td class="col-name">name</td>
       <td class="col-type">string</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc"></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
     </tr><tr>
       <td class="col-name">format</td>
       <td class="col-type">string</td>
@@ -3157,9 +3264,125 @@
         </div>
       </div>
       <p class="card-title">Get Project Info</p>
-      <p class="card-desc">Returns read-only project orientation: format id and display name, project name/UUID, texture resolution (texture_width/height), element counts, and a summary of top-level groups. Prefer this over `risky_eval` for first-look inspection — no JavaScript execution required.</p>
+      <p class="card-desc">Returns read-only project orientation: format id and display name, project name/UUID, texture resolution (texture_width/height), element counts, and a summary of top-level groups.</p>
       <div class="overflow-x">
         <p class="empty-params">No parameters</p>
+      </div>
+    </div>
+<div id="tool-list_projects" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">list_projects</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">List Projects</p>
+      <p class="card-desc">Lists every open Blockbench project tab, its active state, persistent workflow role, and whether MCP model mutations are allowed.</p>
+      <div class="overflow-x">
+        <p class="empty-params">No parameters</p>
+      </div>
+    </div>
+<div id="tool-select_project" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">select_project</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+
+        </div>
+      </div>
+      <p class="card-title">Select Project</p>
+      <p class="card-desc">Selects an existing Blockbench project tab by UUID, exact name, or exact save path without closing any other tab.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">project</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Project UUID, exact name, or exact save path.</td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-set_project_texture_resolution" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">set_project_texture_resolution</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Set Project Texture Resolution</p>
+      <p class="card-desc">Sets the active project's texture resolution. Existing UV coordinates are preserved unless modify_uv is explicitly true.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">width</td>
+      <td class="col-type">integer</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[min: 1, max: 8192]</span></td>
+    </tr><tr>
+      <td class="col-name">height</td>
+      <td class="col-type">integer</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[min: 1, max: 8192]</span></td>
+    </tr><tr>
+      <td class="col-name">modify_uv</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Whether to scale existing UV coordinates with the resolution change. Defaults to false so geometry UVs are preserved. <span class="param-meta">(default: <code>false</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-close_project" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">close_project</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Close Project</p>
+      <p class="card-desc">Closes the active project, all projects, or explicitly named project tabs. The required discard_unsaved_changes flag prevents accidental data loss.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">targets</td>
+      <td class="col-type">&quot;active&quot; | &quot;all&quot; | string[]</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Use &quot;active&quot;, &quot;all&quot;, or an explicit array of project UUIDs, unique names, or exact save paths.</td>
+    </tr><tr>
+      <td class="col-name">discard_unsaved_changes</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Required safety switch. true explicitly authorizes discarding unsaved changes in every selected target.</td>
+    </tr></tbody>
+    </table>
       </div>
     </div>
         </section>
@@ -3633,7 +3856,7 @@
         <h3 class="card-name">activate_texture</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
-          
+
         </div>
       </div>
       <p class="card-title">Activate Texture</p>
@@ -3658,57 +3881,18 @@
       </div>
     </div>
         </section>
-<section id="cat-ui-interaction" class="category-section">
-          <h3 class="category-title">UI Interaction</h3>
-          <div id="tool-trigger_action" class="card tool-card">
+<section id="cat-spatial-inspection" class="category-section">
+          <h3 class="category-title">Spatial Inspection</h3>
+          <div id="tool-inspect_spatial_relationships" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">trigger_action</h3>
-        <div class="card-badges">
-          <span class="badge badge-experimental">experimental</span>
-          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
-        </div>
-      </div>
-      <p class="card-title">Trigger Action</p>
-      <p class="card-desc">Triggers an action in the Blockbench editor.</p>
-      <div class="overflow-x">
-        <table class="param-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody><tr>
-      <td class="col-name">action</td>
-      <td class="col-type">string</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">Action ID from Blockbench's BarItems registry.</td>
-    </tr><tr>
-      <td class="col-name">confirmDialog</td>
-      <td class="col-type">boolean</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Whether or not to automatically confirm any dialogs that appear as a result of the action. <span class="param-meta">(default: <code>true</code>)</span></td>
-    </tr><tr>
-      <td class="col-name">confirmEvent</td>
-      <td class="col-type">string</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Stringified form of event arguments.</td>
-    </tr></tbody>
-    </table>
-      </div>
-    </div>
-<div id="tool-risky_eval" class="card tool-card">
-      <div class="card-header">
-        <h3 class="card-name">risky_eval</h3>
+        <h3 class="card-name">inspect_spatial_relationships</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
-          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
+          <span class="badge badge-readonly">read-only</span>
         </div>
       </div>
-      <p class="card-title">Eval</p>
-      <p class="card-desc">Evaluates the given expression and logs it to the console. Do not pass `console` commands as they will not work.</p>
+      <p class="card-title">Inspect Spatial Relationships</p>
+      <p class="card-desc">Reports parentage, world-space centers and bounds for Outliner nodes, then compares requested pairs along all three axes. It flags cases where a front/side/top projection overlaps while the hidden depth axis is separated. Semantic expectations are supplied by the caller; the tool does not guess which parts should connect.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -3720,78 +3904,15 @@
         </tr>
       </thead>
       <tbody><tr>
-      <td class="col-name">code</td>
-      <td class="col-type">string</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">JavaScript code to evaluate. Do not pass `console` commands or comments.</td>
-    </tr></tbody>
-    </table>
-      </div>
-    </div>
-<div id="tool-emulate_clicks" class="card tool-card">
-      <div class="card-header">
-        <h3 class="card-name">emulate_clicks</h3>
-        <div class="card-badges">
-          <span class="badge badge-experimental">experimental</span>
-          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
-        </div>
-      </div>
-      <p class="card-title">Emulate Clicks</p>
-      <p class="card-desc">Emulates clicks on the given interface elements.</p>
-      <div class="overflow-x">
-        <table class="param-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody><tr>
-      <td class="col-name">position</td>
-      <td class="col-type">object</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc"></td>
-    </tr><tr>
-      <td class="col-name">drag</td>
-      <td class="col-type">object</td>
+      <td class="col-name">elements</td>
+      <td class="col-type">string[]</td>
       <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Drag options. If set, will perform a drag from position to 'to'.</td>
-    </tr></tbody>
-    </table>
-      </div>
-    </div>
-<div id="tool-fill_dialog" class="card tool-card">
-      <div class="card-header">
-        <h3 class="card-name">fill_dialog</h3>
-        <div class="card-badges">
-          <span class="badge badge-experimental">experimental</span>
-          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
-        </div>
-      </div>
-      <p class="card-title">Fill Dialog</p>
-      <p class="card-desc">Fills the dialog with the given values.</p>
-      <div class="overflow-x">
-        <table class="param-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody><tr>
-      <td class="col-name">values</td>
-      <td class="col-type">string</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">Stringified form of values to fill the dialog with.</td>
+      <td class="col-desc">UUIDs or unique names whose world bounds should be reported. <span class="param-meta">(default: <code>[]</code>) [maxItems: 100]</span></td>
     </tr><tr>
-      <td class="col-name">confirm</td>
-      <td class="col-type">boolean</td>
+      <td class="col-name">pairs</td>
+      <td class="col-type">object[]</td>
       <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Whether to confirm or cancel the dialog after filling it. True to confirm, false to cancel. <span class="param-meta">(default: <code>true</code>)</span></td>
+      <td class="col-desc">Pairs whose axis gaps and projection/depth relationship should be compared. <span class="param-meta">(default: <code>[]</code>) [maxItems: 100]</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -3917,8 +4038,276 @@
       </div>
     </div>
         </section>
-<section id="cat-hytale-integration" class="category-section">
-          <h3 class="category-title">Hytale Integration</h3>
+<section id="cat-ysm-workspace" class="category-section">
+          <h3 class="category-title">YSM Workspace</h3>
+          <div id="tool-ysm_set_workspace" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">ysm_set_workspace</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-openworld">open-world</span>
+        </div>
+      </div>
+      <p class="card-title">Set YSM Workspace</p>
+      <p class="card-desc">Configures the only folder that YSM synchronization may read or write. Access remains folder-scoped and requires Blockbench permission.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">path</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Absolute directory path. Omit to report the currently configured workspace.</td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-ysm_workspace_status" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">ysm_workspace_status</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">YSM Workspace Status</p>
+      <p class="card-desc">Reports the configured YSM workspace, open Blockbench tabs, project roles, and persisted source bindings.</p>
+      <div class="overflow-x">
+        <p class="empty-params">No parameters</p>
+      </div>
+    </div>
+<div id="tool-ysm_bind_project" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">ysm_bind_project</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-openworld">open-world</span>
+        </div>
+      </div>
+      <p class="card-title">Bind YSM Project</p>
+      <p class="card-desc">Binds an open Bedrock project tab to its authoritative YSM geometry/texture/.bbmodel files after validating identifiers, hashes, and counts.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">project</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Project UUID, exact name, or exact save path. Defaults to the active tab.</td>
+    </tr><tr>
+      <td class="col-name">geometry</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Workspace-relative YSM geometry JSON path.</td>
+    </tr><tr>
+      <td class="col-name">geometry_identifier</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"></td>
+    </tr><tr>
+      <td class="col-name">texture</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Workspace-relative texture path. Defaults to textures/default.png beside the model package.</td>
+    </tr><tr>
+      <td class="col-name">bbmodel</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Workspace-relative .bbmodel path. Defaults to the selected project's save path when scoped.</td>
+    </tr><tr>
+      <td class="col-name">allow_count_mismatch</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>false</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-ysm_save_project" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">ysm_save_project</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
+        </div>
+      </div>
+      <p class="card-title">Save Bound YSM Project</p>
+      <p class="card-desc">Synchronizes the live Blockbench project back to bound YSM geometry, texture, and portable .bbmodel files with hash preconditions and atomic writes. Unknown YSM fields are preserved.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">project</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Project UUID, exact name, or exact save path. Defaults to the active tab.</td>
+    </tr><tr>
+      <td class="col-name">expected_source_sha256</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Optional explicit geometry hash precondition. <span class="param-meta">[minLength: 64, maxLength: 64]</span></td>
+    </tr><tr>
+      <td class="col-name">include_texture</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>true</code>)</span></td>
+    </tr><tr>
+      <td class="col-name">include_bbmodel</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>true</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-ysm_unbind_project" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">ysm_unbind_project</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+
+        </div>
+      </div>
+      <p class="card-title">Unbind YSM Project</p>
+      <p class="card-desc">Removes the persisted YSM source binding from an open project tab without changing model files.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">project</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Project UUID, exact name, or exact save path. Defaults to the active tab.</td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+        </section>
+<section id="cat-ysm-workflow" class="category-section">
+          <h3 class="category-title">YSM Workflow</h3>
+          <div id="tool-ysm_open_workflow_tabs" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">ysm_open_workflow_tabs</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
+        </div>
+      </div>
+      <p class="card-title">Open YSM Three-Tab Workflow</p>
+      <p class="card-desc">Validates and opens exactly three YSM .bbmodel tabs in order: old-skin reference (read-only), new-skin baseline (read-only), and writable working copy. It never changes pose or animation state.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">skin_name</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Human-readable character/skin label used in the three tab titles. <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">legacy_bbmodel</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Workspace-relative old-skin reference .bbmodel.</td>
+    </tr><tr>
+      <td class="col-name">baseline_bbmodel</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Workspace-relative new-skin baseline .bbmodel.</td>
+    </tr><tr>
+      <td class="col-name">working_bbmodel</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Workspace-relative writable new-skin working .bbmodel.</td>
+    </tr><tr>
+      <td class="col-name">discard_unsaved_tabs</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Close and discard any currently unsaved tabs. False refuses before closing anything. <span class="param-meta">(default: <code>false</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-ysm_workflow_status" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">ysm_workflow_status</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">Get YSM Workflow Status</p>
+      <p class="card-desc">Reports the current three-tab workflow, paths, roles, protection state, and whether exactly one tab of each role is open.</p>
+      <div class="overflow-x">
+        <p class="empty-params">No parameters</p>
+      </div>
+    </div>
+<div id="tool-ysm_merge_working_into_baseline" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">ysm_merge_working_into_baseline</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
+        </div>
+      </div>
+      <p class="card-title">Merge YSM Working Copy</p>
+      <p class="card-desc">After explicit user approval, saves the working copy, closes the baseline, replaces its .bbmodel with the working copy, reopens it read-only, and returns focus to the still-writable working tab.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">confirmation</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Explicit confirmation required after the user says the current adjustment should be merged.</td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+        </section>
+<section id="cat-hytale-integration-optional" class="category-section">
+          <h3 class="category-title">Hytale Integration (optional)</h3>
           <div id="tool-hytale_get_format_info" class="card tool-card">
       <div class="card-header">
         <h3 class="card-name">hytale_get_format_info</h3>
@@ -3952,7 +4341,7 @@
         <h3 class="card-name">hytale_set_cube_properties</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
-          
+
         </div>
       </div>
       <p class="card-title">Set Hytale Cube Properties</p>
@@ -4020,11 +4409,11 @@
         <h3 class="card-name">hytale_create_quad</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
-          
+
         </div>
       </div>
       <p class="card-title">Create Hytale Quad</p>
-      <p class="card-desc">Creates a Hytale quad (2D plane) with a specified normal direction. Quads are single-face elements useful for flat surfaces.</p>
+      <p class="card-desc">Creates a Hytale quad under a mandatory explicit parent. Use group='root' only for an intentional root-level quad; missing or ambiguous parents are rejected before mutation.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -4058,8 +4447,8 @@
     </tr><tr>
       <td class="col-name">group</td>
       <td class="col-type">string</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Parent group/bone name</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level quad. <span class="param-meta">[minLength: 1]</span></td>
     </tr><tr>
       <td class="col-name">double_sided</td>
       <td class="col-type">boolean</td>
@@ -4088,7 +4477,7 @@
         <h3 class="card-name">hytale_set_attachment_piece</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
-          
+
         </div>
       </div>
       <p class="card-title">Set Attachment Piece</p>
@@ -4136,7 +4525,7 @@
         <h3 class="card-name">hytale_create_visibility_keyframe</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
-          
+
         </div>
       </div>
       <p class="card-title">Create Visibility Keyframe</p>
@@ -4180,7 +4569,7 @@
         <h3 class="card-name">hytale_set_animation_loop</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
-          
+
         </div>
       </div>
       <p class="card-title">Set Animation Loop Mode</p>
@@ -4214,7 +4603,7 @@
         <h3 class="card-name">hytale_set_cube_stretch</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
-          
+
         </div>
       </div>
       <p class="card-title">Set Cube Stretch</p>
@@ -4282,17 +4671,8 @@
         <h3 class="card-name">blockbench_native_apis</h3>
         <div class="card-badges"><span class="badge badge-stable">stable</span></div>
       </div>
-      
+
       <p class="card-desc">Essential information about Blockbench v5.0 native API security model and requireNativeModule() usage. Use this when working with Node.js modules, file system access, or native APIs in Blockbench plugins.</p>
-      <div class="overflow-x"><p class="empty-params">No arguments</p></div>
-    </div>
-<div class="card">
-      <div class="card-header">
-        <h3 class="card-name">blockbench_code_eval_safety</h3>
-        <div class="card-badges"><span class="badge badge-stable">stable</span></div>
-      </div>
-      
-      <p class="card-desc">Critical safety guide for agents using code evaluation/execution tools with Blockbench v5.0+. Contains breaking changes, quick reference, common mistakes, and safe code patterns for native module usage.</p>
       <div class="overflow-x"><p class="empty-params">No arguments</p></div>
     </div>
 <div class="card">
@@ -4300,8 +4680,8 @@
         <h3 class="card-name">model_creation_strategy</h3>
         <div class="card-badges"><span class="badge badge-stable">stable</span></div>
       </div>
-      <p class="card-title">Model Creation Strategy</p>
-      <p class="card-desc">A strategy for creating a new 3D model in Blockbench.</p>
+      <p class="card-title">Safe Model Creation Strategy</p>
+      <p class="card-desc">A staged Blockbench modeling workflow with explicit hierarchy, multi-view spatial checks, and human review checkpoints.</p>
       <div class="overflow-x"><table class="param-table">
       <thead>
         <tr>
@@ -4318,9 +4698,9 @@
       <td class="col-desc">Target model format.</td>
     </tr><tr>
       <td class="col-name">approach</td>
-      <td class="col-type">&quot;ui&quot; | &quot;programmatic&quot; | &quot;import&quot;</td>
+      <td class="col-type">&quot;incremental&quot; | &quot;import&quot;</td>
       <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Creation approach to use.</td>
+      <td class="col-desc">Use direct incremental tools by default; import only when explicitly requested. <span class="param-meta">(default: <code>&quot;incremental&quot;</code>)</span></td>
     </tr></tbody>
     </table></div>
     </div>
@@ -4484,7 +4864,7 @@
       </section>
 
       <footer class="page-footer">
-        Generated 2026-05-22T14:18:59.107Z from Zod schemas
+        Generated 2026-08-22T13:22:31.603Z from Zod schemas
       </footer>
     </main>
   </div>
