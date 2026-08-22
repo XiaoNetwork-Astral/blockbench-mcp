@@ -12,6 +12,7 @@ import {
   normalizeMcpAuthToken,
   normalizeMcpBindHost,
 } from "@/lib/pluginSettings";
+import promptManifest from "@/prompts/manifest.json";
 
 describe("local MCP security policy", () => {
   test("defaults to loopback but accepts explicit bind addresses", () => {
@@ -65,5 +66,14 @@ describe("local MCP security policy", () => {
       expect(() => assertToolRegistrationAllowed(tool)).toThrow("permanently disabled");
     }
     expect(() => assertToolRegistrationAllowed("set_preview_state")).not.toThrow();
+  });
+
+  test("bundled prompts cannot reintroduce disabled tool guidance", () => {
+    const bundledText = Object.values(promptManifest.prompts).join("\n");
+    for (const tool of ["risky_eval", "trigger_action", "emulate_clicks", "fill_dialog"]) {
+      expect(bundledText).not.toContain(tool);
+    }
+    expect(bundledText).toContain("explicit parent");
+    expect(bundledText).toContain("front, side, top");
   });
 });

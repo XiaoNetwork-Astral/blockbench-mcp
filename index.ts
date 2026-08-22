@@ -7,6 +7,8 @@
 /// <reference types="blockbench-types" />
 import { PLUGIN_ID, VERSION } from "@/lib/constants";
 import { tools } from "@/server/tools";
+import "@/server/resources";
+import "@/server/prompts";
 import { uiSetup, uiTeardown } from "@/ui";
 import { settingsSetup, settingsTeardown } from "@/ui/settings";
 import { setupI18n } from "@/ui/i18n";
@@ -32,6 +34,7 @@ import {
   formatMcpHostForUrl,
 } from "@/lib/pluginSettings";
 import { isLoopbackMcpHost } from "@/lib/security";
+import { initPromptLoader } from "@/lib/promptLoader";
 import { getIcon } from "@/macros/getIcon" with { type: "macro" };
 
 let httpServer: NetServer | null = null;
@@ -203,6 +206,11 @@ BBPlugin.register(PLUGIN_ID, {
     // user declines network permission or the port cannot be opened.
     setupI18n();
     settingsSetup();
+    try {
+      await initPromptLoader();
+    } catch (error) {
+      console.error("[Blockbench MCP] Failed to load bundled prompts:", error);
+    }
     auditManager.setup();
     setupProjectProtection();
     uiSetup({ tools });

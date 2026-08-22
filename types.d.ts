@@ -7,6 +7,14 @@ export interface IMCPTool {
   status: StatusType;
 }
 
+export interface IMCPPrompt {
+  name: string;
+  description: string;
+  arguments: Record<string, unknown>;
+  enabled: boolean;
+  status: StatusType;
+}
+
 export interface IMCPResource {
   name: string;
   description: string;

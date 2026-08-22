@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { IMCPTool, IMCPResource, StatusType } from "@/types";
+import type { IMCPTool, IMCPPrompt, IMCPResource, StatusType } from "@/types";
 import { getServer } from "@/server/server";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { assertAgentMayMutateProject } from "@/lib/projectRoles";
@@ -29,6 +29,17 @@ export interface ToolSpec {
 }
 
 /**
+ * Declarative prompt spec for documentation and registration.
+ */
+export interface PromptSpec {
+  name: string;
+  description: string;
+  title?: string;
+  argsSchema?: z.ZodObject<z.ZodRawShape>;
+  status: StatusType;
+}
+
+/**
  * Declarative resource spec for documentation and registration.
  */
 export interface ResourceSpec {
@@ -42,6 +53,11 @@ export interface ResourceSpec {
  * User-visible list of tool details.
  */
 export const tools: Record<string, IMCPTool> = {};
+
+/**
+ * User-visible list of prompt details.
+ */
+export const prompts: Record<string, IMCPPrompt> = {};
 
 /**
  * User-visible list of resource details.
@@ -473,6 +489,118 @@ export function registerResourcesOnServer(server: unknown) {
 
         return resourceDef.readCallback(uri, normalizedVariables);
       }
+    );
+  }
+}
+
+interface PromptMessage {
+  role: "user" | "assistant";
+  content: { type: "text"; text: string };
+}
+
+interface PromptDefinition {
+  name: string;
+  title: string;
+  description: string;
+  argsSchema: Record<string, z.ZodType>;
+  generate: (args: Record<string, unknown>) => Promise<{
+    messages: PromptMessage[];
+  }>;
+}
+
+const promptDefinitions: Record<string, PromptDefinition> = {};
+
+/**
+ * Creates a prompt definition and registers it on the reference server.
+ * Session servers are reconstructed from the stored definition below.
+ */
+export function createPrompt<T extends z.ZodRawShape>(
+  name: string,
+  prompt: {
+    title?: string;
+    description: string;
+    argsSchema: z.ZodObject<T>;
+    generate: (
+      args: z.infer<z.ZodObject<T>>
+    ) => { messages: PromptMessage[] } | Promise<{ messages: PromptMessage[] }>;
+  },
+  status: IMCPPrompt["status"] = "stable",
+  enabled: boolean = true
+) {
+  if (prompts[name]) {
+    throw new Error(`Prompt with name "${name}" already exists.`);
+  }
+
+  const argsSchema = prompt.argsSchema.shape;
+  if (enabled) {
+    const promptDef: PromptDefinition = {
+      name,
+      title: prompt.title ?? prompt.description,
+      description: prompt.description,
+      argsSchema,
+      generate: async (args) => prompt.generate(args as z.infer<z.ZodObject<T>>),
+    };
+    promptDefinitions[name] = promptDef;
+
+    const server = getServer() as unknown as {
+      registerPrompt: (
+        promptName: string,
+        definition: {
+          title: string;
+          description: string;
+          argsSchema: Record<string, z.ZodType>;
+        },
+        callback: PromptDefinition["generate"]
+      ) => void;
+    };
+    server.registerPrompt(
+      name,
+      {
+        title: promptDef.title,
+        description: promptDef.description,
+        argsSchema: promptDef.argsSchema,
+      },
+      promptDef.generate
+    );
+  }
+
+  prompts[name] = {
+    name,
+    description: prompt.description,
+    arguments: argsSchema,
+    enabled,
+    status,
+  };
+  return prompts[name];
+}
+
+export function getAllPromptDefinitions() {
+  return promptDefinitions;
+}
+
+/** Register all enabled prompts on a newly-created MCP session server. */
+export function registerPromptsOnServer(server: unknown) {
+  const typedServer = server as {
+    registerPrompt: (
+      promptName: string,
+      definition: {
+        title: string;
+        description: string;
+        argsSchema: Record<string, z.ZodType>;
+      },
+      callback: PromptDefinition["generate"]
+    ) => void;
+  };
+
+  for (const [name, promptDef] of Object.entries(promptDefinitions)) {
+    typedServer.registerPrompt(
+      name,
+      {
+        title: promptDef.title,
+        description: promptDef.description,
+        argsSchema: promptDef.argsSchema,
+      },
+      promptDef.generate
     );
   }
 }

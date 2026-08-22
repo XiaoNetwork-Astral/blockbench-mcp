@@ -4,3 +4,4 @@ export * as tools from "./tools";
 import "./resources";
 // Re-export the resources registry from factories
 export { resources } from "@/lib/factories";
+export { default as prompts } from "./prompts";

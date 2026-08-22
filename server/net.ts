@@ -4,7 +4,8 @@ import type { Server as NetServer, Socket } from 'node:net'
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   registerToolsOnServer,
-  registerResourcesOnServer
+  registerResourcesOnServer,
+  registerPromptsOnServer
 } from '@/lib/factories'
 import { createServer as createMcpServer } from '@/server/server'
 import {
@@ -488,6 +489,7 @@ export default function createNetServer (
             // Register the private fork's tools and resources on this session.
             registerToolsOnServer(sessionServer)
             registerResourcesOnServer(sessionServer)
+            registerPromptsOnServer(sessionServer)
 
             // Filled in below before handleRequest runs; onsessioninitialized
             // (fired during handleRequest) closes over this object, which

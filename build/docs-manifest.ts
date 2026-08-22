@@ -12,7 +12,6 @@ import { projectToolDocs } from "../server/tools/project";
 import { textureToolDocs } from "../server/tools/texture";
 import { armatureToolDocs } from "../server/tools/armature";
 import { animationToolDocs } from "../server/tools/animation";
-import { uiToolDocs } from "../server/tools/ui";
 import { hytaleToolDocs } from "../server/tools/hytale";
 import { materialInstanceToolDocs } from "../server/tools/material-instances";
 import { uvToolDocs } from "../server/tools/uv";
@@ -38,7 +37,6 @@ export const toolManifest: CategoryGroup[] = [
   { category: "Paint Tools", tools: paintToolDocs },
   { category: "Project", tools: projectToolDocs },
   { category: "Textures", tools: textureToolDocs },
-  { category: "UI Interaction", tools: uiToolDocs },
   { category: "UV Mapping", tools: uvToolDocs },
   { category: "Hytale Integration", tools: hytaleToolDocs },
 ];
@@ -52,24 +50,19 @@ export const promptDocs: PromptSpec[] = [
     status: "stable",
   },
   {
-    name: "blockbench_code_eval_safety",
-    description:
-      "Critical safety guide for agents using code evaluation/execution tools with Blockbench v5.0+. Contains breaking changes, quick reference, common mistakes, and safe code patterns for native module usage.",
-    status: "stable",
-  },
-  {
     name: "model_creation_strategy",
-    title: "Model Creation Strategy",
-    description: "A strategy for creating a new 3D model in Blockbench.",
+    title: "Safe Model Creation Strategy",
+    description:
+      "A staged Blockbench modeling workflow with explicit hierarchy, multi-view spatial checks, and human review checkpoints.",
     argsSchema: z.object({
       format: z
         .enum(["java_block", "bedrock"])
         .optional()
         .describe("Target model format."),
       approach: z
-        .enum(["ui", "programmatic", "import"])
-        .optional()
-        .describe("Creation approach to use."),
+        .enum(["incremental", "import"])
+        .default("incremental")
+        .describe("Use direct incremental tools by default; import only when explicitly requested."),
     }),
     status: "stable",
   },

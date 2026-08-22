@@ -54,9 +54,9 @@ Hytale supports single-face quads (2D planes):
 
 ## Workflow
 
-1. **Create Project**: Use `create_project` with format `bedrock` (Hytale uses similar format structure)
-2. **Build Skeleton**: Create bone hierarchy using `add_group` with proper origins
-3. **Add Geometry**: Use `place_cube` for cubes, `hytale_create_quad` for flat surfaces
+1. **Create Project**: With the Hytale plugin installed, use `create_project` with format `hytale_character` or `hytale_prop` as appropriate.
+2. **Build Skeleton**: Create the bone hierarchy with `add_group`. Every group must name an explicit parent; use `parent: "root"` only for an intentional root group.
+3. **Add Geometry**: Use `place_cube` for cubes and `hytale_create_quad` for flat surfaces. Every created element must specify its parent group UUID/name, or the explicit literal `"root"` when root placement is intended.
 4. **Set Properties**: Apply shading modes and double-sided as needed
 5. **Validate**: Run `hytale_validate_model` before export
 
@@ -72,4 +72,5 @@ Hytale supports single-face quads (2D planes):
 - Keep node count under 255
 - Use stretch for scaling instead of fractional sizes
 - Group related cubes under bones for animation
+- Inspect front, side, top, and three-quarter views for every important attachment; matching in one projection does not prove that parts touch in depth
 - Mark attachment bones with `is_piece: true` using `hytale_set_attachment_piece`
