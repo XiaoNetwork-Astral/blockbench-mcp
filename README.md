@@ -7,7 +7,8 @@
 ## 现在提供什么
 
 - 在 Blockbench 内直接执行建模、贴图、UV、动画和工程操作。
-- 默认注册 114 个通用工具；安装并启用 Hytale 插件时，额外注册 12 个实验性 Hytale 工具。API 文档同时列出两部分。
+- 默认注册 41 个通用工具；安装并启用 Hytale 插件时，额外注册 2 个实验性 Hytale 工具。API 文档同时列出两部分。
+- 相近操作按只读、写入和功能领域合并到公开工具中；每个原操作保留为精确的 `command.action` 参数分支，不使用无约束的通用 JSON 输入。
 - 提供 MCP Resources 和内置 Prompt；模型创建提示与 `AGENTS.md` 同样要求显式层级、多视角空间检查、小步验证和必要时请用户直接观察。
 - 默认只允许本机通过 `127.0.0.1` 访问 MCP 服务，并默认启用 Bearer 认证、生成随机令牌。可显式改用其他监听地址，也可通过认证开关停用认证；插件会根据组合风险显示相应警告。
 - 永久移除 `risky_eval` 以及任意 action/选择器/对话框自动操作工具；共享注册入口还会拒绝这些高风险工具重新进入插件。
@@ -80,7 +81,7 @@ bearer_token_env_var = "CODEX_BLOCKBENCH_MCP_TOKEN"
 url = "http://127.0.0.1:3000/bb-mcp"
 ```
 
-Codex 会对较大的 MCP 工具目录启用渐进式披露：服务器仍会完整返回工具，但其中一部分只在工具搜索命中后才暴露给模型。如果希望这个服务器的完整工具目录从任务开始就直接可见，可以在同一个配置块里加入：
+Codex 会对较大的 MCP 工具目录启用渐进式披露：服务器仍会完整返回工具，但其中一部分只在工具搜索命中后才暴露给模型。此版本已把核心目录压缩到 41 个工具，日常使用建议保留 Codex 默认的渐进式披露。只有在调试完整工具目录时，才在同一个配置块里临时加入：
 
 ```toml
 [mcp_servers.blockbench]
@@ -89,6 +90,23 @@ omit_tools_from = ["deferred"]
 ```
 
 这是 Codex 客户端配置，插件无法通过 MCP 协议替客户端设置。修改后需要重新启动 Codex 或新建任务才会生效；直接暴露全部工具也会增加初始工具描述所占的上下文与处理成本。使用 Bearer 认证时，保留上面对应示例中的 `http_headers` 或 `bearer_token_env_var` 即可。
+
+## 精简工具的调用方式
+
+相关操作现在通过领域工具调用。以读取工程列表为例，调用公开工具 `inspect_projects`，参数为：
+
+```json
+{
+  "command": {
+    "action": "list_projects",
+    "input": {}
+  }
+}
+```
+
+`command.action` 仍使用原操作名，`command.input` 则保留该操作原有的精确参数结构；选择某个 action 时只校验对应分支。工具自身的 schema 会列出全部可用 action 和参数，完整目录也可查看生成的 `docs/index.html` 或 `docs/api.json`。
+
+三个完全被更通用入口覆盖的旧入口不再公开：单顶点 `set_vertex_weight` 由 `edit_vertex_weights` 的 `set_vertex_weights_batch` action 覆盖；单面 `set_face_material_instance` 由 `edit_material_instances` 的 `bulk_set_material_instances` action 覆盖；`activate_texture` 不再需要，因为绘画 action 都能直接接收 `texture_id`。
 
 令牌不会出现在状态栏或普通日志里。令牌输入框右侧的刷新图标可生成新令牌；关闭认证开关时会保留令牌，以便以后重新启用而不必立刻改 Codex 配置。监听地址、端口、路径、认证开关、令牌或连接参数变更后，可从 Tools 菜单停止并重新启动 MCP 服务器使其生效，不必重载整个插件。
 
@@ -117,17 +135,15 @@ Tools 菜单提供“显示操作记录”“启动服务器”“停止服务�
 
 - 新建、复制或移动 Outliner 节点时必须明确指定父级；只有字面值 `"root"` 会落到根层。缺失、失效或同名不唯一的父级会在修改前失败。
 - 使用 UUID 优先的确定性引用；名称重复时不会悄悄选取第一个对象。
-- `inspect_spatial_relationships` 会报告世界坐标包围盒、逐轴间距，以及“某个投影视图重合但深度轴分离”的情况；`measure_geometry` 可进一步批量量取尺寸、枢轴、长轴、点/中心/表面距离、穿插深度和向量夹角。
+- `inspect_geometry` 的 `inspect_spatial_relationships` action 会报告世界坐标包围盒、逐轴间距，以及“某个投影视图重合但深度轴分离”的情况；同一工具的 `measure_geometry` action 可进一步批量量取尺寸、枢轴、长轴、点/中心/表面距离、穿插深度和向量夹角。
 - 关键附着关系仍需结合正面、侧面、顶面和斜视图检查。工具无法确定部件在语义上应如何连接时，代理应保留现场并请用户直接观察。
-- 创建类工具使用完整 Undo 前后快照；工具异常只清理本次调用新开的编辑，不取消 Blockbench 或用户原先进行中的编辑。
+- 修改类 action 使用完整 Undo 前后快照；工具异常只清理本次调用新开的编辑，不取消 Blockbench 或用户原先进行中的编辑。只读工具不再遍历和哈希整个 Undo 历史，只记录显示操作所需的工程与历史位置。
 
 ## 可选 YSM 工作流工具
 
-- `ysm_set_workspace`：在受控工作流中设置与插件“临时模型目录”相同的目录边界；通常直接在 Blockbench 设置页配置即可。
-- `ysm_open_workflow_tabs`：验证并打开三个角色明确的标签。
-- `ysm_workflow_status`：只读检查标签数量、角色、路径和保护状态。
-- `ysm_merge_working_into_baseline`：在用户明确同意后完成一次合并替换。
-- `ysm_bind_project` 及其他 YSM 工具：在限定工作目录内同步模型与资源。
+- `manage_ysm_workspace`：通过 `ysm_set_workspace`、`ysm_bind_project`、`ysm_save_project` 和 `ysm_unbind_project` action 配置限定目录并同步模型与资源；通常直接在 Blockbench 设置页配置目录即可。
+- `inspect_ysm`：通过 `ysm_workspace_status` 或 `ysm_workflow_status` action 只读检查工作区和三标签状态。
+- `manage_ysm_workflow`：通过 `ysm_open_workflow_tabs` 验证并打开三个角色明确的标签；仅在用户明确同意后通过 `ysm_merge_working_into_baseline` 完成合并替换。
 
 常规模型工具也受统一的参照标签写入保护。没有显式标记为只读的 MCP 工具会按“可能修改”处理，不会因为遗漏元数据而绕过保护。
 
@@ -186,6 +202,14 @@ PR #49 的异步导出修复也已吸收：`export_model` 会等待 glTF 等异�
 - 新增 `measure_geometry`、`batch_set_cube_uv` 和 `modify_group`，用于定量检查空间关系、一次性更新多个方块的 Box UV/逐面 UV，以及只改组枢轴、旋转或平移整个子树；
 - 新增 `open_bbmodel` 和 `duplicate_project`。前者只打开本地 `.bbmodel`，重复请求同一文件时复用已有标签；后者通过 Blockbench 工程 codec 创建无保存路径的新副本，不会让副本覆盖来源工程；
 - `export_model` 除了等待异步 codec 结果，现在也会保留 codec 方法的对象上下文，避免工程 codec 因丢失 `this` 而在 `dispatchEvent` 阶段失败。
+
+`1.7.0-codex.27` 精简了 MCP 工具目录并降低高频只读调用开销：
+
+- 将相关操作收拢为按领域区分的公开工具，以 `command.action` 选择原操作，并保留每个 action 的精确参数校验；核心目录由 114 个降至 41 个，可选 Hytale 目录由 12 个降至 2 个；
+- 移除三个被批量或直接参数入口完全覆盖的公开操作：`set_vertex_weight`、`set_face_material_instance` 和 `activate_texture`；
+- 读写 action 使用不同公开工具和审计边界，纯读取不再采集完整 Undo 条目 ID 与前缀哈希，也不会执行无意义的失败回滚检查；
+- MCP `tools/list` 现在会实际返回已有的只读、破坏性、幂等和开放世界注解，帮助客户端按真实副作用选择调用策略；
+- 增加目录覆盖测试，核对每个旧 action 恰好出现一次、重复入口确实消失、读写不会混组，并继续验证 Codex 不支持的 tuple schema 不会回归。
 
 其余未合并代码没有整批带入：PR #43 的逐面 UV 创建、贴图保留、复制和分辨率能力已由本地实现覆盖，而自动换端口会让客户端连接目标变得不确定；PR #13 和 #17 已分别被本地贴图映射与官方 SDK 多会话架构替代；PR #16 会暴露协作会话令牌并允许发送任意自定义消息，不符合本仓库的安全边界。纯徽章改动与运行代码无关。
 

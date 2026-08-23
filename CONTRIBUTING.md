@@ -40,39 +40,56 @@ For live testing, use File → Plugins → Load Plugin from File and select `dis
 - `tests/`: Bun regression tests.
 - `dist/`: Ignored build outputs, including `codex_blockbench_mcp.js`.
 
-## Adding Tools
-Use `createTool()` from `lib/factories.ts`. Tools are organized by domain in `server/tools/` (e.g., `animation.ts`, `paint.ts`, `mesh.ts`). Each domain file exports a registration function that is called from `server/tools.ts`.
+## Adding Tool Actions
+
+Public MCP tools are organized by domain and by read/write boundary. Add a related operation to an existing domain group whenever possible. Define its precise `ToolSpec`, store the implementation with `createInternalTool()`, include it in the appropriate operations array, and let `createToolGroup()` expose it as a `command.action`. Use `createTool()` directly only for a genuinely independent public capability whose schema is already focused.
 
 Example tool in a domain file (e.g., `server/tools/example.ts`):
 ```ts
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 
 export const exampleParameters = z.object({ name: z.string() });
-export const exampleToolDocs: ToolSpec[] = [{
-  name: "example",
+export const exampleActionDocs: ToolSpec[] = [{
+  name: "read_example",
   description: "Does something useful",
-  annotations: { title: "Example", readOnlyHint: true },
+  annotations: { title: "Read Example", readOnlyHint: true },
   parameters: exampleParameters,
+  status: "stable",
+}];
+const exampleReadOperations = [exampleActionDocs[0]];
+export const examplePublicToolDocs: ToolSpec[] = [{
+  name: "inspect_examples",
+  description: "Reads examples through one command.action.",
+  annotations: { title: "Inspect Examples", readOnlyHint: true },
+  parameters: createToolGroupParameters(exampleReadOperations),
   status: "stable",
 }];
 
 export function registerExampleTools() {
-  createTool(exampleToolDocs[0].name, {
-    ...exampleToolDocs[0],
+  createInternalTool(exampleActionDocs[0].name, {
+    ...exampleActionDocs[0],
     async execute({ name }) {
       return `Hello, ${name}!`;
     },
-  }, exampleToolDocs[0].status);
+  }, exampleActionDocs[0].status);
+  createToolGroup(examplePublicToolDocs[0], exampleReadOperations);
 }
 ```
-Then import and call the registration function in `server/tools.ts`, add the docs array to `build/docs-manifest.ts`, and add regression coverage.
+Then import and call the registration function in `server/tools.ts`, add only the public docs array to `build/docs-manifest.ts`, and add regression coverage. When extending an existing group, update its operations array rather than creating another public tool.
 
-- Naming: Tools are registered with the name you provide (no automatic prefix).
+- Naming: Public tools and internal action values use the names you provide (no automatic prefix). Action names must remain unique across the registry.
 - Define schemas without Blockbench globals because docs/tests import them outside Blockbench.
 - Validate inputs with Zod and resolve names deterministically; duplicate names must require an exact UUID.
+- Keep read-only actions and mutating actions in different public groups. The group annotation controls project-role checks, audit snapshots, and failure rollback for every enclosed action.
 - Creation, duplication, and reparenting tools must require an explicit parent. Only the exact literal `"root"` may intentionally select root.
 - Mutations must use bounded Undo edits and remain compatible with the shared project-role guard and audit wrapper.
+- Do not add full-project or full-Undo-history scans to high-frequency read-only calls unless the returned result requires them. Prefer exact schemas, deterministic logic, and one boundary check over repeated defensive validation of the same invariant.
 - Arbitrary JavaScript execution and generic action/click/dialog automation are permanently out of scope.
 
 ## Adding Resources
@@ -137,7 +154,7 @@ Prompt text belongs in `prompts/*.md`. Run `bun run prompts:build` to update the
 ## Verification Checklist
 
 - Automated checks: run `bun run check`.
-- Generated files: run `bun run docs` and confirm the core catalog contains 114 tools plus 12 optional Hytale tools.
+- Generated files: run `bun run docs` and confirm the core catalog contains 41 tools plus 2 optional Hytale tools. The schema-compatibility test must also prove complete action coverage, unique routing, and read/write separation.
 - Build: run `bun run build` only when a fresh install artifact is actually needed; confirm `dist/codex_blockbench_mcp.js` is produced and remains untracked.
 - Load: In Blockbench → File → Plugins → Load Plugin from File → pick `dist/codex_blockbench_mcp.js`.
 - Settings: Confirm bind host, port, endpoint, authentication, token, audit, and workspace controls.

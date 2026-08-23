@@ -2,6 +2,9 @@
 
 This guide covers the attachment system in Hytale models for creating modular equipment, accessories, and interchangeable parts.
 
+Grouped public tools use the envelope `{ "command": { "action": "...", "input": { ... } } }`.
+The action names below are exact `command.action` values.
+
 ## What Are Attachments?
 
 Attachments are separate models that can be dynamically attached to bones in a base model. Common uses:
@@ -19,15 +22,15 @@ Attachments are organized as **Collections** in Blockbench:
 - Collections have their own textures
 - Export codec: `blockymodel`
 
-Use `hytale_list_attachments` to see all attachment collections.
+Use `inspect_hytale` action `hytale_list_attachments` to see all attachment collections.
 
 ### Attachment Pieces
 Groups marked as **attachment pieces** define connection points:
-- Set with `hytale_set_attachment_piece` tool
+- Set with `edit_hytale` action `hytale_set_attachment_piece`
 - Pieces attach to bones with matching names in the base model
 - Origin point defines the attachment anchor
 
-Use `hytale_list_attachment_pieces` to see marked pieces.
+Use `inspect_hytale` action `hytale_list_attachment_pieces` to see marked pieces.
 
 ## Workflow
 
@@ -43,9 +46,12 @@ Use `hytale_list_attachment_pieces` to see marked pieces.
 
 3. **Mark Piece Bones**
    ```
-   hytale_set_attachment_piece:
-   - group_name: "hand_right"
-   - is_piece: true
+   edit_hytale:
+     command:
+       action: hytale_set_attachment_piece
+       input:
+         group_name: "hand_right"
+         is_piece: true
    ```
    This bone will attach to `hand_right` in the base model.
 
