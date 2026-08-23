@@ -1,46 +1,32 @@
-# Project: Codex Blockbench MCP
-# Repository: https://github.com/XiaoNetwork-Astral/blockbench-mcp
-# Upstream: https://github.com/jasonjgardner/blockbench-mcp-plugin
-# Type: Blockbench desktop plugin with an in-process Streamable HTTP MCP server
-# License: GPL-3.0-only
+# Codex Blockbench MCP
 
-## Current state
-- Package version: 1.7.0-codex.28.
-- Install artifact: dist/codex_blockbench_mcp.js. The filename must match plugin id codex_blockbench_mcp.
-- Default URL: http://127.0.0.1:3000/bb-mcp.
-- Bearer authentication is enabled by default and the token is configured in Blockbench.
-- Core catalog: 41 public tools. Optional Hytale catalog: 2 additional experimental public tools when the Hytale plugin is installed.
-- Related operations are grouped by domain and read/write boundary. Invoke them with {"command":{"action":"<exact action>","input":{...}}}; each action retains its exact schema.
-- Public names follow `<intent>_<domain>[_<facet>]`: `inspect_*` reads, `edit_*` changes model or editor state, `create_*` creates focused geometry, and `import_*`/`export_*` cross file boundaries.
-- MCP prompts are bundled locally; the fork does not fetch behavior from the upstream prompt CDN.
-- General resources cover projects, nodes, textures, validators, and optional integrations.
+- Repository: https://github.com/XiaoNetwork-Astral/blockbench-mcp
+- Upstream: https://github.com/jasonjgardner/blockbench-mcp-plugin
+- License: GPL-3.0-only
+- Version: 1.7.0-codex.28
+- Artifact: `dist/codex_blockbench_mcp.js`
+- Default MCP URL: `http://127.0.0.1:3000/bb-mcp`
 
-## Implemented capabilities
-- Project open/duplication, Outliner, cube, mesh, armature, animation, Java display settings, texture, UV, paint, preview, import/export, material-instance, and history operations.
-- Exact texture-pixel operations, selection-independent scoped texture application, guarded whole-texture removal, batch cube UV updates, spatial relationship inspection, and direct geometry measurement.
-- Per-project audit history with filtering, pagination, guarded Undo/Redo, and manual-operation tracking.
-- Logical client/session management, loopback-by-default networking, optional explicit network binding, and bearer authentication.
-- Optional folder-scoped YSM workspace and protected reference/baseline/working-copy workflow.
-- Optional Hytale tools, resources, and prompts.
+## Interface
 
-## Non-negotiable modeling behavior
-- Read and follow AGENTS.md before modeling. CLAUDE.md points to the same canonical workflow.
-- Every created, duplicated, or moved Outliner node requires an explicit parent. Use the literal "root" only intentionally; never fall back to root when a parent is missing or ambiguous.
-- Validate key attachments with world coordinates and front, side, top, and three-quarter views. Projection overlap is not proof of depth contact.
-- Work in small reversible stages, re-read hierarchy/UUIDs/UVs, verify Undo consistency, and ask the user to inspect when structure or depth cannot be established reliably.
-- Do not save over baselines, close unsaved tabs, delete experiments, package, or publish without explicit authorization.
+- 41 core tools and 2 optional Hytale tools.
+- Public names use `inspect_*`, `edit_*`, `create_*`, `import_*`, and `export_*`.
+- Grouped operations use `{ "command": { "action": "<action>", "input": { ... } } }` and retain action-specific schemas.
+- API docs are generated with `bun run docs` at `docs/index.html` and `docs/api.json`.
 
-## Security invariants
-- Arbitrary JavaScript evaluation and generic action/click/dialog automation are permanently disabled.
-- Mutating tools pass through project-role protection, audit recording, and bounded Undo cleanup. Read-only tools avoid full Undo-history scans.
-- Names must resolve uniquely; duplicate display names require an exact UUID.
-- Remote HTTP(S) geometry fetching is disabled; imports accept inline JSON, data URLs, or local JSON files.
-- Secrets and bearer tokens must never be committed.
+## Modeling
+
+- Read `AGENTS.md` before modeling. Apply project-specific instructions only when the current workspace supplies them.
+- Every created, duplicated, or moved Outliner node needs an explicit parent. Use literal `root` only intentionally.
+- Check important attachments with coordinates and front, side, top, and three-quarter views.
+- Work in small stages and ask the user to inspect when structure or depth is uncertain.
+- Do not overwrite baselines or discard unsaved work without explicit authorization.
 
 ## Development
-- Install: bun install
-- Automated checks: bun run check
-- Direct test command: bun test tests
-- Prompts and API docs: bun run docs
-- Production build: bun run build
-- Contributor details: CONTRIBUTING.md
+
+- Install: `bun install`
+- Test: `bun run check`
+- Generate docs: `bun run docs`
+- Build: `bun run build`
+- Contribution rules: `CONTRIBUTING.md`
+- Connection examples: `llms-install.md`

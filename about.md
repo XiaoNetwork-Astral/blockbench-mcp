@@ -1,19 +1,7 @@
 # Codex Blockbench MCP
 
-在 Blockbench 内提供本地 MCP 建模、检查、贴图、动画和工程操作。
+在 Blockbench 桌面版内运行的本地 MCP 插件，提供建模、贴图、UV、动画、工程管理和导入导出工具。
 
-- 直接在 Blockbench 内运行，不依赖 Python 或 Uvicorn。
-- MCP 默认仅监听 `127.0.0.1` 并启用 Bearer 认证；用户显式改变监听范围或关闭认证时会收到对应风险警告。
-- 已移除任意 JavaScript 执行和通用 UI 自动操作工具。
-- 创建、复制和移动节点要求明确父级，并提供多视角空间关系检查与直接几何量测。
-- 相关操作按领域和读写边界归入 41 个核心公开工具，并通过精确的 `command.action` 参数分支调用。
-- 公开工具统一使用“意图 + 领域”名称：读取为 `inspect_*`，修改为 `edit_*`，直接创建、导入和导出分别使用 `create_*`、`import_*` 和 `export_*`。
-- 贴图应用不依赖当前选择，可安全改写引用后删除整张纹理，并支持批量方块 UV 与组变换。
-- 可打开本地 `.bbmodel`，也可创建不继承保存路径的工程副本。
-- 支持读取和修改 Java 版展示变换，并可进入展示模式配合参照模型检查。
-- “MCP 操作历史”面板按模型保存历史，支持搜索、分页、回滚和重做。
-- 可选支持受限目录的 YSM 三标签流程和安装 Hytale 插件后的实验性工具。
+默认仅监听 `127.0.0.1` 并启用 Bearer 认证。核心目录包含 41 个工具，另有可选的 YSM 工作流和 2 个 Hytale 工具。
 
-完整的安装、连接、设置和工作流说明见源码目录中的 `README.md`。
-
-本插件派生自 Jason J. Gardner 的 `blockbench-mcp-plugin`，继续使用 GPL-3.0-only 许可。
+本项目派生自 Jason J. Gardner 的 `blockbench-mcp-plugin`，使用 GPL-3.0-only 许可。
