@@ -58,14 +58,14 @@ describe("local MCP security policy", () => {
 
   test("cannot register arbitrary JavaScript evaluation", () => {
     expect(() => assertToolRegistrationAllowed("risky_eval")).toThrow("permanently disabled");
-    expect(() => assertToolRegistrationAllowed("place_cube")).not.toThrow();
+    expect(() => assertToolRegistrationAllowed("create_cube")).not.toThrow();
   });
 
   test("cannot register generic UI automation bypasses", () => {
     for (const tool of ["trigger_action", "emulate_clicks", "fill_dialog"]) {
       expect(() => assertToolRegistrationAllowed(tool)).toThrow("permanently disabled");
     }
-    expect(() => assertToolRegistrationAllowed("set_preview_state")).not.toThrow();
+    expect(() => assertToolRegistrationAllowed("edit_preview")).not.toThrow();
   });
 
   test("bundled prompts cannot reintroduce disabled tool guidance", () => {

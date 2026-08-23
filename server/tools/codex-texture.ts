@@ -27,11 +27,11 @@ export const applyTexturePixelsParameters = z.object({
 
 export const codexTextureToolDocs: ToolSpec[] = [
   {
-    name: "apply_texture_pixels_exact",
+    name: "edit_texture_pixels",
     description:
       "Applies exact RGBA values to texture pixels inside Blockbench so the user can see the change immediately and undo it normally.",
     annotations: {
-      title: "Apply Exact Texture Pixels",
+      title: "Edit Exact Texture Pixels",
       destructiveHint: true,
     },
     parameters: applyTexturePixelsParameters,

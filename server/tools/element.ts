@@ -271,7 +271,7 @@ export const elementToolDocs: ToolSpec[] = [
   {
     name: "get_selection",
     description:
-      "Returns the current selection state: selected cube/mesh/group UUIDs and names, plus the active texture. Use this to verify what the edit_textures action apply_texture or a paint_texture action with fill_mode=\"selected_elements\" will target.",
+      "Returns the current selection state: selected cube/mesh/group UUIDs and names, plus the active texture. Use this to verify what the edit_textures action apply_texture or an edit_texture_paint action with fill_mode=\"selected_elements\" will target.",
     annotations: {
       title: "Get Selection",
       readOnlyHint: true,

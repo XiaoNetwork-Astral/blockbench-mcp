@@ -130,11 +130,11 @@ export const ysmWorkspaceEditOperations = [
 
 export const ysmPublicToolDocs: ToolSpec[] = [
   {
-    name: "manage_ysm_workspace",
+    name: "edit_ysm_workspace",
     description:
       "Configures the YSM workspace and binds, saves, or unbinds projects through one command.action.",
     annotations: {
-      title: "Manage YSM Workspace",
+      title: "Edit YSM Workspace",
       destructiveHint: true,
       openWorldHint: true,
     },
@@ -327,7 +327,7 @@ export function registerYsmTools() {
       const binding = getYsmBinding(project);
       if (!binding) {
         throw new Error(
-          `Project "${project.name}" has no YSM binding. Use manage_ysm_workspace with command.action "ysm_bind_project" first.`
+          `Project "${project.name}" has no YSM binding. Use edit_ysm_workspace with command.action "ysm_bind_project" first.`
         );
       }
 

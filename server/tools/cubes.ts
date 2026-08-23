@@ -171,33 +171,33 @@ export const batchSetCubeUvParameters = z.object({
 
 export const cubeToolDocs: ToolSpec[] = [
   {
-    name: "place_cube",
+    name: "create_cube",
     description:
       "Places one or more cubes under a mandatory explicit parent. Use group='root' only for intentional root-level cubes; omitted, missing, or ambiguous parents are rejected before mutation.",
     annotations: {
-      title: "Place Cube",
+      title: "Create Cube",
       destructiveHint: true,
     },
     parameters: placeCubeParameters,
     status: STATUS_STABLE,
   },
   {
-    name: "modify_cube",
+    name: "edit_cube",
     description:
       "Modifies the cube with the given ID. Auto UV setting: saved as an integer, where 0 means disabled, 1 means enabled, and 2 means relative auto UV (cube position affects UV)",
     annotations: {
-      title: "Modify Cube",
+      title: "Edit Cube",
       destructiveHint: true,
     },
     parameters: modifyCubeParameters,
     status: STATUS_STABLE,
   },
   {
-    name: "batch_set_cube_uv",
+    name: "edit_cube_uv",
     description:
       "Atomically updates Box UV offsets and/or per-face UV rectangles for up to 500 existing cubes. All cube references are resolved before mutation, duplicate targets are refused, explicit face rectangles switch to per-face UV mode, and every requested value is read back before success.",
     annotations: {
-      title: "Batch Set Cube UV",
+      title: "Edit Cube UV",
       destructiveHint: true,
     },
     parameters: batchSetCubeUvParameters,

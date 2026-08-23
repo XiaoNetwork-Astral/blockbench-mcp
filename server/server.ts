@@ -5,6 +5,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 let serverInstance: McpServer | null = null;
 const MCP_INSTRUCTIONS =
+  "Public tools use predictable intent_domain names: inspect_* reads, edit_* changes model or " +
+  "editor state, create_* creates focused geometry, and import_*/export_* cross file boundaries. " +
+  "Grouped tools expose exact operations through command.action. " +
   "Work incrementally and preserve existing content unless the user explicitly authorizes a " +
   "replacement or deletion. Every Outliner create, duplicate, parent, or mirror operation must " +
   "name an explicit parent; use the literal root only when root placement is intentional. Build " +
@@ -13,7 +16,7 @@ const MCP_INSTRUCTIONS =
   "inspect_spatial_relationships for important contacts. If hierarchy or depth remains " +
   "ambiguous after those checks, stop before further " +
   "mutation and ask the user to inspect the model and state the intended structure or position. " +
-  "Do not use from_geo_json as a shortcut unless the user explicitly asks to import existing " +
+  "Do not use import_bedrock_geometry as a shortcut unless the user explicitly asks to import existing " +
   "geometry. Use YSM workspace tools only for an explicitly selected YSM workflow.";
 
 /**

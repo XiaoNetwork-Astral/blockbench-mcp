@@ -112,6 +112,50 @@ const retiredDuplicateActions = new Set([
   "set_vertex_weight",
 ]);
 
+const expectedCorePublicToolNames = [
+  "create_cube",
+  "create_mesh",
+  "edit_animation",
+  "edit_animation_editor",
+  "edit_armature",
+  "edit_camera",
+  "edit_cube",
+  "edit_cube_uv",
+  "edit_display",
+  "edit_elements",
+  "edit_history",
+  "edit_material_instances",
+  "edit_materials",
+  "edit_mesh",
+  "edit_mesh_selection",
+  "edit_mesh_uv",
+  "edit_paint_settings",
+  "edit_preview",
+  "edit_projects",
+  "edit_texture_paint",
+  "edit_texture_pixels",
+  "edit_texture_regions",
+  "edit_textures",
+  "edit_vertex_weights",
+  "edit_ysm_workflow",
+  "edit_ysm_workspace",
+  "export_model",
+  "import_bedrock_geometry",
+  "inspect_armature",
+  "inspect_blockbench_ui",
+  "inspect_display",
+  "inspect_elements",
+  "inspect_export_formats",
+  "inspect_geometry",
+  "inspect_history",
+  "inspect_material_instances",
+  "inspect_materials",
+  "inspect_projects",
+  "inspect_textures",
+  "inspect_viewport",
+  "inspect_ysm",
+].sort();
+
 function findTupleItems(value: unknown, path = "schema"): string[] {
   if (!value || typeof value !== "object") return [];
   if (Array.isArray(value)) {
@@ -158,6 +202,18 @@ describe("Codex MCP schema compatibility", () => {
     const bytes = new TextEncoder().encode(JSON.stringify(metadata)).byteLength;
 
     expect(bytes).toBeLessThan(130_000);
+  });
+
+  test("public tool names follow the predictable intent_domain convention", () => {
+    const coreNames = corePublicToolDocs.map(({ name }) => name).sort();
+    const invalidNames = [...corePublicToolDocs, ...hytalePublicToolDocs]
+      .map(({ name }) => name)
+      .filter(
+        (name) => !/^(inspect|edit|create|import|export)_[a-z0-9_]+$/.test(name)
+      );
+
+    expect(coreNames).toEqual(expectedCorePublicToolNames);
+    expect(invalidNames).toEqual([]);
   });
 
   test("both optional Hytale public tools use compatible schemas", () => {

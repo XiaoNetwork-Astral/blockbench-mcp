@@ -21,30 +21,30 @@ export const setCameraAngleParameters = z.object({
 
 export const cameraToolDocs: ToolSpec[] = [
   {
-    name: "capture_screenshot",
+    name: "inspect_viewport",
     description: "Returns the image data of the current view.",
     annotations: {
-      title: "Capture Screenshot",
+      title: "Inspect Viewport",
       readOnlyHint: true,
     },
     parameters: captureScreenshotParameters,
     status: STATUS_STABLE,
   },
   {
-    name: "capture_app_screenshot",
+    name: "inspect_blockbench_ui",
     description: "Returns the image data of the Blockbench app.",
     annotations: {
-      title: "Capture App Screenshot",
+      title: "Inspect Blockbench UI",
       readOnlyHint: true,
     },
     parameters: captureAppScreenshotParameters,
     status: STATUS_STABLE,
   },
   {
-    name: "set_camera_angle",
+    name: "edit_camera",
     description: "Sets the camera angle to the specified value.",
     annotations: {
-      title: "Set Camera Angle",
+      title: "Edit Camera",
       destructiveHint: true,
     },
     parameters: setCameraAngleParameters,

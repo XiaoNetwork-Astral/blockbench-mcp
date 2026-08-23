@@ -19,7 +19,7 @@ export const exportModelParameters = z.object({
     .string()
     .optional()
     .describe(
-      "Codec ID to use for export (e.g., 'obj', 'gltf', 'project', 'bedrock'). If omitted, uses the current project format's codec. Use `list_export_formats` to see available IDs."
+      "Codec ID to use for export (e.g., 'obj', 'gltf', 'project', 'bedrock'). If omitted, uses the current project format's codec. Use `inspect_export_formats` to see available IDs."
     ),
   options: z
     .record(z.unknown())
@@ -47,11 +47,11 @@ export const exportModelParameters = z.object({
 
 export const exportToolDocs: ToolSpec[] = [
   {
-    name: "list_export_formats",
+    name: "inspect_export_formats",
     description:
       "Lists all registered export codecs with their id, display name, file extension, and whether they support compile/export. Use before `export_model` to pick a codec.",
     annotations: {
-      title: "List Export Formats",
+      title: "Inspect Export Formats",
       readOnlyHint: true,
     },
     parameters: listExportFormatsParameters,
@@ -60,7 +60,7 @@ export const exportToolDocs: ToolSpec[] = [
   {
     name: "export_model",
     description:
-      "Compiles the current project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `list_export_formats` first to discover codec IDs.",
+      "Compiles the current project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.",
     annotations: {
       title: "Export Model",
       destructiveHint: false,
@@ -186,7 +186,7 @@ export function registerExportTools() {
 
       if (!resolvedId) {
         throw new Error(
-          "No codec_id provided and the current project format has no default codec. Use `list_export_formats` to pick one."
+          "No codec_id provided and the current project format has no default codec. Use `inspect_export_formats` to pick one."
         );
       }
 
@@ -194,7 +194,7 @@ export function registerExportTools() {
       if (!codec) {
         const available = Object.keys(registry).sort().slice(0, 20).join(", ");
         throw new Error(
-          `Codec "${resolvedId}" not found. Available (first 20): ${available}. Use \`list_export_formats\` for the full list.`
+          `Codec "${resolvedId}" not found. Available (first 20): ${available}. Use \`inspect_export_formats\` for the full list.`
         );
       }
 

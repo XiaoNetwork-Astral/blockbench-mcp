@@ -211,11 +211,11 @@ export const projectPublicToolDocs: ToolSpec[] = [
     status: STATUS_STABLE,
   },
   {
-    name: "manage_projects",
+    name: "edit_projects",
     description:
       "Creates, selects, configures, closes, opens, or duplicates Blockbench projects through one explicit command.action.",
     annotations: {
-      title: "Manage Projects",
+      title: "Edit Projects",
       destructiveHint: true,
       openWorldHint: true,
     },
@@ -327,7 +327,7 @@ export function registerProjectTools() {
     async execute() {
       if (!Project) {
         throw new Error(
-          "No project is open. Use manage_projects with command.action \"create_project\", or open an existing file in Blockbench."
+          "No project is open. Use edit_projects with command.action \"create_project\", or open an existing file in Blockbench."
         );
       }
 
@@ -403,7 +403,7 @@ export function registerProjectTools() {
     async execute({ width, height, modify_uv }) {
       if (!Project) {
         throw new Error(
-          "No active project. Use manage_projects with command.action \"create_project\" or \"select_project\" first."
+          "No active project. Use edit_projects with command.action \"create_project\" or \"select_project\" first."
         );
       }
       const previousWidth = Project.texture_width;

@@ -431,18 +431,18 @@ const textureRegionOperations = [paintToolDocs[10], paintToolDocs[11]];
 
 export const paintPublicToolDocs: ToolSpec[] = [
   {
-    name: "paint_texture",
+    name: "edit_texture_paint",
     description:
       "Paints, fills, draws, gradients, clones, erases, or samples a texture through one command.action.",
-    annotations: { title: "Paint Texture", destructiveHint: true },
+    annotations: { title: "Edit Texture Paint", destructiveHint: true },
     parameters: createToolGroupParameters(texturePaintOperations),
     status: STATUS_EXPERIMENTAL,
   },
   {
-    name: "configure_paint",
+    name: "edit_paint_settings",
     description:
       "Changes paint preferences or creates and loads brush presets through one command.action.",
-    annotations: { title: "Configure Paint", destructiveHint: true },
+    annotations: { title: "Edit Paint Settings", destructiveHint: true },
     parameters: createToolGroupParameters(paintConfigurationOperations),
     status: STATUS_EXPERIMENTAL,
   },

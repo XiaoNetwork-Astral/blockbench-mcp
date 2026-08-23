@@ -73,11 +73,11 @@ export const workflowPublicToolDocs: ToolSpec[] = [
     status: STATUS_STABLE,
   },
   {
-    name: "manage_ysm_workflow",
+    name: "edit_ysm_workflow",
     description:
       "Opens the protected YSM three-tab workflow or performs an explicitly confirmed baseline merge.",
     annotations: {
-      title: "Manage YSM Workflow",
+      title: "Edit YSM Workflow",
       destructiveHint: true,
       openWorldHint: true,
     },

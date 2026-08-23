@@ -25,11 +25,11 @@ export const setPreviewStateParameters = z.object({
 
 export const previewToolDocs: ToolSpec[] = [
   {
-    name: "set_preview_state",
+    name: "edit_preview",
     description:
       "Selects a project and applies an animation/time plus temporary bone visibility for live inspection. It does not bake the pose into the model.",
     annotations: {
-      title: "Set Preview State",
+      title: "Edit Preview",
       destructiveHint: false,
     },
     parameters: setPreviewStateParameters,

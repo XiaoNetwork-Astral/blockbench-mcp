@@ -338,26 +338,26 @@ const meshSelectionOperations = [meshToolDocs[4]];
 
 export const meshPublicToolDocs: ToolSpec[] = [
   {
-    name: "create_mesh_geometry",
+    name: "create_mesh",
     description:
       "Creates custom meshes, spheres, cylinders, or individual mesh faces through one command.action.",
-    annotations: { title: "Create Mesh Geometry", destructiveHint: true },
+    annotations: { title: "Create Mesh", destructiveHint: true },
     parameters: createToolGroupParameters(meshCreateOperations),
     status: STATUS_STABLE,
   },
   {
-    name: "edit_mesh_geometry",
+    name: "edit_mesh",
     description:
       "Extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.",
-    annotations: { title: "Edit Mesh Geometry", destructiveHint: true },
+    annotations: { title: "Edit Mesh", destructiveHint: true },
     parameters: createToolGroupParameters(meshEditOperations),
     status: STATUS_STABLE,
   },
   {
-    name: "select_mesh_geometry",
+    name: "edit_mesh_selection",
     description:
       "Selects mesh vertices, edges, or faces. Use command.action=select_mesh_elements.",
-    annotations: { title: "Select Mesh Geometry", destructiveHint: true },
+    annotations: { title: "Edit Mesh Selection", destructiveHint: true },
     parameters: createToolGroupParameters(meshSelectionOperations),
     status: STATUS_STABLE,
   },

@@ -390,18 +390,18 @@ const animationEditorOperations = [animationToolDocs[2], animationToolDocs[4]];
 
 export const animationPublicToolDocs: ToolSpec[] = [
   {
-    name: "edit_animation_data",
+    name: "edit_animation",
     description:
       "Creates animations, rigs bones, and edits, batches, copies, or pastes keyframes through one command.action.",
-    annotations: { title: "Edit Animation Data", destructiveHint: true },
+    annotations: { title: "Edit Animation", destructiveHint: true },
     parameters: createToolGroupParameters(animationDataOperations),
     status: STATUS_STABLE,
   },
   {
-    name: "control_animation_editor",
+    name: "edit_animation_editor",
     description:
       "Controls the graph editor or animation timeline through one command.action.",
-    annotations: { title: "Control Animation Editor", destructiveHint: true },
+    annotations: { title: "Edit Animation Editor", destructiveHint: true },
     parameters: createToolGroupParameters(animationEditorOperations),
     status: STATUS_STABLE,
   },
