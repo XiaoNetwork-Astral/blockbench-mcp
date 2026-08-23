@@ -11,6 +11,8 @@ const STORAGE_KEY = "codex_blockbench_mcp.project_roles";
 const protectedRoles = new Set<ProjectRole>(["legacy_reference", "new_baseline"]);
 const mutationGuardExemptions = new Set([
   "create_project",
+  "open_bbmodel",
+  "duplicate_project",
   "select_project",
   "set_camera_angle",
   "set_preview_state",

@@ -7,6 +7,12 @@ import {
   describeProject,
 } from "@/lib/projectRoles";
 import { scaleProjectElementUvs } from "@/lib/toolFixes";
+import {
+  normalizeLocalBbmodelPath,
+  parseBbmodelText,
+  portableBbmodelText,
+} from "@/lib/projectFiles";
+import { compileCodecResult } from "@/server/tools/export";
 
 export const createProjectParameters = z.object({
   name: z.string().min(1),
@@ -50,6 +56,42 @@ export const closeProjectParameters = z.object({
     .describe(
       "Required safety switch. true explicitly authorizes discarding unsaved changes in every selected target."
     ),
+});
+
+export const openBbmodelParameters = z.object({
+  path: z
+    .string()
+    .min(1)
+    .describe("Absolute local .bbmodel path or file:// URL. HTTP(S) is rejected."),
+  name: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Optional tab name override after the project opens."),
+  select: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Whether to leave the newly opened project selected."),
+});
+
+export const duplicateProjectParameters = z.object({
+  project: z
+    .string()
+    .optional()
+    .describe(
+      "Open project UUID, unique name, or exact save path. Defaults to the active project."
+    ),
+  name: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Name for the unsaved duplicate tab. Defaults to '<source> copy'."),
+  select: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Whether to leave the duplicate selected."),
 });
 
 export const projectToolDocs: ToolSpec[] = [
@@ -119,9 +161,32 @@ export const projectToolDocs: ToolSpec[] = [
     parameters: closeProjectParameters,
     status: STATUS_STABLE,
   },
+  {
+    name: "open_bbmodel",
+    description:
+      "Validates and opens one absolute local .bbmodel file as a new Blockbench project tab. Remote URLs and oversized/invalid JSON are rejected before Blockbench state changes; the result identifies the exact new tab.",
+    annotations: {
+      title: "Open BBModel",
+      destructiveHint: true,
+      openWorldHint: true,
+    },
+    parameters: openBbmodelParameters,
+    status: STATUS_STABLE,
+  },
+  {
+    name: "duplicate_project",
+    description:
+      "Copies an entire open project—including hierarchy, geometry, textures, UVs, animations, and project metadata—through Blockbench's portable project codec into a new unsaved tab. The source project is not modified.",
+    annotations: {
+      title: "Duplicate Project",
+      destructiveHint: true,
+    },
+    parameters: duplicateProjectParameters,
+    status: STATUS_STABLE,
+  },
 ];
 
-function findProjectOrThrow(reference: string): ModelProject {
+export function findProjectOrThrow(reference: string): ModelProject {
   const uuidMatches = ModelProject.all.filter((project) => project.uuid === reference);
   if (uuidMatches.length === 1) return uuidMatches[0];
 
@@ -141,6 +206,59 @@ function findProjectOrThrow(reference: string): ModelProject {
   throw new Error(
     `Project "${reference}" not found. Use list_projects to inspect open tabs.`
   );
+}
+
+function readLocalBbmodel(path: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error, text?: string): void => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      if (error) reject(error);
+      else resolve(text ?? "");
+    };
+    const timeoutId = window.setTimeout(
+      () => finish(new Error(`Timed out while reading local .bbmodel file "${path}".`)),
+      15_000
+    );
+    const accepted = Blockbench.read(
+      [path],
+      { readtype: "text", errorbox: false, extensions: ["bbmodel"] },
+      (files: Filesystem.FileResult[]) => {
+        const content = files[0]?.content;
+        if (typeof content !== "string") {
+          finish(new Error(`Blockbench could not read text from "${path}".`));
+          return;
+        }
+        try {
+          parseBbmodelText(content, path);
+          finish(undefined, content);
+        } catch (error) {
+          finish(error instanceof Error ? error : new Error(String(error)));
+        }
+      }
+    );
+    if (accepted === false) {
+      finish(new Error(`Blockbench refused to read local .bbmodel file "${path}".`));
+    }
+  });
+}
+
+function openedProjectSince(before: ReadonlySet<ModelProject>): ModelProject {
+  const opened = ModelProject.all.filter((project) => !before.has(project));
+  if (opened.length !== 1) {
+    throw new Error(
+      `Expected Blockbench to open exactly one project tab, observed ${opened.length}.`
+    );
+  }
+  return opened[0];
+}
+
+function sameLocalPath(first: string, second: string): boolean {
+  const normalize = (value: string) =>
+    value.replace(/\\/g, "/").replace(/\/+$/, "").toLocaleLowerCase();
+  return normalize(first) === normalize(second);
 }
 
 export function registerProjectTools() {
@@ -339,5 +457,100 @@ export function registerProjectTools() {
       return JSON.stringify({ closed });
     },
   }, projectToolDocs[5].status);
+
+  createTool(projectToolDocs[6].name, {
+    ...projectToolDocs[6],
+    async execute({ path, name, select }) {
+      const normalizedPath = normalizeLocalBbmodelPath(path);
+      const existing = ModelProject.all.find((project) =>
+        Boolean(project.save_path && sameLocalPath(project.save_path, normalizedPath)) ||
+        Boolean(project.export_path && sameLocalPath(project.export_path, normalizedPath))
+      );
+      if (existing) {
+        if (select && !existing.selected) existing.select();
+        return JSON.stringify({
+          source_path: normalizedPath,
+          opened: describeProject(existing),
+          selected: existing.selected,
+          reused_existing_tab: true,
+          ignored_name_override: name ?? null,
+        }, null, 2);
+      }
+      const content = await readLocalBbmodel(normalizedPath);
+      const previous = Project ?? null;
+      const before = new Set(ModelProject.all);
+      loadModelFile({
+        name: normalizedPath.split(/[\\/]/).pop() || "project.bbmodel",
+        path: normalizedPath,
+        content,
+      }, {});
+      const opened = openedProjectSince(before);
+      if (name) opened.name = name;
+      if (select) opened.select();
+      else if (previous && ModelProject.all.includes(previous)) previous.select();
+
+      return JSON.stringify({
+        source_path: normalizedPath,
+        opened: describeProject(opened),
+        selected: opened.selected,
+        reused_existing_tab: false,
+      }, null, 2);
+    },
+  }, projectToolDocs[6].status);
+
+  createTool(projectToolDocs[7].name, {
+    ...projectToolDocs[7],
+    async execute({ project, name, select }) {
+      const source = project
+        ? findProjectOrThrow(project)
+        : Project;
+      if (!source) {
+        throw new Error("No active project to duplicate.");
+      }
+      const previous = Project ?? null;
+      if (!source.selected && !source.select()) {
+        throw new Error(`Blockbench refused to select source project "${source.name}".`);
+      }
+      if (!Codecs.project || typeof Codecs.project.compile !== "function") {
+        if (previous && previous !== source) previous.select();
+        throw new Error("Blockbench's portable project codec is unavailable.");
+      }
+
+      let content: string;
+      try {
+        content = portableBbmodelText(await compileCodecResult(
+          Codecs.project.compile.bind(Codecs.project),
+          { bitmaps: true, absolute_paths: false }
+        ));
+      } catch (error) {
+        if (previous && previous !== source) previous.select();
+        throw error;
+      }
+
+      const before = new Set(ModelProject.all);
+      loadModelFile({
+        name: `${source.name}.bbmodel`,
+        // loadModelFile chooses a codec from the path extension before it
+        // examines the content. This synthetic path is cleared immediately
+        // after the new tab is identified.
+        path: `codex-duplicate-${source.uuid}.bbmodel`,
+        content,
+      }, {});
+      const duplicate = openedProjectSince(before);
+      duplicate.name = name ?? `${source.name} copy`;
+      duplicate.save_path = "";
+      duplicate.export_path = "";
+      duplicate.saved = false;
+      if (select) duplicate.select();
+      else if (previous && ModelProject.all.includes(previous)) previous.select();
+
+      return JSON.stringify({
+        source: describeProject(source),
+        duplicate: describeProject(duplicate),
+        portable_bytes: new TextEncoder().encode(content).byteLength,
+        selected: duplicate.selected,
+      }, null, 2);
+    },
+  }, projectToolDocs[7].status);
 
 }
