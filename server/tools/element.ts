@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { findElementOrThrow, findTextureOrThrow } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import {
@@ -266,7 +271,7 @@ export const elementToolDocs: ToolSpec[] = [
   {
     name: "get_selection",
     description:
-      "Returns the current selection state: selected cube/mesh/group UUIDs and names, plus the active texture. Use this to verify what `apply_texture` or a paint tool with `fill_mode=\"selected_elements\"` will target.",
+      "Returns the current selection state: selected cube/mesh/group UUIDs and names, plus the active texture. Use this to verify what the edit_textures action apply_texture or a paint_texture action with fill_mode=\"selected_elements\" will target.",
     annotations: {
       title: "Get Selection",
       readOnlyHint: true,
@@ -283,6 +288,40 @@ export const elementToolDocs: ToolSpec[] = [
       destructiveHint: true,
     },
     parameters: modifyGroupParameters,
+    status: STATUS_STABLE,
+  },
+];
+
+const elementReadOperations = [
+  elementToolDocs[2],
+  elementToolDocs[5],
+  elementToolDocs[7],
+  elementToolDocs[8],
+];
+const elementEditOperations = [
+  elementToolDocs[0],
+  elementToolDocs[1],
+  elementToolDocs[3],
+  elementToolDocs[4],
+  elementToolDocs[6],
+  elementToolDocs[9],
+];
+
+export const elementPublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_elements",
+    description:
+      "Lists the Outliner, searches elements, reports selection, or finds texture users through one read-only command.action.",
+    annotations: { title: "Inspect Elements", readOnlyHint: true },
+    parameters: createToolGroupParameters(elementReadOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "edit_elements",
+    description:
+      "Creates groups, duplicates, renames, transforms, selects, or removes Outliner elements through one explicit command.action.",
+    annotations: { title: "Edit Elements", destructiveHint: true },
+    parameters: createToolGroupParameters(elementEditOperations),
     status: STATUS_STABLE,
   },
 ];
@@ -373,7 +412,7 @@ function safeCompileRegex(pattern: string | undefined): RegExp | null {
 }
 
 export function registerElementTools() {
-  createTool(elementToolDocs[0].name, {
+  createInternalTool(elementToolDocs[0].name, {
     ...elementToolDocs[0],
     async execute({ id }) {
       const element = findElementOrThrow(id);
@@ -402,7 +441,7 @@ export function registerElementTools() {
     },
   }, elementToolDocs[0].status);
 
-  createTool(elementToolDocs[1].name, {
+  createInternalTool(elementToolDocs[1].name, {
     ...elementToolDocs[1],
     async execute({
       name,
@@ -446,7 +485,7 @@ export function registerElementTools() {
     },
   }, elementToolDocs[1].status);
 
-  createTool(elementToolDocs[2].name, {
+  createInternalTool(elementToolDocs[2].name, {
     ...elementToolDocs[2],
     async execute({ include_cubes, include_meshes, max_depth }) {
       interface IOutlineNode {
@@ -510,7 +549,7 @@ export function registerElementTools() {
     },
   }, elementToolDocs[2].status);
 
-  createTool(elementToolDocs[3].name, {
+  createInternalTool(elementToolDocs[3].name, {
     ...elementToolDocs[3],
     async execute({ id, parent, offset, newName }) {
       const element = findElementOrThrow(id);
@@ -550,7 +589,7 @@ export function registerElementTools() {
    * Rename an element.  Mirrors the simple property change seen in the existing tools,
    * using `extend` to apply the change and updating the editor.
    */
-  createTool(elementToolDocs[4].name, {
+  createInternalTool(elementToolDocs[4].name, {
     ...elementToolDocs[4],
     async execute({ id, new_name }) {
       const element = findElementOrThrow(id);
@@ -566,7 +605,7 @@ export function registerElementTools() {
     },
   }, elementToolDocs[4].status);
 
-  createTool(elementToolDocs[5].name, {
+  createInternalTool(elementToolDocs[5].name, {
     ...elementToolDocs[5],
     async execute({
       name_pattern,
@@ -587,7 +626,7 @@ export function registerElementTools() {
 
       if (parent_group && !parentScope) {
         throw new Error(
-          `Parent group "${parent_group}" not found. Use list_outline to see available groups.`
+          `Parent group "${parent_group}" not found. Use inspect_elements with command.action "list_outline" to see available groups.`
         );
       }
 
@@ -633,7 +672,7 @@ export function registerElementTools() {
     },
   }, elementToolDocs[5].status);
 
-  createTool(elementToolDocs[6].name, {
+  createInternalTool(elementToolDocs[6].name, {
     ...elementToolDocs[6],
     async execute({ type, add_to_selection, parent_group }) {
       const parentScope = parent_group
@@ -643,7 +682,7 @@ export function registerElementTools() {
 
       if (parent_group && !parentScope) {
         throw new Error(
-          `Parent group "${parent_group}" not found. Use list_outline to see available groups.`
+          `Parent group "${parent_group}" not found. Use inspect_elements with command.action "list_outline" to see available groups.`
         );
       }
 
@@ -691,7 +730,7 @@ export function registerElementTools() {
     },
   }, elementToolDocs[6].status);
 
-  createTool(elementToolDocs[7].name, {
+  createInternalTool(elementToolDocs[7].name, {
     ...elementToolDocs[7],
     async execute({ texture, include_face_keys }) {
       const tex = findTextureOrThrow(texture);
@@ -745,7 +784,7 @@ export function registerElementTools() {
     },
   }, elementToolDocs[7].status);
 
-  createTool(elementToolDocs[8].name, {
+  createInternalTool(elementToolDocs[8].name, {
     ...elementToolDocs[8],
     async execute() {
       const cubes = Cube.selected.map((c: Cube) => ({
@@ -794,7 +833,7 @@ export function registerElementTools() {
     },
   }, elementToolDocs[8].status);
 
-  createTool(elementToolDocs[9].name, {
+  createInternalTool(elementToolDocs[9].name, {
     ...elementToolDocs[9],
     async execute({ id, origin, rotation, position }) {
       const element = findElementOrThrow(id);
@@ -867,4 +906,7 @@ export function registerElementTools() {
       }, null, 2);
     },
   }, elementToolDocs[9].status);
+
+  createToolGroup(elementPublicToolDocs[0], elementReadOperations);
+  createToolGroup(elementPublicToolDocs[1], elementEditOperations);
 }

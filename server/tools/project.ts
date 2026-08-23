@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
 import {
   describeProject,
@@ -186,6 +191,39 @@ export const projectToolDocs: ToolSpec[] = [
   },
 ];
 
+const projectReadOperations = [projectToolDocs[1], projectToolDocs[2]];
+const projectEditOperations = [
+  projectToolDocs[0],
+  projectToolDocs[3],
+  projectToolDocs[4],
+  projectToolDocs[5],
+  projectToolDocs[6],
+  projectToolDocs[7],
+];
+
+export const projectPublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_projects",
+    description:
+      "Lists open Blockbench projects or returns detailed information for the active project through a read-only command.action.",
+    annotations: { title: "Inspect Projects", readOnlyHint: true },
+    parameters: createToolGroupParameters(projectReadOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "manage_projects",
+    description:
+      "Creates, selects, configures, closes, opens, or duplicates Blockbench projects through one explicit command.action.",
+    annotations: {
+      title: "Manage Projects",
+      destructiveHint: true,
+      openWorldHint: true,
+    },
+    parameters: createToolGroupParameters(projectEditOperations),
+    status: STATUS_STABLE,
+  },
+];
+
 export function findProjectOrThrow(reference: string): ModelProject {
   const uuidMatches = ModelProject.all.filter((project) => project.uuid === reference);
   if (uuidMatches.length === 1) return uuidMatches[0];
@@ -200,11 +238,11 @@ export function findProjectOrThrow(reference: string): ModelProject {
   if (uniqueMatches.length > 1) {
     throw new Error(
       `Project reference "${reference}" is ambiguous (${uniqueMatches.length} matches: ` +
-        `${uniqueMatches.map((project) => project.uuid).join(", ")}). Use an exact UUID from list_projects.`
+        `${uniqueMatches.map((project) => project.uuid).join(", ")}). Use an exact UUID from inspect_projects with command.action "list_projects".`
     );
   }
   throw new Error(
-    `Project "${reference}" not found. Use list_projects to inspect open tabs.`
+    `Project "${reference}" not found. Use inspect_projects with command.action "list_projects" to inspect open tabs.`
   );
 }
 
@@ -262,7 +300,7 @@ function sameLocalPath(first: string, second: string): boolean {
 }
 
 export function registerProjectTools() {
-  createTool(projectToolDocs[0].name, {
+  createInternalTool(projectToolDocs[0].name, {
     ...projectToolDocs[0],
     async execute({ name, format }) {
       const selectedFormat = Formats[format];
@@ -284,12 +322,12 @@ export function registerProjectTools() {
     },
   }, projectToolDocs[0].status);
 
-  createTool(projectToolDocs[1].name, {
+  createInternalTool(projectToolDocs[1].name, {
     ...projectToolDocs[1],
     async execute() {
       if (!Project) {
         throw new Error(
-          "No project is open. Use create_project to start a new one, or open an existing file in Blockbench."
+          "No project is open. Use manage_projects with command.action \"create_project\", or open an existing file in Blockbench."
         );
       }
 
@@ -334,7 +372,7 @@ export function registerProjectTools() {
     },
   }, projectToolDocs[1].status);
 
-  createTool(projectToolDocs[2].name, {
+  createInternalTool(projectToolDocs[2].name, {
     ...projectToolDocs[2],
     async execute() {
       return JSON.stringify(
@@ -349,7 +387,7 @@ export function registerProjectTools() {
     },
   }, projectToolDocs[2].status);
 
-  createTool(projectToolDocs[3].name, {
+  createInternalTool(projectToolDocs[3].name, {
     ...projectToolDocs[3],
     async execute({ project }) {
       const target = findProjectOrThrow(project);
@@ -360,11 +398,13 @@ export function registerProjectTools() {
     },
   }, projectToolDocs[3].status);
 
-  createTool(projectToolDocs[4].name, {
+  createInternalTool(projectToolDocs[4].name, {
     ...projectToolDocs[4],
     async execute({ width, height, modify_uv }) {
       if (!Project) {
-        throw new Error("No active project. Use create_project or select_project first.");
+        throw new Error(
+          "No active project. Use manage_projects with command.action \"create_project\" or \"select_project\" first."
+        );
       }
       const previousWidth = Project.texture_width;
       const previousHeight = Project.texture_height;
@@ -414,7 +454,7 @@ export function registerProjectTools() {
     },
   }, projectToolDocs[4].status);
 
-  createTool(projectToolDocs[5].name, {
+  createInternalTool(projectToolDocs[5].name, {
     ...projectToolDocs[5],
     async execute({ targets, discard_unsaved_changes }) {
       const selectedTargets = targets === "all"
@@ -458,7 +498,7 @@ export function registerProjectTools() {
     },
   }, projectToolDocs[5].status);
 
-  createTool(projectToolDocs[6].name, {
+  createInternalTool(projectToolDocs[6].name, {
     ...projectToolDocs[6],
     async execute({ path, name, select }) {
       const normalizedPath = normalizeLocalBbmodelPath(path);
@@ -498,7 +538,7 @@ export function registerProjectTools() {
     },
   }, projectToolDocs[6].status);
 
-  createTool(projectToolDocs[7].name, {
+  createInternalTool(projectToolDocs[7].name, {
     ...projectToolDocs[7],
     async execute({ project, name, select }) {
       const source = project
@@ -552,5 +592,8 @@ export function registerProjectTools() {
       }, null, 2);
     },
   }, projectToolDocs[7].status);
+
+  createToolGroup(projectPublicToolDocs[0], projectReadOperations);
+  createToolGroup(projectPublicToolDocs[1], projectEditOperations);
 
 }

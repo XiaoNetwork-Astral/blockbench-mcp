@@ -21,7 +21,7 @@ export const importToolDocs: ToolSpec[] = [
   {
     name: "from_geo_json",
     description:
-      "Imports existing Bedrock geometry from serialized JSON (the tool name is retained for compatibility; this is not geographic GeoJSON). Accepts inline JSON, JSON data URLs, and local files only. Remote HTTP(S) fetching is disabled. Use add_group/place_cube/modify_cube when constructing a new model from scratch instead of using this as a shortcut.",
+      "Imports existing Bedrock geometry from serialized JSON (the tool name is retained for compatibility; this is not geographic GeoJSON). Accepts inline JSON, JSON data URLs, and local files only. Remote HTTP(S) fetching is disabled. For new models, use edit_elements actions add_group/modify_group and the place_cube tool instead of this import shortcut.",
     annotations: {
       title: "Import GeoJSON",
       destructiveHint: true,

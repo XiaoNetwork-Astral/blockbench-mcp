@@ -84,7 +84,7 @@ export function registerPreviewTools() {
       if (!target) {
         throw new Error(
           project
-            ? `Project "${project}" not found. Use list_projects to inspect open tabs.`
+            ? `Project "${project}" not found. Use inspect_projects with command.action "list_projects" to inspect open tabs.`
             : "No active project is open."
         );
       }

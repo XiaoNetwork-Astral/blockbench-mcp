@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
 import { findElementOrThrow } from "@/lib/util";
 import {
@@ -191,6 +196,19 @@ export const spatialToolDocs: ToolSpec[] = [
   },
 ];
 
+const geometryInspectionOperations = [spatialToolDocs[0], spatialToolDocs[1]];
+
+export const spatialPublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_geometry",
+    description:
+      "Inspects hierarchy/bounds relationships or performs exact geometry measurements through one read-only command.action.",
+    annotations: { title: "Inspect Geometry", readOnlyHint: true },
+    parameters: createToolGroupParameters(geometryInspectionOperations),
+    status: STATUS_STABLE,
+  },
+];
+
 type InspectableNode = OutlinerElement | Group;
 
 type MeasurementEndpoint = z.infer<ReturnType<typeof measurementEndpointSchema>>;
@@ -321,7 +339,7 @@ function isAncestor(ancestor: InspectableNode, child: InspectableNode): boolean 
 }
 
 export function registerSpatialTools(): void {
-  createTool(spatialToolDocs[0].name, {
+  createInternalTool(spatialToolDocs[0].name, {
     ...spatialToolDocs[0],
     async execute({ elements, pairs }) {
       const requested = new Map<string, InspectableNode>();
@@ -409,7 +427,7 @@ export function registerSpatialTools(): void {
     },
   }, spatialToolDocs[0].status);
 
-  createTool(spatialToolDocs[1].name, {
+  createInternalTool(spatialToolDocs[1].name, {
     ...spatialToolDocs[1],
     async execute({ elements, distances, angles, tolerance }) {
       const nodes = new Map<string, InspectableNode>();
@@ -637,4 +655,6 @@ export function registerSpatialTools(): void {
       }, null, 2);
     },
   }, spatialToolDocs[1].status);
+
+  createToolGroup(spatialPublicToolDocs[0], geometryInspectionOperations);
 }

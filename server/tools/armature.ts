@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import {
   elementIdSchema,
@@ -267,17 +272,6 @@ export const getVertexWeightsParameters = z.object({
     .describe("Filter weights by specific bone."),
 });
 
-export const setVertexWeightParameters = z.object({
-  bone_id: elementIdSchema.describe("UUID or name of the bone."),
-  mesh_id: meshIdOptionalSchema,
-  vertex_key: z.string().describe("Key of the vertex in the mesh."),
-  weight: z
-    .number()
-    .min(0)
-    .max(1)
-    .describe("Weight value (0-1). Set to 0 to remove weight."),
-});
-
 export const setVertexWeightsBatchParameters = z.object({
   bone_id: elementIdSchema.describe("UUID or name of the bone."),
   mesh_id: meshIdOptionalSchema,
@@ -434,16 +428,6 @@ export const armatureToolDocs: ToolSpec[] = [
     status: STATUS_STABLE,
   },
   {
-    name: "set_vertex_weight",
-    description: "Sets the weight of a specific vertex on a bone.",
-    annotations: {
-      title: "Set Vertex Weight",
-      destructiveHint: true,
-    },
-    parameters: setVertexWeightParameters,
-    status: STATUS_STABLE,
-  },
-  {
     name: "set_vertex_weights_batch",
     description: "Sets multiple vertex weights at once on a bone.",
     annotations: {
@@ -465,6 +449,55 @@ export const armatureToolDocs: ToolSpec[] = [
   },
 ];
 
+const armatureReadOperations = [
+  armatureToolDocs[0],
+  armatureToolDocs[1],
+  armatureToolDocs[5],
+  armatureToolDocs[6],
+  armatureToolDocs[12],
+];
+const armatureEditOperations = [
+  armatureToolDocs[2],
+  armatureToolDocs[3],
+  armatureToolDocs[4],
+  armatureToolDocs[7],
+  armatureToolDocs[8],
+  armatureToolDocs[9],
+  armatureToolDocs[10],
+  armatureToolDocs[11],
+];
+const vertexWeightOperations = [
+  armatureToolDocs[13],
+  armatureToolDocs[14],
+];
+
+export const armaturePublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_armature",
+    description:
+      "Lists or inspects armatures, bones, and vertex weights. Select command.action and pass the corresponding input object.",
+    annotations: { title: "Inspect Armature", readOnlyHint: true },
+    parameters: createToolGroupParameters(armatureReadOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "edit_armature",
+    description:
+      "Creates, updates, removes, or selects armatures and bones through one explicit command.action.",
+    annotations: { title: "Edit Armature", destructiveHint: true },
+    parameters: createToolGroupParameters(armatureEditOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "edit_vertex_weights",
+    description:
+      "Sets one or many vertex weights with set_vertex_weights_batch, or clears weights for a bone and mesh.",
+    annotations: { title: "Edit Vertex Weights", destructiveHint: true },
+    parameters: createToolGroupParameters(vertexWeightOperations),
+    status: STATUS_STABLE,
+  },
+];
+
 // ============================================================================
 // Armature Tools
 // ============================================================================
@@ -473,7 +506,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // List Armatures
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[0].name, {
+  createInternalTool(armatureToolDocs[0].name, {
     ...armatureToolDocs[0],
     async execute() {
       const armatures = Armature.all.map(serializeArmature);
@@ -491,7 +524,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Get Armature
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[1].name, {
+  createInternalTool(armatureToolDocs[1].name, {
     ...armatureToolDocs[1],
     async execute({ id, include_bones }) {
       const armature = findArmatureOrThrow(id);
@@ -509,7 +542,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Add Armature
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[2].name, {
+  createInternalTool(armatureToolDocs[2].name, {
     ...armatureToolDocs[2],
     async execute({ name, visibility, locked, add_initial_bone }) {
       // Check if format supports armatures
@@ -561,7 +594,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Remove Armature
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[3].name, {
+  createInternalTool(armatureToolDocs[3].name, {
     ...armatureToolDocs[3],
     async execute({ id }) {
       const armature = findArmatureOrThrow(id);
@@ -589,7 +622,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Update Armature
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[4].name, {
+  createInternalTool(armatureToolDocs[4].name, {
     ...armatureToolDocs[4],
     async execute({ id, name, visibility, locked, export: shouldExport }) {
       const armature = findArmatureOrThrow(id);
@@ -619,7 +652,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // List Armature Bones
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[5].name, {
+  createInternalTool(armatureToolDocs[5].name, {
     ...armatureToolDocs[5],
     async execute({ armature_id }) {
       let bones: ArmatureBone[];
@@ -646,7 +679,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Get Armature Bone
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[6].name, {
+  createInternalTool(armatureToolDocs[6].name, {
     ...armatureToolDocs[6],
     async execute({ id, include_weights }) {
       const bone = findArmatureBoneOrThrow(id);
@@ -667,7 +700,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Add Armature Bone
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[7].name, {
+  createInternalTool(armatureToolDocs[7].name, {
     ...armatureToolDocs[7],
     async execute({
       parent_id,
@@ -733,7 +766,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Remove Armature Bone
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[8].name, {
+  createInternalTool(armatureToolDocs[8].name, {
     ...armatureToolDocs[8],
     async execute({ id, remove_children }) {
       const bone = findArmatureBoneOrThrow(id);
@@ -773,7 +806,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Update Armature Bone
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[9].name, {
+  createInternalTool(armatureToolDocs[9].name, {
     ...armatureToolDocs[9],
     async execute({
       id,
@@ -820,7 +853,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Update Armature Bones (Batch)
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[10].name, {
+  createInternalTool(armatureToolDocs[10].name, {
     ...armatureToolDocs[10],
     async execute({ ids, visibility, locked, color }) {
       const bones = ids.map(findArmatureBoneOrThrow);
@@ -851,7 +884,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Select Armature Bones
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[11].name, {
+  createInternalTool(armatureToolDocs[11].name, {
     ...armatureToolDocs[11],
     async execute({ ids, armature_id, include_descendants, clear_selection }) {
       if (clear_selection) {
@@ -898,7 +931,7 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   // Get Vertex Weights
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[12].name, {
+  createInternalTool(armatureToolDocs[12].name, {
     ...armatureToolDocs[12],
     async execute({ mesh_id, bone_id }) {
       // Find mesh
@@ -950,56 +983,10 @@ export function registerArmatureTools() {
   }, armatureToolDocs[12].status);
 
   // ---------------------------------------------------------------------------
-  // Set Vertex Weight
-  // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[13].name, {
-    ...armatureToolDocs[13],
-    async execute({ bone_id, mesh_id, vertex_key, weight }) {
-      const bone = findArmatureBoneOrThrow(bone_id);
-
-      let mesh: Mesh | undefined;
-      if (mesh_id) {
-        mesh = findMesh(mesh_id);
-      } else {
-        mesh = Mesh.selected[0];
-      }
-      if (!mesh) {
-        throw new Error("No mesh found. Provide mesh_id or select a mesh.");
-      }
-
-      if (!(vertex_key in mesh.vertices)) {
-        throw new Error(`Vertex "${vertex_key}" not found in mesh "${mesh.name}".`);
-      }
-
-      Undo.initEdit({ elements: [bone] });
-      bone.setVertexWeight(mesh, vertex_key, weight);
-      Undo.finishEdit("Agent set vertex weight");
-
-      // Update mesh display
-      Canvas.updateView({
-        elements: [mesh],
-        element_aspects: { geometry: true },
-      });
-
-      return JSON.stringify(
-        {
-          message: `Set weight ${weight} for vertex "${vertex_key}" on bone "${bone.name}"`,
-          bone: { uuid: bone.uuid, name: bone.name },
-          mesh: { uuid: mesh.uuid, name: mesh.name },
-          vertex: vertex_key,
-          weight,
-        },
-        null,
-        2
-      );
-    },
-  }, armatureToolDocs[13].status);
-
-  // ---------------------------------------------------------------------------
   // Set Vertex Weights (Batch)
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[14].name, {
-    ...armatureToolDocs[14],
+  createInternalTool(armatureToolDocs[13].name, {
+    ...armatureToolDocs[13],
     async execute({ bone_id, mesh_id, weights }) {
       const bone = findArmatureBoneOrThrow(bone_id);
 
@@ -1041,13 +1028,13 @@ export function registerArmatureTools() {
         2
       );
     },
-  }, armatureToolDocs[14].status);
+  }, armatureToolDocs[13].status);
 
   // ---------------------------------------------------------------------------
   // Clear Vertex Weights
   // ---------------------------------------------------------------------------
-  createTool(armatureToolDocs[15].name, {
-    ...armatureToolDocs[15],
+  createInternalTool(armatureToolDocs[14].name, {
+    ...armatureToolDocs[14],
     async execute({ bone_id, mesh_id }) {
       const bone = findArmatureBoneOrThrow(bone_id);
 
@@ -1091,5 +1078,9 @@ export function registerArmatureTools() {
         2
       );
     },
-  }, armatureToolDocs[15].status);
+  }, armatureToolDocs[14].status);
+
+  createToolGroup(armaturePublicToolDocs[0], armatureReadOperations);
+  createToolGroup(armaturePublicToolDocs[1], armatureEditOperations);
+  createToolGroup(armaturePublicToolDocs[2], vertexWeightOperations);
 }

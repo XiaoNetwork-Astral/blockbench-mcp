@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { findMeshOrThrow, getMeshOrSelected } from "@/lib/util";
 import { STATUS_EXPERIMENTAL } from "@/lib/constants";
 import {
@@ -88,8 +93,21 @@ export const uvToolDocs: ToolSpec[] = [
   },
 ];
 
+const meshUvOperations = [...uvToolDocs];
+
+export const uvPublicToolDocs: ToolSpec[] = [
+  {
+    name: "edit_mesh_uv",
+    description:
+      "Sets, automatically generates, or rotates mesh UV coordinates through one command.action.",
+    annotations: { title: "Edit Mesh UV", destructiveHint: true },
+    parameters: createToolGroupParameters(meshUvOperations),
+    status: STATUS_EXPERIMENTAL,
+  },
+];
+
 export function registerUVTools() {
-  createTool(
+  createInternalTool(
     uvToolDocs[0].name,
     {
       ...uvToolDocs[0],
@@ -124,7 +142,7 @@ export function registerUVTools() {
     uvToolDocs[0].status
   );
 
-  createTool(
+  createInternalTool(
     uvToolDocs[1].name,
     {
       ...uvToolDocs[1],
@@ -191,7 +209,7 @@ export function registerUVTools() {
     uvToolDocs[1].status
   );
 
-  createTool(
+  createInternalTool(
     uvToolDocs[2].name,
     {
       ...uvToolDocs[2],
@@ -223,4 +241,6 @@ export function registerUVTools() {
     },
     uvToolDocs[2].status
   );
+
+  createToolGroup(uvPublicToolDocs[0], meshUvOperations);
 }

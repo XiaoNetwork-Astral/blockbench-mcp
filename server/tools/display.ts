@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { STATUS_EXPERIMENTAL } from "@/lib/constants";
 import { captureScreenshot } from "@/lib/util";
 import { displaySlotEnum, vec3 } from "@/lib/zodObjects";
@@ -78,6 +83,27 @@ export const displayToolDocs: ToolSpec[] = [
       destructiveHint: false,
     },
     parameters: enterDisplayModeParameters,
+    status: STATUS_EXPERIMENTAL,
+  },
+];
+
+const displayReadOperations = [displayToolDocs[0]];
+const displayEditOperations = [displayToolDocs[1], displayToolDocs[2]];
+
+export const displayPublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_display",
+    description: "Reads one or all Java Edition display transforms.",
+    annotations: { title: "Inspect Display", readOnlyHint: true },
+    parameters: createToolGroupParameters(displayReadOperations),
+    status: STATUS_EXPERIMENTAL,
+  },
+  {
+    name: "edit_display",
+    description:
+      "Writes display transforms or enters a display preview slot through one command.action.",
+    annotations: { title: "Edit Display", destructiveHint: true },
+    parameters: createToolGroupParameters(displayEditOperations),
     status: STATUS_EXPERIMENTAL,
   },
 ];
@@ -201,7 +227,7 @@ export function hasDisplayTransformChange(
 }
 
 export function registerDisplayTools() {
-  createTool(displayToolDocs[0].name, {
+  createInternalTool(displayToolDocs[0].name, {
     ...displayToolDocs[0],
     async execute({ slot }) {
       const settings = getDisplaySettingsOrThrow();
@@ -236,7 +262,7 @@ export function registerDisplayTools() {
     },
   }, displayToolDocs[0].status);
 
-  createTool(displayToolDocs[1].name, {
+  createInternalTool(displayToolDocs[1].name, {
     ...displayToolDocs[1],
     async execute(args) {
       const settings = getDisplaySettingsOrThrow();
@@ -291,7 +317,7 @@ export function registerDisplayTools() {
     },
   }, displayToolDocs[1].status);
 
-  createTool(displayToolDocs[2].name, {
+  createInternalTool(displayToolDocs[2].name, {
     ...displayToolDocs[2],
     async execute({ slot, reference }) {
       getDisplaySettingsOrThrow();
@@ -334,4 +360,7 @@ export function registerDisplayTools() {
       };
     },
   }, displayToolDocs[2].status);
+
+  createToolGroup(displayPublicToolDocs[0], displayReadOperations);
+  createToolGroup(displayPublicToolDocs[1], displayEditOperations);
 }

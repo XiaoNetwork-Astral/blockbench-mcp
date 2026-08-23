@@ -9,8 +9,9 @@ const MCP_INSTRUCTIONS =
   "replacement or deletion. Every Outliner create, duplicate, parent, or mirror operation must " +
   "name an explicit parent; use the literal root only when root placement is intentional. Build " +
   "a semantic group hierarchy before adding geometry, and validate each coherent stage from " +
-  "front, side, top, and perspective views. Use inspect_spatial_relationships for important " +
-  "contacts. If hierarchy or depth remains ambiguous after those checks, stop before further " +
+  "front, side, top, and perspective views. Use inspect_geometry with command.action " +
+  "inspect_spatial_relationships for important contacts. If hierarchy or depth remains " +
+  "ambiguous after those checks, stop before further " +
   "mutation and ask the user to inspect the model and state the intended structure or position. " +
   "Do not use from_geo_json as a shortcut unless the user explicitly asks to import existing " +
   "geometry. Use YSM workspace tools only for an explicitly selected YSM workflow.";

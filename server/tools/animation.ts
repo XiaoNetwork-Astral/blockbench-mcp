@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { findElementOrThrow, findGroupOrThrow } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import { applyKeyframeValues } from "@/lib/toolFixes";
@@ -374,8 +379,36 @@ export const animationToolDocs: ToolSpec[] = [
   },
 ];
 
+const animationDataOperations = [
+  animationToolDocs[0],
+  animationToolDocs[1],
+  animationToolDocs[3],
+  animationToolDocs[5],
+  animationToolDocs[6],
+];
+const animationEditorOperations = [animationToolDocs[2], animationToolDocs[4]];
+
+export const animationPublicToolDocs: ToolSpec[] = [
+  {
+    name: "edit_animation_data",
+    description:
+      "Creates animations, rigs bones, and edits, batches, copies, or pastes keyframes through one command.action.",
+    annotations: { title: "Edit Animation Data", destructiveHint: true },
+    parameters: createToolGroupParameters(animationDataOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "control_animation_editor",
+    description:
+      "Controls the graph editor or animation timeline through one command.action.",
+    annotations: { title: "Control Animation Editor", destructiveHint: true },
+    parameters: createToolGroupParameters(animationEditorOperations),
+    status: STATUS_STABLE,
+  },
+];
+
 export function registerAnimationTools() {
-createTool(
+createInternalTool(
   animationToolDocs[0].name,
   {
     ...animationToolDocs[0],
@@ -429,7 +462,7 @@ createTool(
   animationToolDocs[0].status
 );
 
-createTool(
+createInternalTool(
   animationToolDocs[1].name,
   {
     ...animationToolDocs[1],
@@ -558,7 +591,7 @@ createTool(
   animationToolDocs[1].status
 );
 
-createTool(
+createInternalTool(
   animationToolDocs[2].name,
   {
     ...animationToolDocs[2],
@@ -675,7 +708,7 @@ createTool(
   animationToolDocs[2].status
 );
 
-createTool(
+createInternalTool(
   animationToolDocs[3].name,
   {
     ...animationToolDocs[3],
@@ -873,7 +906,7 @@ createTool(
   animationToolDocs[3].status
 );
 
-createTool(
+createInternalTool(
   animationToolDocs[4].name,
   {
     ...animationToolDocs[4],
@@ -958,7 +991,7 @@ createTool(
   animationToolDocs[4].status
 );
 
-createTool(
+createInternalTool(
   animationToolDocs[5].name,
   {
     ...animationToolDocs[5],
@@ -1107,7 +1140,7 @@ createTool(
   animationToolDocs[5].status
 );
 
-createTool(
+createInternalTool(
   animationToolDocs[6].name,
   {
     ...animationToolDocs[6],
@@ -1292,4 +1325,7 @@ createTool(
   },
   animationToolDocs[6].status
 );
+
+  createToolGroup(animationPublicToolDocs[0], animationDataOperations);
+  createToolGroup(animationPublicToolDocs[1], animationEditorOperations);
 }

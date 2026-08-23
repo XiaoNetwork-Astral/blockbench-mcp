@@ -1,8 +1,14 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
+import { ysmToolDocs } from "@/server/tools/ysm";
 import {
   mergeWorkingIntoBaseline,
   openYsmWorkflowTabs,
@@ -54,8 +60,34 @@ export const workflowToolDocs: ToolSpec[] = [
   },
 ];
 
+const ysmReadOperations = [ysmToolDocs[1], workflowToolDocs[1]];
+const ysmWorkflowEditOperations = [workflowToolDocs[0], workflowToolDocs[2]];
+
+export const workflowPublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_ysm",
+    description:
+      "Reports YSM workspace/binding state or the protected three-tab workflow through one read-only command.action.",
+    annotations: { title: "Inspect YSM", readOnlyHint: true },
+    parameters: createToolGroupParameters(ysmReadOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "manage_ysm_workflow",
+    description:
+      "Opens the protected YSM three-tab workflow or performs an explicitly confirmed baseline merge.",
+    annotations: {
+      title: "Manage YSM Workflow",
+      destructiveHint: true,
+      openWorldHint: true,
+    },
+    parameters: createToolGroupParameters(ysmWorkflowEditOperations),
+    status: STATUS_STABLE,
+  },
+];
+
 export function registerWorkflowTools(): void {
-  createTool(workflowToolDocs[0].name, {
+  createInternalTool(workflowToolDocs[0].name, {
     ...workflowToolDocs[0],
     async execute({
       skin_name,
@@ -74,17 +106,20 @@ export function registerWorkflowTools(): void {
     },
   }, workflowToolDocs[0].status);
 
-  createTool(workflowToolDocs[1].name, {
+  createInternalTool(workflowToolDocs[1].name, {
     ...workflowToolDocs[1],
     async execute() {
       return JSON.stringify(workflowStatus(), null, 2);
     },
   }, workflowToolDocs[1].status);
 
-  createTool(workflowToolDocs[2].name, {
+  createInternalTool(workflowToolDocs[2].name, {
     ...workflowToolDocs[2],
     async execute() {
       return JSON.stringify(await mergeWorkingIntoBaseline(), null, 2);
     },
   }, workflowToolDocs[2].status);
+
+  createToolGroup(workflowPublicToolDocs[0], ysmReadOperations);
+  createToolGroup(workflowPublicToolDocs[1], ysmWorkflowEditOperations);
 }

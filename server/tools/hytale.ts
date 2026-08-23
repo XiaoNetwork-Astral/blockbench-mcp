@@ -2,7 +2,12 @@
 /// <reference types="blockbench-types" />
 
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import {
   isHytalePluginInstalled,
   isHytaleFormat,
@@ -261,6 +266,42 @@ export const hytaleToolDocs: ToolSpec[] = [
   },
 ];
 
+const hytaleReadOperations = [
+  hytaleToolDocs[0],
+  hytaleToolDocs[1],
+  hytaleToolDocs[3],
+  hytaleToolDocs[5],
+  hytaleToolDocs[7],
+  hytaleToolDocs[11],
+];
+const hytaleEditOperations = [
+  hytaleToolDocs[2],
+  hytaleToolDocs[4],
+  hytaleToolDocs[6],
+  hytaleToolDocs[8],
+  hytaleToolDocs[9],
+  hytaleToolDocs[10],
+];
+
+export const hytalePublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_hytale",
+    description:
+      "Reads or validates Hytale format, cube, stretch, and attachment information through one command.action.",
+    annotations: { title: "Inspect Hytale", readOnlyHint: true },
+    parameters: createToolGroupParameters(hytaleReadOperations),
+    status: "experimental",
+  },
+  {
+    name: "edit_hytale",
+    description:
+      "Creates or changes Hytale quads, cube properties, stretch, attachment pieces, visibility keyframes, or animation loops through one command.action.",
+    annotations: { title: "Edit Hytale", destructiveHint: true },
+    parameters: createToolGroupParameters(hytaleEditOperations),
+    status: "experimental",
+  },
+];
+
 /**
  * Register Hytale-specific tools.
  * These tools are only functional when the Hytale plugin is installed.
@@ -278,7 +319,7 @@ export function registerHytaleTools() {
   // Format & Project Tools
   // ============================================================================
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[0].name,
     {
       ...hytaleToolDocs[0],
@@ -315,7 +356,7 @@ export function registerHytaleTools() {
     hytaleToolDocs[0].status
   );
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[1].name,
     {
       ...hytaleToolDocs[1],
@@ -364,7 +405,7 @@ export function registerHytaleTools() {
   // Cube Property Tools (Shading Mode, Double-Sided)
   // ============================================================================
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[2].name,
     {
       ...hytaleToolDocs[2],
@@ -414,7 +455,7 @@ export function registerHytaleTools() {
     hytaleToolDocs[2].status
   );
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[3].name,
     {
       ...hytaleToolDocs[3],
@@ -454,7 +495,7 @@ export function registerHytaleTools() {
   // Quad Creation Tool
   // ============================================================================
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[4].name,
     {
       ...hytaleToolDocs[4],
@@ -541,7 +582,7 @@ export function registerHytaleTools() {
   // Attachment Tools
   // ============================================================================
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[5].name,
     {
       ...hytaleToolDocs[5],
@@ -567,7 +608,7 @@ export function registerHytaleTools() {
     hytaleToolDocs[5].status
   );
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[6].name,
     {
       ...hytaleToolDocs[6],
@@ -596,7 +637,7 @@ export function registerHytaleTools() {
     hytaleToolDocs[6].status
   );
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[7].name,
     {
       ...hytaleToolDocs[7],
@@ -624,7 +665,7 @@ export function registerHytaleTools() {
   // Animation Tools (Hytale-specific features)
   // ============================================================================
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[8].name,
     {
       ...hytaleToolDocs[8],
@@ -691,7 +732,7 @@ export function registerHytaleTools() {
     hytaleToolDocs[8].status
   );
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[9].name,
     {
       ...hytaleToolDocs[9],
@@ -741,7 +782,7 @@ export function registerHytaleTools() {
   // Stretch Tool (Hytale-specific cube stretching)
   // ============================================================================
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[10].name,
     {
       ...hytaleToolDocs[10],
@@ -788,7 +829,7 @@ export function registerHytaleTools() {
     hytaleToolDocs[10].status
   );
 
-  createTool(
+  createInternalTool(
     hytaleToolDocs[11].name,
     {
       ...hytaleToolDocs[11],
@@ -825,6 +866,9 @@ export function registerHytaleTools() {
     },
     hytaleToolDocs[11].status
   );
+
+  createToolGroup(hytalePublicToolDocs[0], hytaleReadOperations);
+  createToolGroup(hytalePublicToolDocs[1], hytaleEditOperations);
 
   console.log("[MCP] Hytale tools registered successfully");
 }

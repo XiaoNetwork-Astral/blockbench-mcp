@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 
 export const undoParameters = z.object({
@@ -94,6 +99,31 @@ export const historyToolDocs: ToolSpec[] = [
   },
 ];
 
+const historyReadOperations = [historyToolDocs[2]];
+const historyEditOperations = [
+  historyToolDocs[0],
+  historyToolDocs[1],
+  historyToolDocs[3],
+];
+
+export const historyPublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_history",
+    description: "Returns the current Undo/Redo history stack.",
+    annotations: { title: "Inspect History", readOnlyHint: true },
+    parameters: createToolGroupParameters(historyReadOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "edit_history",
+    description:
+      "Undoes, redoes, or inserts a named checkpoint through one command.action.",
+    annotations: { title: "Edit History", destructiveHint: true },
+    parameters: createToolGroupParameters(historyEditOperations),
+    status: STATUS_STABLE,
+  },
+];
+
 interface IUndoEntrySummary {
   index: number;
   action: string;
@@ -143,7 +173,7 @@ function summarizeHistory(limit: number): {
 }
 
 export function registerHistoryTools() {
-  createTool(historyToolDocs[0].name, {
+  createInternalTool(historyToolDocs[0].name, {
     ...historyToolDocs[0],
     async execute({ steps }) {
       const history = Undo.history ?? [];
@@ -176,7 +206,7 @@ export function registerHistoryTools() {
     },
   }, historyToolDocs[0].status);
 
-  createTool(historyToolDocs[1].name, {
+  createInternalTool(historyToolDocs[1].name, {
     ...historyToolDocs[1],
     async execute({ steps }) {
       const history = Undo.history ?? [];
@@ -211,14 +241,14 @@ export function registerHistoryTools() {
     },
   }, historyToolDocs[1].status);
 
-  createTool(historyToolDocs[2].name, {
+  createInternalTool(historyToolDocs[2].name, {
     ...historyToolDocs[2],
     async execute({ limit }) {
       return JSON.stringify(summarizeHistory(limit), null, 2);
     },
   }, historyToolDocs[2].status);
 
-  createTool(historyToolDocs[3].name, {
+  createInternalTool(historyToolDocs[3].name, {
     ...historyToolDocs[3],
     async execute({ name }) {
       const label = `[checkpoint] ${name}`;
@@ -241,4 +271,7 @@ export function registerHistoryTools() {
       );
     },
   }, historyToolDocs[3].status);
+
+  createToolGroup(historyPublicToolDocs[0], historyReadOperations);
+  createToolGroup(historyPublicToolDocs[1], historyEditOperations);
 }

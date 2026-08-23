@@ -90,9 +90,11 @@ interface ToolDefinition {
   inputSchema: Record<string, z.ZodType>;
   outputSchema?: Record<string, z.ZodType> | z.ZodType;
   execute: (args: Record<string, unknown>, context?: ToolContext) => Promise<ToolResult>;
+  resolveMutationToolName?: (args: Record<string, unknown>) => string;
   annotations?: {
     title?: string;
     destructiveHint?: boolean;
+    idempotentHint?: boolean;
     openWorldHint?: boolean;
     readOnlyHint?: boolean;
   };
@@ -129,13 +131,16 @@ async function invokeTool(
   args: Record<string, unknown>,
   extra: ToolRequestExtra
 ): Promise<unknown> {
-  const undoEditAtStart = captureUndoEditToken();
+  const readOnly = toolDef.annotations?.readOnlyHint === true;
+  // Read-only tools cannot open an Undo edit, so sampling the edit token and
+  // attempting rollback on failure only adds work to high-frequency queries.
+  const undoEditAtStart = readOnly ? undefined : captureUndoEditToken();
   const handle = auditManager.beginMcpOperation({
     toolName: name,
     title: toolDef.title,
     args,
     sessionId: extra.sessionId,
-    readOnly: toolDef.annotations?.readOnlyHint === true,
+    readOnly,
   });
 
   try {
@@ -144,17 +149,58 @@ async function invokeTool(
     // A reference tab is writable only through the small explicit exemption
     // list. Tools must opt into read-only status; missing metadata never grants
     // mutation access by accident.
-    if (toolDef.annotations?.readOnlyHint !== true) {
-      assertAgentMayMutateProject(name);
+    if (!readOnly) {
+      assertAgentMayMutateProject(
+        toolDef.resolveMutationToolName?.(args) ?? name
+      );
     }
     const result = await toolDef.execute(args, context);
     auditManager.finishMcpOperation(handle, result);
     return normalizeToolResult(result);
   } catch (error) {
-    rollbackUndoEditStartedAfter(undoEditAtStart);
+    if (!readOnly) rollbackUndoEditStartedAfter(undoEditAtStart);
     auditManager.finishMcpOperation(handle, undefined, error);
     throw error;
   }
+}
+
+type ToolGroupOption = z.ZodObject<{
+  action: z.ZodLiteral<string>;
+  input: z.ZodTypeAny;
+}>;
+
+/**
+ * Builds a compact command envelope from existing precise operation schemas.
+ * A discriminated union validates only the selected action instead of walking
+ * every branch, which keeps grouped tools inexpensive on slower machines.
+ */
+export function createToolGroupParameters(
+  operations: readonly ToolSpec[]
+): z.ZodObject<{ command: z.ZodTypeAny }> {
+  if (operations.length === 0) {
+    throw new Error("A tool group must contain at least one operation.");
+  }
+  const options = operations.map((operation) =>
+    z.object({
+      action: z.literal(operation.name),
+      input: operation.parameters.describe(
+        `Arguments for ${operation.name} (${operation.status}). Use an empty object when the action has no arguments.`
+      ),
+    })
+  ) as ToolGroupOption[];
+  const command = options.length === 1
+    ? options[0]
+    : z.discriminatedUnion(
+        "action",
+        options as [ToolGroupOption, ToolGroupOption, ...ToolGroupOption[]]
+      );
+  return z.object({
+    command: command.describe(
+      `Select one action and provide only that action's input object. Supported actions: ${operations
+        .map((operation) => operation.name)
+        .join(", ")}.`
+    ),
+  });
 }
 
 /**
@@ -195,17 +241,19 @@ export function createTool<T extends z.ZodType>(
     annotations?: {
       title?: string;
       destructiveHint?: boolean;
+      idempotentHint?: boolean;
       openWorldHint?: boolean;
       readOnlyHint?: boolean;
     };
     parameters: T;
     execute: (args: z.infer<T>, context?: ToolContext) => Promise<ToolResult>;
+    resolveMutationToolName?: (args: z.infer<T>) => string;
   },
   status: IMCPTool["status"] = "stable",
   enabled: boolean = true
 ) {
   assertToolRegistrationAllowed(name);
-  if (tools[name]) {
+  if (tools[name] || toolDefinitions[name]) {
     throw new Error(`Tool with name "${name}" already exists.`);
   }
 
@@ -216,6 +264,9 @@ export function createTool<T extends z.ZodType>(
     description: tool.description,
     inputSchema,
     execute: tool.execute,
+    resolveMutationToolName: tool.resolveMutationToolName as
+      | ((args: Record<string, unknown>) => string)
+      | undefined,
     annotations: tool.annotations,
   };
 
@@ -234,6 +285,7 @@ export function createTool<T extends z.ZodType>(
         title: string;
         description: string;
         inputSchema: Record<string, z.ZodType>;
+        annotations?: ToolDefinition["annotations"];
       },
       callback: (args: unknown, extra: unknown) => Promise<unknown>
     ) => void;
@@ -244,6 +296,7 @@ export function createTool<T extends z.ZodType>(
         title: toolDef.title,
         description: toolDef.description,
         inputSchema,
+        annotations: toolDef.annotations,
       },
       async (args: unknown, extra: unknown) => {
         return invokeTool(
@@ -264,6 +317,80 @@ export function createTool<T extends z.ZodType>(
   };
 
   return tools[name];
+}
+
+/**
+ * Stores an operation for dispatch by a compact public tool without exposing
+ * another MCP tool name. The operation keeps its original schema and handler,
+ * while the outer grouped tool owns audit, project-role, and rollback checks.
+ */
+export function createInternalTool<T extends z.ZodType>(
+  name: string,
+  tool: {
+    description: string;
+    annotations?: {
+      title?: string;
+      destructiveHint?: boolean;
+      idempotentHint?: boolean;
+      openWorldHint?: boolean;
+      readOnlyHint?: boolean;
+    };
+    parameters: T;
+    execute: (args: z.infer<T>, context?: ToolContext) => Promise<ToolResult>;
+  },
+  _status: IMCPTool["status"] = "stable"
+): void {
+  assertToolRegistrationAllowed(name);
+  if (tools[name] || toolDefinitions[name]) {
+    throw new Error(`Tool operation with name "${name}" already exists.`);
+  }
+  toolDefinitions[name] = {
+    title: tool.annotations?.title ?? tool.description,
+    description: tool.description,
+    inputSchema: extractShape(tool.parameters),
+    execute: tool.execute as ToolDefinition["execute"],
+    annotations: tool.annotations,
+  };
+}
+
+/** Registers one public domain tool that dispatches to internal operations. */
+export function createToolGroup(
+  spec: ToolSpec,
+  operations: readonly ToolSpec[]
+) {
+  const allowed = new Set(operations.map((operation) => operation.name));
+  const description = `${spec.description} Supported command.action values: ${[
+    ...allowed,
+  ].join(", ")}.`;
+  return createTool(
+    spec.name,
+    {
+      description,
+      annotations: spec.annotations,
+      parameters: spec.parameters,
+      async execute(args, context) {
+        const command = (args as {
+          command: { action: string; input: Record<string, unknown> };
+        }).command;
+        if (!allowed.has(command.action)) {
+          throw new Error(
+            `Action "${command.action}" is not part of ${spec.name}.`
+          );
+        }
+        const operation = toolDefinitions[command.action];
+        if (!operation) {
+          throw new Error(
+            `Internal action "${command.action}" was not registered.`
+          );
+        }
+        return operation.execute(command.input, context);
+      },
+      resolveMutationToolName(args) {
+        return (args as { command: { action: string } }).command.action;
+      },
+    },
+    spec.status
+  );
 }
 
 /**
@@ -296,6 +423,7 @@ export function registerToolsOnServer(server: unknown) {
         title: string;
         description: string;
         inputSchema: Record<string, z.ZodType>;
+        annotations?: ToolDefinition["annotations"];
       },
       callback: (args: unknown, extra: unknown) => Promise<unknown>
     ) => void;
@@ -308,6 +436,7 @@ export function registerToolsOnServer(server: unknown) {
         title: toolDef.title,
         description: toolDef.description,
         inputSchema: toolDef.inputSchema,
+        annotations: toolDef.annotations,
       },
       async (args: unknown, extra: unknown) => {
         return invokeTool(

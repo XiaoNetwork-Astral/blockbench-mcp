@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import {
   getProjectTexture,
   imageContent,
@@ -137,12 +142,6 @@ export const listTexturesParameters = z.object({});
 
 export const getTextureParameters = z.object({
   texture: textureIdOptionalSchema,
-});
-
-export const activateTextureParameters = z.object({
-  texture: textureIdSchema.describe(
-    "Texture ID, UUID, or name to activate in the texture panel."
-  ),
 });
 
 export const createPbrMaterialParameters = z.object({
@@ -475,18 +474,6 @@ export const textureToolDocs: ToolSpec[] = [
     status: STATUS_EXPERIMENTAL,
   },
   {
-    name: "activate_texture",
-    description:
-      "Activates the given texture in the Blockbench texture panel so that subsequent paint operations (draw_shape_tool, paint_with_brush, gradient_tool, etc.) target it. Most paint tools already call this internally when a texture_id is provided, but you can invoke it explicitly to pin the active texture across multiple calls.",
-    annotations: {
-      title: "Activate Texture",
-      destructiveHint: false,
-      idempotentHint: true,
-    },
-    parameters: activateTextureParameters,
-    status: STATUS_STABLE,
-  },
-  {
     name: "remove_texture",
     description:
       "Removes an entire texture from the active project. If it is referenced, supply a replacement texture or explicitly clear references; otherwise the operation refuses before mutation. Reference rewrites and removal share one Undo transaction and are verified before success is returned.",
@@ -499,12 +486,71 @@ export const textureToolDocs: ToolSpec[] = [
   },
 ];
 
+const textureReadOperations = [textureToolDocs[3], textureToolDocs[4]];
+const textureEditOperations = [
+  textureToolDocs[0],
+  textureToolDocs[1],
+  textureToolDocs[2],
+  textureToolDocs[12],
+];
+const materialReadOperations = [textureToolDocs[7], textureToolDocs[8]];
+const materialEditOperations = [
+  textureToolDocs[5],
+  textureToolDocs[6],
+  textureToolDocs[9],
+  textureToolDocs[10],
+  textureToolDocs[11],
+];
+
+export const texturePublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_textures",
+    description:
+      "Lists project textures or returns one texture's image data through a read-only command.action.",
+    annotations: { title: "Inspect Textures", readOnlyHint: true },
+    parameters: createToolGroupParameters(textureReadOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "edit_textures",
+    description:
+      "Creates, applies, groups, or safely removes textures through one command.action. Paint actions accept texture_id directly, so the redundant activate_texture command is no longer exposed.",
+    annotations: {
+      title: "Edit Textures",
+      destructiveHint: true,
+      openWorldHint: true,
+    },
+    parameters: createToolGroupParameters(textureEditOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "inspect_materials",
+    description:
+      "Lists PBR materials or returns one material's detailed channel configuration.",
+    annotations: { title: "Inspect Materials", readOnlyHint: true },
+    parameters: createToolGroupParameters(materialReadOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "edit_materials",
+    description:
+      "Creates, imports, configures, assigns channels to, or saves PBR materials through one command.action.",
+    annotations: {
+      title: "Edit Materials",
+      destructiveHint: true,
+      openWorldHint: true,
+    },
+    parameters: createToolGroupParameters(materialEditOperations),
+    status: STATUS_STABLE,
+  },
+];
+
 // ============================================================================
 // Tool Registration
 // ============================================================================
 
 export function registerTextureTools() {
-  createTool(textureToolDocs[0].name, {
+  createInternalTool(textureToolDocs[0].name, {
     ...textureToolDocs[0],
     async execute({
       name,
@@ -622,7 +668,7 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[0].status);
 
-  createTool(textureToolDocs[1].name, {
+  createInternalTool(textureToolDocs[1].name, {
     ...textureToolDocs[1],
     async execute({ applyTo, id, texture }) {
       const element = findElementOrThrow(id);
@@ -632,7 +678,7 @@ export function registerTextureTools() {
 
       if (!projectTexture) {
         throw new Error(
-          "No default texture available. Use the create_texture tool to create one first."
+          "No default texture available. Use edit_textures with command.action \"create_texture\" to create one first."
         );
       }
 
@@ -764,7 +810,7 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[1].status);
 
-  createTool(textureToolDocs[2].name, {
+  createInternalTool(textureToolDocs[2].name, {
     ...textureToolDocs[2],
     async execute({ name, textures, is_material }) {
       const textureList = [...new Map<string, Texture>(
@@ -803,7 +849,7 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[2].status);
 
-  createTool(textureToolDocs[3].name, {
+  createInternalTool(textureToolDocs[3].name, {
     ...textureToolDocs[3],
     async execute() {
       const textures = Project?.textures ?? Texture.all;
@@ -819,14 +865,14 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[3].status);
 
-  createTool(textureToolDocs[4].name, {
+  createInternalTool(textureToolDocs[4].name, {
     ...textureToolDocs[4],
     async execute({ texture }) {
       if (!texture) {
         const defaultTexture = Texture.getDefault();
         if (!defaultTexture) {
           throw new Error(
-            "No default texture available. Use the create_texture tool to create one first, or specify a texture ID."
+            "No default texture available. Use edit_textures with command.action \"create_texture\" first, or specify a texture ID."
           );
         }
         return imageContent({ url: defaultTexture.getDataURL() });
@@ -837,7 +883,7 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[4].status);
 
-  createTool(textureToolDocs[5].name, {
+  createInternalTool(textureToolDocs[5].name, {
     ...textureToolDocs[5],
     async execute({
       name,
@@ -920,7 +966,7 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[5].status);
 
-  createTool(textureToolDocs[6].name, {
+  createInternalTool(textureToolDocs[6].name, {
     ...textureToolDocs[6],
     async execute({
       material,
@@ -1004,7 +1050,7 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[6].status);
 
-  createTool(textureToolDocs[7].name, {
+  createInternalTool(textureToolDocs[7].name, {
     ...textureToolDocs[7],
     async execute() {
       // @ts-ignore - TextureGroup is globally available
@@ -1036,7 +1082,7 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[7].status);
 
-  createTool(textureToolDocs[8].name, {
+  createInternalTool(textureToolDocs[8].name, {
     ...textureToolDocs[8],
     async execute({ material }) {
       const textureGroup = findTextureGroupOrThrow(material);
@@ -1077,7 +1123,7 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[8].status);
 
-  createTool(textureToolDocs[9].name, {
+  createInternalTool(textureToolDocs[9].name, {
     ...textureToolDocs[9],
     async execute({ path }) {
       // Validate path ends with texture_set.json
@@ -1101,7 +1147,7 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[9].status);
 
-  createTool(textureToolDocs[10].name, {
+  createInternalTool(textureToolDocs[10].name, {
     ...textureToolDocs[10],
     async execute({ material, texture, channel }) {
       const textureGroup = findTextureGroupOrThrow(material);
@@ -1136,7 +1182,7 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[10].status);
 
-  createTool(textureToolDocs[11].name, {
+  createInternalTool(textureToolDocs[11].name, {
     ...textureToolDocs[11],
     async execute({ material }) {
       const textureGroup = findTextureGroupOrThrow(material);
@@ -1154,19 +1200,8 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[11].status);
 
-  createTool(textureToolDocs[12].name, {
+  createInternalTool(textureToolDocs[12].name, {
     ...textureToolDocs[12],
-    async execute({ texture }) {
-      const target = findTextureOrThrow(texture);
-      if (Texture.selected?.uuid !== target.uuid) {
-        target.select();
-      }
-      return `Activated texture "${target.name}" (uuid: ${target.uuid}). Paint tools will now target it by default.`;
-    },
-  }, textureToolDocs[12].status);
-
-  createTool(textureToolDocs[13].name, {
-    ...textureToolDocs[13],
     async execute({ texture, replacement, clear_references }) {
       const target = findTextureOrThrow(texture);
       const replacementTexture = replacement
@@ -1276,5 +1311,10 @@ export function registerTextureTools() {
         verified: true,
       }, null, 2);
     },
-  }, textureToolDocs[13].status);
+  }, textureToolDocs[12].status);
+
+  createToolGroup(texturePublicToolDocs[0], textureReadOperations);
+  createToolGroup(texturePublicToolDocs[1], textureEditOperations);
+  createToolGroup(texturePublicToolDocs[2], materialReadOperations);
+  createToolGroup(texturePublicToolDocs[3], materialEditOperations);
 }

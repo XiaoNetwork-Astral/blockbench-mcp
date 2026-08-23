@@ -87,7 +87,7 @@ function requireWorkspace(): ScopedFs {
     throw new Error(
       getYsmWorkspaceRoot()
         ? "Folder-scoped access to the configured YSM workspace was denied."
-        : "No temporary model directory is configured. Set it in Blockbench MCP settings or use ysm_set_workspace."
+        : "No temporary model directory is configured. Set it in Blockbench MCP settings or use manage_ysm_workspace with command.action \"ysm_set_workspace\"."
     );
   }
   return scopedFs;

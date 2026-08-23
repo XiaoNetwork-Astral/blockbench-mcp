@@ -136,7 +136,7 @@ export function getAndActivateTexture(id?: string): Texture {
     const active = Texture.selected ?? Texture.getDefault();
     if (!active) {
       throw new Error(
-        "No texture available. Use create_texture first, or pass texture_id explicitly."
+        "No texture available. Use edit_textures with command.action \"create_texture\" first, or pass texture_id explicitly."
       );
     }
     if (Texture.selected?.uuid !== active.uuid) {
@@ -148,7 +148,7 @@ export function getAndActivateTexture(id?: string): Texture {
   const texture = getProjectTexture(id);
   if (!texture) {
     throw new Error(
-      `Texture "${id}" not found. Use the list_textures tool to see available textures.`
+      `Texture "${id}" not found. Use inspect_textures with command.action "list_textures" to see available textures.`
     );
   }
   // Blockbench paint tools operate on Texture.selected, so activating the
@@ -168,7 +168,7 @@ export function getAndActivateTexture(id?: string): Texture {
  * Finds a group/bone by name and throws an actionable error if not found.
  * @param name - The name of the group/bone to find
  * @returns The found Group
- * @throws Error with suggestion to use list_outline
+ * @throws Error with suggestion to use inspect_elements/list_outline
  */
 export function findGroupOrThrow(name: string): Group {
   const uuidMatch = Group.all.find((group: Group) => group.uuid === name);
@@ -182,7 +182,7 @@ export function findGroupOrThrow(name: string): Group {
   }
   if (nameMatches.length === 0) {
     throw new Error(
-      `Bone/group "${name}" not found. Use the list_outline tool to see available groups and bones.`
+      `Bone/group "${name}" not found. Use inspect_elements with command.action "list_outline" to see available groups and bones.`
     );
   }
   return nameMatches[0];
@@ -192,7 +192,7 @@ export function findGroupOrThrow(name: string): Group {
  * Finds a mesh by ID or name and throws an actionable error if not found.
  * @param id - The UUID or name of the mesh to find
  * @returns The found Mesh
- * @throws Error with suggestion to use list_outline
+ * @throws Error with suggestion to use inspect_elements/list_outline
  */
 export function findMeshOrThrow(id: string): Mesh {
   const uuidMatch = Mesh.all.find((mesh: Mesh) => mesh.uuid === id);
@@ -206,7 +206,7 @@ export function findMeshOrThrow(id: string): Mesh {
   }
   if (nameMatches.length === 0) {
     throw new Error(
-      `Mesh "${id}" not found. Use the list_outline tool to see available meshes.`
+      `Mesh "${id}" not found. Use inspect_elements with command.action "list_outline" to see available meshes.`
     );
   }
   return nameMatches[0];
@@ -216,7 +216,7 @@ export function findMeshOrThrow(id: string): Mesh {
  * Finds an element (cube, mesh, group) by ID or name and throws an actionable error if not found.
  * @param id - The UUID or name of the element to find
  * @returns The found OutlinerElement
- * @throws Error with suggestion to use list_outline
+ * @throws Error with suggestion to use inspect_elements/list_outline
  */
 export function findElementOrThrow(id: string): OutlinerElement | Group {
   const candidates: Array<OutlinerElement | Group> = [
@@ -239,7 +239,7 @@ export function findElementOrThrow(id: string): OutlinerElement | Group {
   }
   if (nameMatches.length === 0) {
     throw new Error(
-      `Element "${id}" not found. Use the list_outline tool to see available elements.`
+      `Element "${id}" not found. Use inspect_elements with command.action "list_outline" to see available elements.`
     );
   }
   return nameMatches[0];
@@ -249,13 +249,13 @@ export function findElementOrThrow(id: string): OutlinerElement | Group {
  * Finds a texture by ID, name, or UUID and throws an actionable error if not found.
  * @param id - The ID, name, or UUID of the texture to find
  * @returns The found Texture
- * @throws Error with suggestion to use list_textures
+ * @throws Error with suggestion to use inspect_textures/list_textures
  */
 export function findTextureOrThrow(id: string): Texture {
   const texture = getProjectTexture(id);
   if (!texture) {
     throw new Error(
-      `Texture "${id}" not found. Use the list_textures tool to see available textures.`
+      `Texture "${id}" not found. Use inspect_textures with command.action "list_textures" to see available textures.`
     );
   }
   return texture;
@@ -271,7 +271,7 @@ export function findTextureGroupOrThrow(id: string): TextureGroup {
   );
   if (!group) {
     throw new Error(
-      `Material/texture group "${id}" not found. Use the list_materials tool to see available materials.`
+      `Material/texture group "${id}" not found. Use inspect_materials with command.action "list_materials" to see available materials.`
     );
   }
   return group;
@@ -292,7 +292,7 @@ export function getChannelTextureInfo(textures: Texture[], channel: string) {
  * Throws an actionable error if no mesh is found.
  * @param meshId - Optional mesh UUID or name
  * @returns The found or selected Mesh
- * @throws Error with suggestion to use list_outline
+ * @throws Error with suggestion to use inspect_elements/list_outline
  */
 export function getMeshOrSelected(meshId?: string): Mesh {
   if (meshId) {
@@ -302,7 +302,7 @@ export function getMeshOrSelected(meshId?: string): Mesh {
   const selected = Mesh.selected[0];
   if (!selected) {
     throw new Error(
-      "No mesh selected and no mesh_id provided. Select a mesh or provide a mesh_id. Use the list_outline tool to see available meshes."
+      "No mesh selected and no mesh_id provided. Select a mesh or provide a mesh_id. Use inspect_elements with command.action \"list_outline\" to see available meshes."
     );
   }
   return selected;

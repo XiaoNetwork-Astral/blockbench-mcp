@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { STATUS_EXPERIMENTAL } from "@/lib/constants";
 import { getProjectTexture, getAndActivateTexture, setBarItemValue } from "@/lib/util";
 import { getDeterministicShapeGeometry } from "@/lib/toolFixes";
@@ -320,7 +325,6 @@ export const paintToolDocs: ToolSpec[] = [
       "Picks colors from textures and sets them as the active color.",
     annotations: {
       title: "Color Picker Tool",
-      readOnlyHint: true,
     },
     parameters: colorPickerToolParameters,
     status: STATUS_EXPERIMENTAL,
@@ -409,8 +413,51 @@ export const paintToolDocs: ToolSpec[] = [
   },
 ];
 
+const texturePaintOperations = [
+  paintToolDocs[0],
+  paintToolDocs[1],
+  paintToolDocs[2],
+  paintToolDocs[3],
+  paintToolDocs[4],
+  paintToolDocs[5],
+  paintToolDocs[7],
+];
+const paintConfigurationOperations = [
+  paintToolDocs[6],
+  paintToolDocs[8],
+  paintToolDocs[9],
+];
+const textureRegionOperations = [paintToolDocs[10], paintToolDocs[11]];
+
+export const paintPublicToolDocs: ToolSpec[] = [
+  {
+    name: "paint_texture",
+    description:
+      "Paints, fills, draws, gradients, clones, erases, or samples a texture through one command.action.",
+    annotations: { title: "Paint Texture", destructiveHint: true },
+    parameters: createToolGroupParameters(texturePaintOperations),
+    status: STATUS_EXPERIMENTAL,
+  },
+  {
+    name: "configure_paint",
+    description:
+      "Changes paint preferences or creates and loads brush presets through one command.action.",
+    annotations: { title: "Configure Paint", destructiveHint: true },
+    parameters: createToolGroupParameters(paintConfigurationOperations),
+    status: STATUS_EXPERIMENTAL,
+  },
+  {
+    name: "edit_texture_regions",
+    description:
+      "Manages texture selections or layers through one command.action.",
+    annotations: { title: "Edit Texture Regions", destructiveHint: true },
+    parameters: createToolGroupParameters(textureRegionOperations),
+    status: STATUS_EXPERIMENTAL,
+  },
+];
+
 export function registerPaintTools() {
-  createTool(
+  createInternalTool(
     paintToolDocs[0].name,
     {
       ...paintToolDocs[0],
@@ -457,7 +504,7 @@ export function registerPaintTools() {
     paintToolDocs[0].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[1].name,
     {
       ...paintToolDocs[1],
@@ -561,7 +608,7 @@ export function registerPaintTools() {
     paintToolDocs[1].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[2].name,
     {
       ...paintToolDocs[2],
@@ -611,7 +658,7 @@ export function registerPaintTools() {
     paintToolDocs[2].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[3].name,
     {
       ...paintToolDocs[3],
@@ -648,7 +695,7 @@ export function registerPaintTools() {
     paintToolDocs[3].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[4].name,
     {
       ...paintToolDocs[4],
@@ -693,7 +740,7 @@ export function registerPaintTools() {
     paintToolDocs[4].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[5].name,
     {
       ...paintToolDocs[5],
@@ -756,7 +803,7 @@ export function registerPaintTools() {
     paintToolDocs[5].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[6].name,
     {
       ...paintToolDocs[6],
@@ -868,7 +915,7 @@ export function registerPaintTools() {
     paintToolDocs[6].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[7].name,
     {
       ...paintToolDocs[7],
@@ -946,7 +993,7 @@ export function registerPaintTools() {
     paintToolDocs[7].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[8].name,
     {
       ...paintToolDocs[8],
@@ -984,7 +1031,7 @@ export function registerPaintTools() {
     paintToolDocs[8].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[9].name,
     {
       ...paintToolDocs[9],
@@ -1007,7 +1054,7 @@ export function registerPaintTools() {
     paintToolDocs[9].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[10].name,
     {
       ...paintToolDocs[10],
@@ -1118,7 +1165,7 @@ export function registerPaintTools() {
     paintToolDocs[10].status
   );
 
-  createTool(
+  createInternalTool(
     paintToolDocs[11].name,
     {
       ...paintToolDocs[11],
@@ -1250,4 +1297,8 @@ export function registerPaintTools() {
     },
     paintToolDocs[11].status
   );
+
+  createToolGroup(paintPublicToolDocs[0], texturePaintOperations);
+  createToolGroup(paintPublicToolDocs[1], paintConfigurationOperations);
+  createToolGroup(paintPublicToolDocs[2], textureRegionOperations);
 }

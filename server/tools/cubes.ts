@@ -290,7 +290,9 @@ createTool(cubeToolDocs[1].name, {
     if (id) {
       cubes = (Cube.all ?? []).filter((el: Cube) => el.uuid === id || el.name === id);
       if (!cubes.length) {
-        throw new Error(`Cube with ID "${id}" not found. Use the list_outline tool to see available cubes.`);
+        throw new Error(
+          `Cube with ID "${id}" not found. Use inspect_elements with command.action "list_outline" to see available cubes.`
+        );
       }
     } else {
       cubes = Cube.selected;

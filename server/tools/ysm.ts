@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
 import { geometryCounts, mergeCompiledGeometry, selectGeometry } from "@/lib/ysmGeometry";
 import {
@@ -116,6 +121,28 @@ export const ysmToolDocs: ToolSpec[] = [
   },
 ];
 
+export const ysmWorkspaceEditOperations = [
+  ysmToolDocs[0],
+  ysmToolDocs[2],
+  ysmToolDocs[3],
+  ysmToolDocs[4],
+];
+
+export const ysmPublicToolDocs: ToolSpec[] = [
+  {
+    name: "manage_ysm_workspace",
+    description:
+      "Configures the YSM workspace and binds, saves, or unbinds projects through one command.action.",
+    annotations: {
+      title: "Manage YSM Workspace",
+      destructiveHint: true,
+      openWorldHint: true,
+    },
+    parameters: createToolGroupParameters(ysmWorkspaceEditOperations),
+    status: STATUS_STABLE,
+  },
+];
+
 function findProject(reference?: string): ModelProject | null {
   if (!reference) return Project ?? null;
   return ModelProject.all.find(
@@ -131,7 +158,7 @@ function requireProject(reference?: string): ModelProject {
   if (!project) {
     throw new Error(
       reference
-        ? `Project "${reference}" not found. Use list_projects to inspect open tabs.`
+        ? `Project "${reference}" not found. Use inspect_projects with command.action "list_projects" to inspect open tabs.`
         : "No active project is open."
     );
   }
@@ -190,7 +217,7 @@ function dataUrlBytes(dataUrl: string): Uint8Array {
 }
 
 export function registerYsmTools() {
-  createTool(ysmToolDocs[0].name, {
+  createInternalTool(ysmToolDocs[0].name, {
     ...ysmToolDocs[0],
     async execute({ path }) {
       if (path && !setYsmWorkspaceRoot(path, true)) {
@@ -209,7 +236,7 @@ export function registerYsmTools() {
     },
   }, ysmToolDocs[0].status);
 
-  createTool(ysmToolDocs[1].name, {
+  createInternalTool(ysmToolDocs[1].name, {
     ...ysmToolDocs[1],
     async execute() {
       return JSON.stringify(
@@ -227,7 +254,7 @@ export function registerYsmTools() {
     },
   }, ysmToolDocs[1].status);
 
-  createTool(ysmToolDocs[2].name, {
+  createInternalTool(ysmToolDocs[2].name, {
     ...ysmToolDocs[2],
     async execute({
       project: projectReference,
@@ -288,7 +315,7 @@ export function registerYsmTools() {
     },
   }, ysmToolDocs[2].status);
 
-  createTool(ysmToolDocs[3].name, {
+  createInternalTool(ysmToolDocs[3].name, {
     ...ysmToolDocs[3],
     async execute({
       project: projectReference,
@@ -300,7 +327,7 @@ export function registerYsmTools() {
       const binding = getYsmBinding(project);
       if (!binding) {
         throw new Error(
-          `Project "${project.name}" has no YSM binding. Use ysm_bind_project first.`
+          `Project "${project.name}" has no YSM binding. Use manage_ysm_workspace with command.action "ysm_bind_project" first.`
         );
       }
 
@@ -400,7 +427,7 @@ export function registerYsmTools() {
     },
   }, ysmToolDocs[3].status);
 
-  createTool(ysmToolDocs[4].name, {
+  createInternalTool(ysmToolDocs[4].name, {
     ...ysmToolDocs[4],
     async execute({ project: projectReference }) {
       const project = requireProject(projectReference);
@@ -409,4 +436,6 @@ export function registerYsmTools() {
       return JSON.stringify({ project: describeProject(project), removed_binding: previous }, null, 2);
     },
   }, ysmToolDocs[4].status);
+
+  createToolGroup(ysmPublicToolDocs[0], ysmWorkspaceEditOperations);
 }

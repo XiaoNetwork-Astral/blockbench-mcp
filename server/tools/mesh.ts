@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import {
   meshSchema,
   meshIdOptionalSchema,
@@ -315,12 +320,55 @@ export const meshToolDocs: ToolSpec[] = [
   },
 ];
 
+const meshCreateOperations = [
+  meshToolDocs[0],
+  meshToolDocs[3],
+  meshToolDocs[8],
+  meshToolDocs[9],
+];
+const meshEditOperations = [
+  meshToolDocs[1],
+  meshToolDocs[2],
+  meshToolDocs[5],
+  meshToolDocs[6],
+  meshToolDocs[7],
+  meshToolDocs[10],
+];
+const meshSelectionOperations = [meshToolDocs[4]];
+
+export const meshPublicToolDocs: ToolSpec[] = [
+  {
+    name: "create_mesh_geometry",
+    description:
+      "Creates custom meshes, spheres, cylinders, or individual mesh faces through one command.action.",
+    annotations: { title: "Create Mesh Geometry", destructiveHint: true },
+    parameters: createToolGroupParameters(meshCreateOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "edit_mesh_geometry",
+    description:
+      "Extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.",
+    annotations: { title: "Edit Mesh Geometry", destructiveHint: true },
+    parameters: createToolGroupParameters(meshEditOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "select_mesh_geometry",
+    description:
+      "Selects mesh vertices, edges, or faces. Use command.action=select_mesh_elements.",
+    annotations: { title: "Select Mesh Geometry", destructiveHint: true },
+    parameters: createToolGroupParameters(meshSelectionOperations),
+    status: STATUS_STABLE,
+  },
+];
+
 // ============================================================================
 // Registration
 // ============================================================================
 
 export function registerMeshTools() {
-  createTool(meshToolDocs[0].name, {
+  createInternalTool(meshToolDocs[0].name, {
     ...meshToolDocs[0],
     async execute({ elements, texture, group }, { reportProgress }) {
       const total = elements.length;
@@ -365,7 +413,7 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[0].status);
 
-  createTool(meshToolDocs[1].name, {
+  createInternalTool(meshToolDocs[1].name, {
     ...meshToolDocs[1],
     async execute({ mesh_id, distance, mode }) {
       const mesh = getMeshOrSelected(mesh_id);
@@ -384,7 +432,7 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[1].status);
 
-  createTool(meshToolDocs[2].name, {
+  createInternalTool(meshToolDocs[2].name, {
     ...meshToolDocs[2],
     async execute({ mesh_id, cuts }) {
       const mesh = getMeshOrSelected(mesh_id);
@@ -402,7 +450,7 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[2].status);
 
-  createTool(meshToolDocs[3].name, {
+  createInternalTool(meshToolDocs[3].name, {
     ...meshToolDocs[3],
     async execute({ elements, texture, group }, { reportProgress }) {
       const total = elements.length;
@@ -531,7 +579,7 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[3].status);
 
-  createTool(meshToolDocs[4].name, {
+  createInternalTool(meshToolDocs[4].name, {
     ...meshToolDocs[4],
     async execute({ mesh_id, mode, elements, action }) {
       const mesh = findMeshOrThrow(mesh_id);
@@ -680,7 +728,7 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[4].status);
 
-  createTool(meshToolDocs[5].name, {
+  createInternalTool(meshToolDocs[5].name, {
     ...meshToolDocs[5],
     async execute({ mesh_id, offset, vertices }) {
       const mesh = getMeshOrSelected(mesh_id);
@@ -720,7 +768,7 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[5].status);
 
-  createTool(meshToolDocs[6].name, {
+  createInternalTool(meshToolDocs[6].name, {
     ...meshToolDocs[6],
     async execute({ mesh_id, mode, keep_vertices }) {
       const mesh = getMeshOrSelected(mesh_id);
@@ -738,7 +786,7 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[6].status);
 
-  createTool(meshToolDocs[7].name, {
+  createInternalTool(meshToolDocs[7].name, {
     ...meshToolDocs[7],
     async execute({ mesh_id, threshold, selected_only }) {
       const mesh = findMeshOrThrow(mesh_id);
@@ -813,7 +861,7 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[7].status);
 
-  createTool(meshToolDocs[8].name, {
+  createInternalTool(meshToolDocs[8].name, {
     ...meshToolDocs[8],
     async execute({ mesh_id, vertices, texture }) {
       const mesh = getMeshOrSelected(mesh_id);
@@ -855,7 +903,7 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[8].status);
 
-  createTool(meshToolDocs[9].name, {
+  createInternalTool(meshToolDocs[9].name, {
     ...meshToolDocs[9],
     async execute({ elements, texture, group }, { reportProgress }) {
       const total = elements.length;
@@ -943,7 +991,7 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[9].status);
 
-  createTool(meshToolDocs[10].name, {
+  createInternalTool(meshToolDocs[10].name, {
     ...meshToolDocs[10],
     async execute({ mesh_id, points }) {
       const mesh = findMeshOrThrow(mesh_id);
@@ -986,4 +1034,8 @@ export function registerMeshTools() {
       return `Applied knife cut to mesh "${mesh.name}" with ${points.length} points`;
     },
   }, meshToolDocs[10].status);
+
+  createToolGroup(meshPublicToolDocs[0], meshCreateOperations);
+  createToolGroup(meshPublicToolDocs[1], meshEditOperations);
+  createToolGroup(meshPublicToolDocs[2], meshSelectionOperations);
 }

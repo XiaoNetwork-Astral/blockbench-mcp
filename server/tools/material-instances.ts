@@ -1,7 +1,12 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import {
+  createInternalTool,
+  createToolGroup,
+  createToolGroupParameters,
+  type ToolSpec,
+} from "@/lib/factories";
 import { findElementOrThrow } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import { faceEnum, cubeIdOptionalSchema, cubeIdSchema } from "@/lib/zodObjects";
@@ -12,13 +17,6 @@ import { faceEnum, cubeIdOptionalSchema, cubeIdSchema } from "@/lib/zodObjects";
 
 /** Empty parameters schema */
 export const emptyParametersSchema = z.object({});
-
-/** Faces array with default to all faces */
-export const facesArrayWithDefaultSchema = z
-  .array(faceEnum)
-  .optional()
-  .default(faceEnum.options)
-  .describe("Faces to set the material instance on. Defaults to all faces.");
 
 /** Faces array optional */
 export const facesArrayOptionalSchema = z
@@ -32,19 +30,6 @@ export const getFaceMaterialInstancesParametersSchema = z.object({
     "ID or name of the cube. If not provided, uses the first selected cube."
   ),
   faces: facesArrayOptionalSchema,
-});
-
-/** Parameters for setting face material instance */
-export const setFaceMaterialInstanceParametersSchema = z.object({
-  cube_id: cubeIdOptionalSchema.describe(
-    "ID or name of the cube. If not provided, applies to all selected cubes."
-  ),
-  material_name: z
-    .string()
-    .describe(
-      "The material instance name to assign. Use empty string to clear the material instance."
-    ),
-  faces: facesArrayWithDefaultSchema,
 });
 
 /** Single material instance assignment */
@@ -107,17 +92,6 @@ export const materialInstanceToolDocs: ToolSpec[] = [
     status: STATUS_STABLE,
   },
   {
-    name: "set_face_material_instance",
-    description:
-      "Sets the material instance name for one or more cube faces. Material instances are strings that map to materials defined in the minecraft:material_instances component for Bedrock Block format.",
-    annotations: {
-      title: "Set Face Material Instance",
-      destructiveHint: true,
-    },
-    parameters: setFaceMaterialInstanceParametersSchema,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
     name: "list_material_instances",
     description:
       "Lists all unique material instance names used in the project. Returns the material instance names along with which cubes and faces use them.",
@@ -152,8 +126,36 @@ export const materialInstanceToolDocs: ToolSpec[] = [
   },
 ];
 
+const materialInstanceReadOperations = [
+  materialInstanceToolDocs[0],
+  materialInstanceToolDocs[1],
+];
+const materialInstanceEditOperations = [
+  materialInstanceToolDocs[2],
+  materialInstanceToolDocs[3],
+];
+
+export const materialInstancePublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_material_instances",
+    description:
+      "Lists material instance names or reads face assignments through one read-only command.action.",
+    annotations: { title: "Inspect Material Instances", readOnlyHint: true },
+    parameters: createToolGroupParameters(materialInstanceReadOperations),
+    status: STATUS_STABLE,
+  },
+  {
+    name: "edit_material_instances",
+    description:
+      "Assigns one or many material instances with bulk_set_material_instances, or clears assignments.",
+    annotations: { title: "Edit Material Instances", destructiveHint: true },
+    parameters: createToolGroupParameters(materialInstanceEditOperations),
+    status: STATUS_STABLE,
+  },
+];
+
 export function registerMaterialInstanceTools() {
-  createTool(
+  createInternalTool(
     materialInstanceToolDocs[0].name,
     {
       ...materialInstanceToolDocs[0],
@@ -189,55 +191,10 @@ export function registerMaterialInstanceTools() {
     materialInstanceToolDocs[0].status
   );
 
-  createTool(
+  createInternalTool(
     materialInstanceToolDocs[1].name,
     {
       ...materialInstanceToolDocs[1],
-      async execute({ cube_id, material_name, faces }) {
-        let cubes: Cube[];
-
-        if (cube_id) {
-          cubes = [findCubeOrThrow(cube_id)];
-        } else {
-          if (!Cube.selected.length) {
-            throw new Error(
-              "No cube specified and no cubes selected. Provide a cube_id or select cubes."
-            );
-          }
-          cubes = Cube.selected;
-        }
-
-        Undo.initEdit({
-          elements: cubes,
-          // @ts-expect-error - uv_only is a valid Blockbench API property
-          uv_only: true,
-        });
-
-        let modifiedCount = 0;
-
-        for (const cube of cubes) {
-          for (const faceDir of faces) {
-            const face = cube.faces[faceDir];
-            if (face) {
-              face.extend({ material_name });
-              modifiedCount++;
-            }
-          }
-        }
-
-        Undo.finishEdit("Set material instances");
-        Canvas.updateAll();
-
-        return `Set material instance "${material_name}" on ${modifiedCount} face(s) across ${cubes.length} cube(s).`;
-      },
-    },
-    materialInstanceToolDocs[1].status
-  );
-
-  createTool(
-    materialInstanceToolDocs[2].name,
-    {
-      ...materialInstanceToolDocs[2],
       async execute() {
         const materialMap: Record<
           string,
@@ -274,13 +231,13 @@ export function registerMaterialInstanceTools() {
         }, null, 2);
       },
     },
-    materialInstanceToolDocs[2].status
+    materialInstanceToolDocs[1].status
   );
 
-  createTool(
-    materialInstanceToolDocs[3].name,
+  createInternalTool(
+    materialInstanceToolDocs[2].name,
     {
-      ...materialInstanceToolDocs[3],
+      ...materialInstanceToolDocs[2],
       async execute({ assignments }) {
         const cubeCache: Record<string, Cube> = {};
         const cubesToEdit: Cube[] = [];
@@ -319,13 +276,13 @@ export function registerMaterialInstanceTools() {
         return `Applied ${assignments.length} material instance assignment(s) affecting ${totalModified} face(s) on ${cubesToEdit.length} cube(s).`;
       },
     },
-    materialInstanceToolDocs[3].status
+    materialInstanceToolDocs[2].status
   );
 
-  createTool(
-    materialInstanceToolDocs[4].name,
+  createInternalTool(
+    materialInstanceToolDocs[3].name,
     {
-      ...materialInstanceToolDocs[4],
+      ...materialInstanceToolDocs[3],
       async execute({ cube_id, faces, all_cubes }) {
         let cubes: Cube[];
 
@@ -371,6 +328,15 @@ export function registerMaterialInstanceTools() {
         return `Cleared material instances from ${clearedCount} face(s) across ${cubes.length} cube(s).`;
       },
     },
-    materialInstanceToolDocs[4].status
+    materialInstanceToolDocs[3].status
+  );
+
+  createToolGroup(
+    materialInstancePublicToolDocs[0],
+    materialInstanceReadOperations
+  );
+  createToolGroup(
+    materialInstancePublicToolDocs[1],
+    materialInstanceEditOperations
   );
 }
