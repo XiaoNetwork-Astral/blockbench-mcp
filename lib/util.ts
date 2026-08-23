@@ -79,13 +79,43 @@ export function fixCircularReferences<
   };
 }
 
+/**
+ * Return the active project's textures without assuming that Blockbench has
+ * already synchronized both texture registries. This matters immediately
+ * after creating or reopening a texture, when either registry can briefly
+ * lag behind the other.
+ */
+export function getProjectTextures(): Texture[] {
+  const textures: Texture[] = [];
+  const seen = new Set<Texture>();
+  for (const texture of [...(Project?.textures ?? []), ...(Texture.all ?? [])]) {
+    if (seen.has(texture)) continue;
+    seen.add(texture);
+    textures.push(texture);
+  }
+  return textures;
+}
+
 export function getProjectTexture(id: string): Texture | null {
-  const texture = (Project?.textures ?? Texture.all).find(
+  const texture = getProjectTextures().find(
     ({ id: textureId, name, uuid }) =>
-      textureId === id || name === id || uuid === id
+      String(textureId) === id || name === id || uuid === id
   );
 
   return texture || null;
+}
+
+/** Reject texture assignments that Blockbench's current format cannot render. */
+export function assertFaceTextureAssignmentSupported(texture: Texture): void {
+  if (!Format.single_texture) return;
+  const defaultTexture = Texture.getDefault();
+  if (!defaultTexture || defaultTexture.uuid !== texture.uuid) {
+    throw new Error(
+      `Format "${Format.id}" uses one project texture, so faces cannot use ` +
+        `"${texture.name}" (${texture.uuid}) while another texture is the default. ` +
+        "Consolidate the model into one atlas or make this texture the project default first."
+    );
+  }
 }
 
 /**
@@ -170,10 +200,34 @@ export function getAndActivateTexture(id?: string): Texture {
  * @returns The found Group
  * @throws Error with suggestion to use inspect_elements/list_outline
  */
+function getOutlinerCandidates(): Array<OutlinerElement | Group> {
+  const candidates: Array<OutlinerElement | Group> = [];
+  const seen = new Set<OutlinerElement | Group>();
+  const visit = (node: OutlinerNode): void => {
+    const candidate = node as OutlinerElement | Group;
+    if (seen.has(candidate)) return;
+    seen.add(candidate);
+    candidates.push(candidate);
+    const children = (node as OutlinerNode & { children?: OutlinerNode[] }).children;
+    if (Array.isArray(children)) children.forEach(visit);
+  };
+  for (const node of Outliner.root ?? []) visit(node);
+  for (const node of [...(Outliner.elements ?? []), ...(Group.all ?? [])]) {
+    if (!seen.has(node)) {
+      seen.add(node);
+      candidates.push(node);
+    }
+  }
+  return candidates;
+}
+
 export function findGroupOrThrow(name: string): Group {
-  const uuidMatch = Group.all.find((group: Group) => group.uuid === name);
+  const groups = getOutlinerCandidates().filter(
+    (candidate): candidate is Group => candidate instanceof Group
+  );
+  const uuidMatch = groups.find((group: Group) => group.uuid === name);
   if (uuidMatch) return uuidMatch;
-  const nameMatches = Group.all.filter((group: Group) => group.name === name);
+  const nameMatches = groups.filter((group: Group) => group.name === name);
   if (nameMatches.length > 1) {
     throw new Error(
       `Bone/group name "${name}" is ambiguous (${nameMatches.length} matches: ` +
@@ -219,10 +273,7 @@ export function findMeshOrThrow(id: string): Mesh {
  * @throws Error with suggestion to use inspect_elements/list_outline
  */
 export function findElementOrThrow(id: string): OutlinerElement | Group {
-  const candidates: Array<OutlinerElement | Group> = [
-    ...Outliner.elements,
-    ...Group.all,
-  ];
+  const candidates = getOutlinerCandidates();
   const uuidMatches = candidates.filter((element) => element.uuid === id);
   if (uuidMatches.length === 1) return uuidMatches[0];
   if (uuidMatches.length > 1) {
@@ -312,7 +363,30 @@ export function getMeshOrSelected(meshId?: string): Mesh {
  * Captures a screenshot of the 3D preview canvas.
  * Uses Blockbench's native rendering pipeline for accurate capture.
  */
-export function captureScreenshot(project?: string) {
+async function waitForRenderFrames(frameCount: number): Promise<void> {
+  for (let frame = 0; frame < frameCount; frame++) {
+    await new Promise<void>((resolve) => {
+      if (typeof requestAnimationFrame === "function") {
+        let settled = false;
+        const fallback = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        }, 250);
+        requestAnimationFrame(() => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(fallback);
+          resolve();
+        });
+      } else {
+        setTimeout(resolve, 0);
+      }
+    });
+  }
+}
+
+export async function captureScreenshot(project?: string, settleFrames = 2) {
   let selectedProject = Project;
 
   if (!selectedProject || project !== undefined) {
@@ -335,6 +409,9 @@ export function captureScreenshot(project?: string) {
   if (!preview) {
     throw new Error("No preview available for the selected project.");
   }
+
+  Canvas.updateAll();
+  await waitForRenderFrames(settleFrames);
 
   // Capture the preview canvas using Blockbench's native approach
   // Canvas.withoutGizmos temporarily hides gizmos, executes the callback, then restores them

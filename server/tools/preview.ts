@@ -1,7 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import { createInternalTool, type ToolSpec } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
 
 export const setPreviewStateParameters = z.object({
@@ -23,9 +23,9 @@ export const setPreviewStateParameters = z.object({
     .describe("If non-empty, isolates these bones together with their ancestors and descendants."),
 });
 
-export const previewToolDocs: ToolSpec[] = [
+export const previewOperationDocs: ToolSpec[] = [
   {
-    name: "edit_preview",
+    name: "set_preview_state",
     description:
       "Selects a project and applies an animation/time plus temporary bone visibility for live inspection. It does not bake the pose into the model.",
     annotations: {
@@ -75,9 +75,9 @@ function descendantsAndAncestors(selected: Group[]): Set<Group> {
   return hierarchy;
 }
 
-export function registerPreviewTools() {
-  createTool(previewToolDocs[0].name, {
-    ...previewToolDocs[0],
+export function registerPreviewOperation() {
+  createInternalTool(previewOperationDocs[0].name, {
+    ...previewOperationDocs[0],
     async execute(args: SetPreviewStateArgs) {
       const { project, animation, time, hide_bones, show_bones, only_bones } = args;
       const target = project ? findProject(project) : Project;
@@ -147,5 +147,5 @@ export function registerPreviewTools() {
         2
       );
     },
-  }, previewToolDocs[0].status);
+  }, previewOperationDocs[0].status);
 }

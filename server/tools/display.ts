@@ -351,7 +351,7 @@ export function registerDisplayTools() {
         notes.push(`Loaded reference "${reference}".`);
       }
 
-      const screenshot = captureScreenshot();
+      const screenshot = await captureScreenshot(undefined, 2);
       return {
         content: [
           { type: "text" as const, text: notes.join(" ") },

@@ -17,7 +17,12 @@ import {
   selectionActionEnum,
 } from "@/lib/zodObjects";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
-import { getProjectTexture, getMeshOrSelected, findMeshOrThrow } from "@/lib/util";
+import {
+  assertFaceTextureAssignmentSupported,
+  getProjectTexture,
+  getMeshOrSelected,
+  findMeshOrThrow,
+} from "@/lib/util";
 import {
   finishCreatedOutlinerEdit,
   resolveOutlinerParentOrThrow,
@@ -185,6 +190,32 @@ export const createCylinderParameters = z.object({
   ),
 });
 
+export const createPyramidParameters = z.object({
+  elements: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        base_center: vec3("Center of the polygon base in model coordinates."),
+        apex: vec3("Apex position in model coordinates."),
+        radius: z.number().positive().max(64).default(4),
+        sides: z
+          .number()
+          .int()
+          .min(3)
+          .max(32)
+          .default(4)
+          .describe("3 creates a tetrahedron-like pyramid; larger values create a low-poly cone."),
+        base_rotation: z.number().finite().optional().default(0),
+        capped: z.boolean().optional().default(true),
+      })
+    )
+    .min(1),
+  texture: textureIdOptionalSchema,
+  group: z.string().min(1).describe(
+    "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for intentional root placement."
+  ),
+});
+
 export const knifeToolParameters = z.object({
   mesh_id: meshIdSchema.describe("ID or name of the mesh to cut."),
   points: z
@@ -318,6 +349,14 @@ export const meshToolDocs: ToolSpec[] = [
     parameters: knifeToolParameters,
     status: STATUS_EXPERIMENTAL,
   },
+  {
+    name: "create_pyramid",
+    description:
+      "Creates sealed low-poly pyramids or cones from a polygon base and apex; sides=3 gives a tetrahedron-like primitive.",
+    annotations: { title: "Create Pyramid", destructiveHint: true },
+    parameters: createPyramidParameters,
+    status: STATUS_STABLE,
+  },
 ];
 
 const meshCreateOperations = [
@@ -325,22 +364,23 @@ const meshCreateOperations = [
   meshToolDocs[3],
   meshToolDocs[8],
   meshToolDocs[9],
+  meshToolDocs[11],
 ];
 const meshEditOperations = [
   meshToolDocs[1],
   meshToolDocs[2],
+  meshToolDocs[4],
   meshToolDocs[5],
   meshToolDocs[6],
   meshToolDocs[7],
   meshToolDocs[10],
 ];
-const meshSelectionOperations = [meshToolDocs[4]];
 
 export const meshPublicToolDocs: ToolSpec[] = [
   {
     name: "create_mesh",
     description:
-      "Creates custom meshes, spheres, cylinders, or individual mesh faces through one command.action.",
+      "Creates custom meshes, low-poly sphere/cylinder/pyramid/cone primitives, or individual mesh faces through one command.action.",
     annotations: { title: "Create Mesh", destructiveHint: true },
     parameters: createToolGroupParameters(meshCreateOperations),
     status: STATUS_STABLE,
@@ -348,17 +388,9 @@ export const meshPublicToolDocs: ToolSpec[] = [
   {
     name: "edit_mesh",
     description:
-      "Extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.",
+      "Selects, extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.",
     annotations: { title: "Edit Mesh", destructiveHint: true },
     parameters: createToolGroupParameters(meshEditOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_mesh_selection",
-    description:
-      "Selects mesh vertices, edges, or faces. Use command.action=select_mesh_elements.",
-    annotations: { title: "Edit Mesh Selection", destructiveHint: true },
-    parameters: createToolGroupParameters(meshSelectionOperations),
     status: STATUS_STABLE,
   },
 ];
@@ -378,6 +410,7 @@ export function registerMeshTools() {
       if (texture && !projectTexture) {
         throw new Error(`No texture found for "${texture}".`);
       }
+      if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
       const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
       const meshes: Mesh[] = [];
       Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
@@ -460,6 +493,7 @@ export function registerMeshTools() {
       if (texture && !projectTexture) {
         throw new Error(`No texture found for "${texture}".`);
       }
+      if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
       const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
       const spheres: Mesh[] = [];
       Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
@@ -913,6 +947,7 @@ export function registerMeshTools() {
       if (texture && !projectTexture) {
         throw new Error(`Texture "${texture}" not found.`);
       }
+      if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
       const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
       const cylinders: Mesh[] = [];
       Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
@@ -1035,7 +1070,84 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[10].status);
 
+  createInternalTool(meshToolDocs[11].name, {
+    ...meshToolDocs[11],
+    async execute({ elements, texture, group }, { reportProgress }) {
+      const projectTexture = texture
+        ? getProjectTexture(texture)
+        : Texture.getDefault();
+      if (texture && !projectTexture) {
+        throw new Error(`Texture "${texture}" not found.`);
+      }
+      if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
+      const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
+      const meshes: Mesh[] = [];
+      Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
+      try {
+        for (const [progress, element] of elements.entries()) {
+          const baseCenter = new THREE.Vector3(...element.base_center);
+          const axis = new THREE.Vector3(...element.apex).sub(baseCenter);
+          if (axis.lengthSq() < 1e-10) {
+            throw new Error(`Pyramid "${element.name}" needs distinct base_center and apex positions.`);
+          }
+          const axisDirection = axis.clone().normalize();
+          const reference = Math.abs(axisDirection.y) < 0.9
+            ? new THREE.Vector3(0, 1, 0)
+            : new THREE.Vector3(1, 0, 0);
+          const basisU = new THREE.Vector3().crossVectors(axisDirection, reference).normalize();
+          const basisV = new THREE.Vector3().crossVectors(axisDirection, basisU).normalize();
+          const rotation = THREE.MathUtils.degToRad(element.base_rotation);
+
+          const mesh = new Mesh({
+            name: element.name,
+            vertices: {},
+            origin: element.base_center as [number, number, number],
+          }).init();
+          meshes.push(mesh);
+          const [apex] = mesh.addVertices(axis.toArray() as ArrayVector3);
+          const baseVertices: string[] = [];
+          for (let index = 0; index < element.sides; index++) {
+            const angle = rotation + (index / element.sides) * Math.PI * 2;
+            const point = basisU.clone().multiplyScalar(Math.cos(angle) * element.radius)
+              .addScaledVector(basisV, Math.sin(angle) * element.radius);
+            baseVertices.push(mesh.addVertices(point.toArray() as ArrayVector3)[0]);
+          }
+          for (let index = 0; index < element.sides; index++) {
+            const next = (index + 1) % element.sides;
+            mesh.addFaces(new MeshFace(mesh, {
+              vertices: [baseVertices[index], baseVertices[next], apex],
+              uv: {},
+            }));
+          }
+          if (element.capped) {
+            const [center] = mesh.addVertices([0, 0, 0]);
+            for (let index = 0; index < element.sides; index++) {
+              const next = (index + 1) % element.sides;
+              mesh.addFaces(new MeshFace(mesh, {
+                vertices: [baseVertices[next], baseVertices[index], center],
+                uv: {},
+              }));
+            }
+          }
+          mesh.addTo(outlinerParent);
+          if (projectTexture) mesh.applyTexture(projectTexture);
+          mesh.preview_controller.updateGeometry(mesh);
+          mesh.preview_controller.updateUV(mesh);
+          reportProgress({ progress: progress + 1, total: elements.length });
+        }
+      } catch (error) {
+        rollbackCreatedOutlinerEdit(meshes);
+        throw error;
+      }
+      finishCreatedOutlinerEdit("Agent created pyramids", meshes);
+      Canvas.updateAll();
+      return JSON.stringify(meshes.map((mesh) => ({
+        name: mesh.name,
+        uuid: mesh.uuid,
+      })));
+    },
+  }, meshToolDocs[11].status);
+
   createToolGroup(meshPublicToolDocs[0], meshCreateOperations);
   createToolGroup(meshPublicToolDocs[1], meshEditOperations);
-  createToolGroup(meshPublicToolDocs[2], meshSelectionOperations);
 }

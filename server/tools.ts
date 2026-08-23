@@ -19,7 +19,6 @@ import { registerMaterialInstanceTools } from "./tools/material-instances";
 import { registerArmatureTools } from "./tools/armature";
 import { registerHistoryTools } from "./tools/history";
 import { registerExportTools } from "./tools/export";
-import { registerPreviewTools } from "./tools/preview";
 import { registerCodexTextureTools } from "./tools/codex-texture";
 import { registerYsmTools } from "./tools/ysm";
 import { registerWorkflowTools } from "./tools/workflow";
@@ -48,7 +47,6 @@ const registrationFunctions = [
   registerMaterialInstanceTools,
   registerMeshTools,
   registerPaintTools,
-  registerPreviewTools,
   registerProjectTools,
   registerSpatialTools,
   registerTextureTools,

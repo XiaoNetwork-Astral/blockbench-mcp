@@ -456,3 +456,179 @@ export function angleBetweenVectors(
   const radians = Math.acos(cosine);
   return { radians, degrees: radians * 180 / Math.PI, dot: cosine };
 }
+
+export interface CoplanarTriangleOverlap {
+  first_triangle: number;
+  second_triangle: number;
+  overlap_area: number;
+  maximum_plane_offset: number;
+  normal: Vector3Tuple;
+}
+
+interface Point2 {
+  x: number;
+  y: number;
+}
+
+function projectPoint(point: Vector3Tuple, droppedAxis: number): Point2 {
+  const axes = [0, 1, 2].filter((axis) => axis !== droppedAxis);
+  return { x: point[axes[0]], y: point[axes[1]] };
+}
+
+function cross2(start: Point2, end: Point2, point: Point2): number {
+  return (end.x - start.x) * (point.y - start.y) -
+    (end.y - start.y) * (point.x - start.x);
+}
+
+function lineIntersection(
+  firstStart: Point2,
+  firstEnd: Point2,
+  secondStart: Point2,
+  secondEnd: Point2
+): Point2 {
+  const firstX = firstEnd.x - firstStart.x;
+  const firstY = firstEnd.y - firstStart.y;
+  const secondX = secondEnd.x - secondStart.x;
+  const secondY = secondEnd.y - secondStart.y;
+  const denominator = firstX * secondY - firstY * secondX;
+  if (Math.abs(denominator) <= EPSILON) return { ...firstEnd };
+  const offsetX = secondStart.x - firstStart.x;
+  const offsetY = secondStart.y - firstStart.y;
+  const amount = (offsetX * secondY - offsetY * secondX) / denominator;
+  return {
+    x: firstStart.x + amount * firstX,
+    y: firstStart.y + amount * firstY,
+  };
+}
+
+function clippedTriangleArea(subject: Point2[], clip: Point2[]): number {
+  let polygon = subject;
+  const orientation = Math.sign(cross2(clip[0], clip[1], clip[2])) || 1;
+  for (let edge = 0; edge < 3 && polygon.length > 0; edge++) {
+    const clipStart = clip[edge];
+    const clipEnd = clip[(edge + 1) % 3];
+    const input = polygon;
+    polygon = [];
+    let previous = input[input.length - 1];
+    let previousInside = orientation * cross2(clipStart, clipEnd, previous) >= -EPSILON;
+    for (const current of input) {
+      const currentInside = orientation * cross2(clipStart, clipEnd, current) >= -EPSILON;
+      if (currentInside !== previousInside) {
+        polygon.push(lineIntersection(previous, current, clipStart, clipEnd));
+      }
+      if (currentInside) polygon.push(current);
+      previous = current;
+      previousInside = currentInside;
+    }
+  }
+  if (polygon.length < 3) return 0;
+  let twiceArea = 0;
+  for (let index = 0; index < polygon.length; index++) {
+    const current = polygon[index];
+    const next = polygon[(index + 1) % polygon.length];
+    twiceArea += current.x * next.y - current.y * next.x;
+  }
+  return Math.abs(twiceArea) / 2;
+}
+
+/**
+ * Find actual coplanar surface overlap. Intersecting volumes whose surfaces
+ * merely cross are deliberately not reported as Z-fighting candidates.
+ */
+export function findCoplanarTriangleOverlaps(
+  first: readonly Triangle3[],
+  second: readonly Triangle3[],
+  options: {
+    distanceTolerance?: number;
+    angleToleranceDegrees?: number;
+    minimumOverlapArea?: number;
+    maxComparisons?: number;
+    maxResults?: number;
+  } = {}
+): {
+  comparisons: number;
+  truncated: boolean;
+  work_limit_reached: boolean;
+  result_limit_reached: boolean;
+  overlaps: CoplanarTriangleOverlap[];
+} {
+  const distanceTolerance = options.distanceTolerance ?? 0.0001;
+  const angleTolerance = (options.angleToleranceDegrees ?? 0.1) * Math.PI / 180;
+  const minimumOverlapArea = options.minimumOverlapArea ?? 0.000001;
+  const maxComparisons = options.maxComparisons ?? 200_000;
+  const maxResults = options.maxResults ?? 100;
+  const minimumParallelDot = Math.cos(angleTolerance);
+  const overlaps: CoplanarTriangleOverlap[] = [];
+  let comparisons = 0;
+
+  for (let firstIndex = 0; firstIndex < first.length; firstIndex++) {
+    const firstTriangle = first[firstIndex];
+    const firstNormalRaw = cross(
+      subtract(firstTriangle.b, firstTriangle.a),
+      subtract(firstTriangle.c, firstTriangle.a)
+    );
+    if (vectorLength(firstNormalRaw) <= EPSILON) continue;
+    const firstNormal = normalizeVector(firstNormalRaw);
+    const droppedAxis = [0, 1, 2].reduce((best, axis) =>
+      Math.abs(firstNormal[axis]) > Math.abs(firstNormal[best]) ? axis : best
+    );
+    const firstProjected = [firstTriangle.a, firstTriangle.b, firstTriangle.c]
+      .map((point) => projectPoint(point, droppedAxis));
+
+    for (let secondIndex = 0; secondIndex < second.length; secondIndex++) {
+      if (comparisons >= maxComparisons) {
+        return {
+          comparisons,
+          truncated: true,
+          work_limit_reached: true,
+          result_limit_reached: false,
+          overlaps,
+        };
+      }
+      comparisons++;
+      const secondTriangle = second[secondIndex];
+      const secondNormalRaw = cross(
+        subtract(secondTriangle.b, secondTriangle.a),
+        subtract(secondTriangle.c, secondTriangle.a)
+      );
+      if (vectorLength(secondNormalRaw) <= EPSILON) continue;
+      const secondNormal = normalizeVector(secondNormalRaw);
+      if (Math.abs(dot(firstNormal, secondNormal)) < minimumParallelDot) continue;
+
+      const offsets = [secondTriangle.a, secondTriangle.b, secondTriangle.c]
+        .map((point) => Math.abs(dot(subtract(point, firstTriangle.a), firstNormal)));
+      const maximumPlaneOffset = Math.max(...offsets);
+      if (maximumPlaneOffset > distanceTolerance) continue;
+      const projectedArea = clippedTriangleArea(
+        firstProjected,
+        [secondTriangle.a, secondTriangle.b, secondTriangle.c]
+          .map((point) => projectPoint(point, droppedAxis))
+      );
+      const overlapArea = projectedArea / Math.max(Math.abs(firstNormal[droppedAxis]), EPSILON);
+      if (overlapArea <= minimumOverlapArea) continue;
+      overlaps.push({
+        first_triangle: firstIndex,
+        second_triangle: secondIndex,
+        overlap_area: overlapArea,
+        maximum_plane_offset: maximumPlaneOffset,
+        normal: firstNormal,
+      });
+      if (overlaps.length >= maxResults) {
+        return {
+          comparisons,
+          truncated: true,
+          work_limit_reached: false,
+          result_limit_reached: true,
+          overlaps,
+        };
+      }
+    }
+  }
+  return {
+    comparisons,
+    truncated: false,
+    work_limit_reached: false,
+    result_limit_reached: false,
+    overlaps,
+  };
+}

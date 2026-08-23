@@ -65,7 +65,7 @@ describe("local MCP security policy", () => {
     for (const tool of ["trigger_action", "emulate_clicks", "fill_dialog"]) {
       expect(() => assertToolRegistrationAllowed(tool)).toThrow("permanently disabled");
     }
-    expect(() => assertToolRegistrationAllowed("edit_preview")).not.toThrow();
+    expect(() => assertToolRegistrationAllowed("set_preview_state")).not.toThrow();
   });
 
   test("bundled prompts cannot reintroduce disabled tool guidance", () => {

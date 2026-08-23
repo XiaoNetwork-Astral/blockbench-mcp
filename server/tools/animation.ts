@@ -28,6 +28,76 @@ import {
   loopModeEnum,
   keyframeDataSchema,
 } from "@/lib/zodObjects";
+import {
+  previewOperationDocs,
+  registerPreviewOperation,
+} from "./preview";
+
+export function normalizeAnimationName(name: string): string {
+  const normalized = name.trim();
+  if (!normalized) throw new Error("Animation name cannot be empty.");
+  return normalized.startsWith("animation.")
+    ? normalized
+    : `animation.${normalized}`;
+}
+
+function findAnimationOrThrow(reference?: string): _Animation {
+  if (!reference) {
+    if (!Animation.selected) throw new Error("No animation is selected.");
+    return Animation.selected;
+  }
+  const uuidMatch = Animation.all.find((animation) => animation.uuid === reference);
+  if (uuidMatch) return uuidMatch;
+  const nameMatches = Animation.all.filter((animation) => animation.name === reference);
+  if (nameMatches.length === 1) return nameMatches[0];
+  if (nameMatches.length > 1) {
+    throw new Error(
+      `Animation name "${reference}" is ambiguous. Use one of these UUIDs: ` +
+        nameMatches.map((animation) => animation.uuid).join(", ")
+    );
+  }
+  throw new Error(`Animation "${reference}" was not found. Use inspect_animation first.`);
+}
+
+function animationSummary(animation: _Animation, includeKeyframes: boolean) {
+  const animators = Object.values(animation.animators ?? {}) as Array<GeneralAnimator & {
+    name?: string;
+    keyframes?: _Keyframe[];
+    getGroup?: () => Group | undefined;
+  }>;
+  const populatedAnimators = animators.filter(
+    (animator) => (animator.keyframes?.length ?? 0) > 0
+  );
+  const keyframeCount = populatedAnimators.reduce(
+    (total, animator) => total + (animator.keyframes?.length ?? 0),
+    0
+  );
+  const keyframes = includeKeyframes
+    ? populatedAnimators.flatMap((animator) =>
+        (animator.keyframes ?? []).map((keyframe) => ({
+          uuid: keyframe.uuid,
+          bone_uuid: animator.uuid,
+          bone: animator.getGroup?.()?.name ?? animator.name ?? null,
+          channel: keyframe.channel,
+          time: keyframe.time,
+          interpolation: keyframe.interpolation,
+          values: typeof keyframe.getArray === "function" ? keyframe.getArray() : [],
+          selected: Boolean(keyframe.selected),
+        }))
+      )
+    : undefined;
+  return {
+    uuid: animation.uuid,
+    name: animation.name,
+    selected: Animation.selected === animation,
+    loop: animation.loop,
+    length: animation.length,
+    snapping: animation.snapping,
+    keyframe_count: keyframeCount,
+    animator_count: populatedAnimators.length,
+    ...(keyframes ? { keyframes } : {}),
+  };
+}
 
 export const createAnimationParameters = z.object({
   name: z.string().describe("Name of the animation"),
@@ -187,6 +257,7 @@ export const boneRiggingParameters = z
   });
 
 export const animationTimelineParameters = z.object({
+  animation_id: animationIdOptionalSchema,
   action: z
     .enum([
       "play",
@@ -216,6 +287,30 @@ export const animationTimelineParameters = z.object({
   loop_mode: loopModeEnum.optional().describe("Loop mode for the animation."),
   range: timeRangeSchema.optional().describe("Time range for selection."),
 });
+
+export const listAnimationsParameters = z.object({});
+
+export const getAnimationParameters = z.object({
+  animation_id: animationIdOptionalSchema.describe(
+    "Animation UUID or exact name. Defaults to the selected animation."
+  ),
+});
+
+export const manageAnimationParameters = z
+  .object({
+    action: z.enum(["select", "rename", "remove"]),
+    animation_id: z.string().min(1).describe("Animation UUID or exact name."),
+    new_name: z.string().min(1).optional().describe("Required for rename."),
+  })
+  .superRefine(({ action, new_name }, ctx) => {
+    if (action === "rename" && !new_name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["new_name"],
+        message: "new_name is required for rename.",
+      });
+    }
+  });
 
 export const batchKeyframeOperationsParameters = z.object({
   selection: z
@@ -379,16 +474,55 @@ export const animationToolDocs: ToolSpec[] = [
   },
 ];
 
+export const animationInspectionToolDocs: ToolSpec[] = [
+  {
+    name: "list_animations",
+    description: "Lists animations and reports which one is currently selected.",
+    annotations: { title: "List Animations", readOnlyHint: true },
+    parameters: listAnimationsParameters,
+    status: STATUS_STABLE,
+  },
+  {
+    name: "get_animation",
+    description: "Returns one animation with its animators and keyframes.",
+    annotations: { title: "Get Animation", readOnlyHint: true },
+    parameters: getAnimationParameters,
+    status: STATUS_STABLE,
+  },
+];
+
+export const animationManagementToolDoc: ToolSpec = {
+  name: "manage_animation",
+  description: "Selects, renames, or removes one animation by exact UUID or name.",
+  annotations: { title: "Manage Animation", destructiveHint: true },
+  parameters: manageAnimationParameters,
+  status: STATUS_STABLE,
+};
+
 const animationDataOperations = [
   animationToolDocs[0],
+  animationManagementToolDoc,
   animationToolDocs[1],
   animationToolDocs[3],
   animationToolDocs[5],
   animationToolDocs[6],
 ];
-const animationEditorOperations = [animationToolDocs[2], animationToolDocs[4]];
+const animationEditorOperations = [
+  animationToolDocs[2],
+  animationToolDocs[4],
+  previewOperationDocs[0],
+];
+const animationReadOperations = animationInspectionToolDocs;
 
 export const animationPublicToolDocs: ToolSpec[] = [
+  {
+    name: "inspect_animation",
+    description:
+      "Lists animations or returns one animation's keyframes through one read-only command.action.",
+    annotations: { title: "Inspect Animation", readOnlyHint: true },
+    parameters: createToolGroupParameters(animationReadOperations),
+    status: STATUS_STABLE,
+  },
   {
     name: "edit_animation",
     description:
@@ -400,7 +534,7 @@ export const animationPublicToolDocs: ToolSpec[] = [
   {
     name: "edit_animation_editor",
     description:
-      "Controls the graph editor or animation timeline through one command.action.",
+      "Controls graph curves, the timeline, or the temporary preview pose through one command.action.",
     annotations: { title: "Edit Animation Editor", destructiveHint: true },
     parameters: createToolGroupParameters(animationEditorOperations),
     status: STATUS_STABLE,
@@ -408,6 +542,63 @@ export const animationPublicToolDocs: ToolSpec[] = [
 ];
 
 export function registerAnimationTools() {
+registerPreviewOperation();
+
+createInternalTool(
+  animationInspectionToolDocs[0].name,
+  {
+    ...animationInspectionToolDocs[0],
+    async execute() {
+      return JSON.stringify({
+        current: Animation.selected
+          ? { uuid: Animation.selected.uuid, name: Animation.selected.name }
+          : null,
+        count: Animation.all.length,
+        animations: Animation.all.map((animation) => animationSummary(animation, false)),
+      }, null, 2);
+    },
+  },
+  animationInspectionToolDocs[0].status
+);
+
+createInternalTool(
+  animationInspectionToolDocs[1].name,
+  {
+    ...animationInspectionToolDocs[1],
+    async execute({ animation_id }) {
+      return JSON.stringify(animationSummary(findAnimationOrThrow(animation_id), true), null, 2);
+    },
+  },
+  animationInspectionToolDocs[1].status
+);
+
+createInternalTool(
+  animationManagementToolDoc.name,
+  {
+    ...animationManagementToolDoc,
+    async execute({ action, animation_id, new_name }) {
+      const animation = findAnimationOrThrow(animation_id);
+      if (action === "select") {
+        animation.select();
+        Animator.preview();
+        return JSON.stringify(animationSummary(animation, false));
+      }
+      if (action === "rename") {
+        const normalizedName = normalizeAnimationName(new_name!);
+        Undo.initEdit({ animations: [animation] });
+        animation.name = normalizedName;
+        animation.createUniqueName();
+        Undo.finishEdit("Rename animation", { animations: [animation] });
+        animation.select();
+        return JSON.stringify(animationSummary(animation, false));
+      }
+      animation.remove(true, false);
+      return JSON.stringify({ removed: { uuid: animation.uuid, name: animation.name } });
+    },
+  },
+  animationManagementToolDoc.status
+);
+
 createInternalTool(
   animationToolDocs[0].name,
   {
@@ -441,22 +632,28 @@ createInternalTool(
         ...(particle_effects && { particle_effects }),
       };
 
+      const normalizedName = normalizeAnimationName(name);
+      const animationsBefore = new Set(Animation.all);
       Animator.loadFile({
         content: JSON.stringify({
           format_version: "1.8.0",
           animations: {
-            [`animation.${name}`]: animationData,
+            [normalizedName]: animationData,
           },
         }),
       });
 
-      return `Created animation "${name}" with keyframes for ${
-        Object.keys(bones).length
-      } bones${
-        particle_effects
-          ? ` and ${Object.keys(particle_effects).length} particle effects`
-          : ""
-      }`;
+      const created = Animation.all.find((animation) => !animationsBefore.has(animation));
+      if (!created) throw new Error("Blockbench did not add the requested animation.");
+      created.select();
+      Animator.preview();
+
+      return JSON.stringify({
+        ...animationSummary(created, false),
+        requested_name: normalizedName,
+        bone_count: Object.keys(bones).length,
+        particle_effect_count: Object.keys(particle_effects ?? {}).length,
+      });
     },
   },
   animationToolDocs[0].status
@@ -468,15 +665,8 @@ createInternalTool(
     ...animationToolDocs[1],
     async execute({ animation_id, action, bone_name, channel, keyframes }) {
       // Find or select animation
-      const animation = animation_id
-        ? Animation.all.find(
-            (a) => a.uuid === animation_id || a.name === animation_id
-          )
-        : Animation.selected;
-
-      if (!animation) {
-        throw new Error("No animation found or selected.");
-      }
+      const animation = findAnimationOrThrow(animation_id);
+      animation.select();
 
       // Find the bone
       const group = findGroupOrThrow(bone_name);
@@ -604,15 +794,8 @@ createInternalTool(
       keyframe_range,
       custom_curve,
     }) {
-      const animation = animation_id
-        ? Animation.all.find(
-            (a) => a.uuid === animation_id || a.name === animation_id
-          )
-        : Animation.selected;
-
-      if (!animation) {
-        throw new Error("No animation found or selected.");
-      }
+      const animation = findAnimationOrThrow(animation_id);
+      animation.select();
 
       const group = findGroupOrThrow(bone_name);
 
@@ -910,10 +1093,9 @@ createInternalTool(
   animationToolDocs[4].name,
   {
     ...animationToolDocs[4],
-    async execute({ action, time, length, fps, loop_mode, range }) {
-      if (!Animation.selected) {
-        throw new Error("No animation selected.");
-      }
+    async execute({ animation_id, action, time, length, fps, loop_mode, range }) {
+      const animation = findAnimationOrThrow(animation_id);
+      animation.select();
 
       let result = "";
 
@@ -946,7 +1128,7 @@ createInternalTool(
           if (length === undefined) {
             throw new Error("Length parameter required for set_length action.");
           }
-          Animation.selected.length = length;
+          animation.length = length;
           result = `Set animation length to ${length} seconds`;
           break;
 
@@ -954,15 +1136,15 @@ createInternalTool(
           if (fps === undefined) {
             throw new Error("FPS parameter required for set_fps action.");
           }
-          Animation.selected.snapping = fps;
+          animation.snapping = fps;
           result = `Set animation FPS to ${fps}`;
           break;
 
         case "loop":
           if (loop_mode) {
-            Animation.selected.loop = loop_mode;
+            animation.loop = loop_mode;
           }
-          result = `Set loop mode to ${loop_mode || Animation.selected.loop}`;
+          result = `Set loop mode to ${loop_mode || animation.loop}`;
           break;
 
         case "select_range":
@@ -1326,6 +1508,7 @@ createInternalTool(
   animationToolDocs[6].status
 );
 
-  createToolGroup(animationPublicToolDocs[0], animationDataOperations);
-  createToolGroup(animationPublicToolDocs[1], animationEditorOperations);
+  createToolGroup(animationPublicToolDocs[0], animationReadOperations);
+  createToolGroup(animationPublicToolDocs[1], animationDataOperations);
+  createToolGroup(animationPublicToolDocs[2], animationEditorOperations);
 }

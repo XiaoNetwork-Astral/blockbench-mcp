@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { toolManifest } from "@/build/docs-manifest";
 import {
+  animationInspectionToolDocs,
+  animationManagementToolDoc,
   animationPublicToolDocs,
   animationToolDocs,
 } from "@/server/tools/animation";
@@ -9,7 +11,10 @@ import {
   armaturePublicToolDocs,
   armatureToolDocs,
 } from "@/server/tools/armature";
-import { cameraToolDocs } from "@/server/tools/camera";
+import {
+  cameraPublicToolDocs,
+  cameraToolDocs,
+} from "@/server/tools/camera";
 import { codexTextureToolDocs } from "@/server/tools/codex-texture";
 import { cubeToolDocs } from "@/server/tools/cubes";
 import {
@@ -36,7 +41,7 @@ import {
 } from "@/server/tools/material-instances";
 import { meshPublicToolDocs, meshToolDocs } from "@/server/tools/mesh";
 import { paintPublicToolDocs, paintToolDocs } from "@/server/tools/paint";
-import { previewToolDocs } from "@/server/tools/preview";
+import { previewOperationDocs } from "@/server/tools/preview";
 import { projectPublicToolDocs, projectToolDocs } from "@/server/tools/project";
 import { spatialPublicToolDocs, spatialToolDocs } from "@/server/tools/spatial";
 import { texturePublicToolDocs, textureToolDocs } from "@/server/tools/texture";
@@ -50,7 +55,7 @@ import { ysmPublicToolDocs, ysmToolDocs } from "@/server/tools/ysm";
 const corePublicToolDocs = [
   ...animationPublicToolDocs,
   ...armaturePublicToolDocs,
-  ...cameraToolDocs,
+  ...cameraPublicToolDocs,
   ...codexTextureToolDocs,
   ...cubeToolDocs,
   ...displayPublicToolDocs,
@@ -61,7 +66,6 @@ const corePublicToolDocs = [
   ...materialInstancePublicToolDocs,
   ...meshPublicToolDocs,
   ...paintPublicToolDocs,
-  ...previewToolDocs,
   ...projectPublicToolDocs,
   ...spatialPublicToolDocs,
   ...texturePublicToolDocs,
@@ -71,7 +75,11 @@ const corePublicToolDocs = [
 ];
 
 const groupedLegacyToolDocs = [
+  ...animationInspectionToolDocs,
+  animationManagementToolDoc,
   ...animationToolDocs,
+  ...previewOperationDocs,
+  ...cameraToolDocs,
   ...armatureToolDocs,
   ...displayToolDocs,
   ...elementToolDocs,
@@ -91,6 +99,7 @@ const groupedLegacyToolDocs = [
 const groupedPublicToolDocs = [
   ...animationPublicToolDocs,
   ...armaturePublicToolDocs,
+  ...cameraPublicToolDocs.filter(({ name }) => name === "inspect_blockbench"),
   ...displayPublicToolDocs,
   ...elementPublicToolDocs,
   ...historyPublicToolDocs,
@@ -127,10 +136,9 @@ const expectedCorePublicToolNames = [
   "edit_material_instances",
   "edit_materials",
   "edit_mesh",
-  "edit_mesh_selection",
   "edit_mesh_uv",
   "edit_paint_settings",
-  "edit_preview",
+  "inspect_animation",
   "edit_projects",
   "edit_texture_paint",
   "edit_texture_pixels",
@@ -142,7 +150,7 @@ const expectedCorePublicToolNames = [
   "export_model",
   "import_bedrock_geometry",
   "inspect_armature",
-  "inspect_blockbench_ui",
+  "inspect_blockbench",
   "inspect_display",
   "inspect_elements",
   "inspect_export_formats",
@@ -152,7 +160,6 @@ const expectedCorePublicToolNames = [
   "inspect_materials",
   "inspect_projects",
   "inspect_textures",
-  "inspect_viewport",
   "inspect_ysm",
 ].sort();
 
@@ -183,13 +190,13 @@ function findActionLiterals(value: unknown): string[] {
 }
 
 describe("Codex MCP schema compatibility", () => {
-  test("all 41 core public tools avoid unsupported draft-07 tuple items", () => {
+  test("all 39 core public tools avoid unsupported draft-07 tuple items", () => {
     const failures = corePublicToolDocs.flatMap((tool) => {
       const schema = zodToJsonSchema(tool.parameters, { $refStrategy: "root" });
       return findTupleItems(schema).map((path) => `${tool.name}: ${path}`);
     });
 
-    expect(corePublicToolDocs).toHaveLength(41);
+    expect(corePublicToolDocs).toHaveLength(39);
     expect(failures).toEqual([]);
   });
 
@@ -307,10 +314,10 @@ describe("Codex MCP schema compatibility", () => {
       !category.endsWith("(optional)")
     );
 
-    expect(core).toHaveLength(41);
+    expect(core).toHaveLength(39);
     expect(optional).toHaveLength(2);
-    expect(documented).toHaveLength(43);
-    expect(new Set(documented.map(({ name }) => name)).size).toBe(43);
+    expect(documented).toHaveLength(41);
+    expect(new Set(documented.map(({ name }) => name)).size).toBe(41);
     expect(optional.map(({ name }) => name).sort()).toEqual(
       hytalePublicToolDocs.map(({ name }) => name).sort()
     );

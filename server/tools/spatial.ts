@@ -22,6 +22,7 @@ import {
   closestPointsBetweenBounds,
   closestPointsBetweenTriangleSets,
   distanceBetweenPoints,
+  findCoplanarTriangleOverlaps,
   normalizeVector,
   principalAxis,
   type ClosestPointsResult,
@@ -171,6 +172,27 @@ export const measureGeometryParameters = z
     { message: "Provide at least one element, distance, or angle measurement." }
   );
 
+const coplanarPairSchema = z.object({
+  first: z.string().describe("UUID or unique name of the first Outliner node."),
+  second: z.string().describe("UUID or unique name of the second Outliner node."),
+  distance_tolerance: z.number().min(0).max(0.1).optional().default(0.0001),
+  angle_tolerance_degrees: z.number().positive().max(5).optional().default(0.1),
+  minimum_overlap_area: z.number().min(0).max(4096).optional().default(0.000001),
+});
+
+export const detectCoplanarFacesParameters = z.object({
+  pairs: z.array(coplanarPairSchema).min(1).max(50),
+  max_triangle_comparisons: z
+    .number()
+    .int()
+    .min(100)
+    .max(1_000_000)
+    .optional()
+    .default(200_000)
+    .describe("Per-pair work limit for old or low-power computers."),
+  max_results_per_pair: z.number().int().min(1).max(500).optional().default(100),
+});
+
 export const spatialToolDocs: ToolSpec[] = [
   {
     name: "inspect_spatial_relationships",
@@ -194,15 +216,27 @@ export const spatialToolDocs: ToolSpec[] = [
     parameters: measureGeometryParameters,
     status: STATUS_STABLE,
   },
+  {
+    name: "detect_coplanar_faces",
+    description:
+      "Finds overlapping coplanar rendered triangles that can cause Z-fighting. Ordinary volume intersections without coplanar surface overlap are reported separately and are not mislabeled.",
+    annotations: { title: "Detect Coplanar Faces", readOnlyHint: true },
+    parameters: detectCoplanarFacesParameters,
+    status: STATUS_STABLE,
+  },
 ];
 
-const geometryInspectionOperations = [spatialToolDocs[0], spatialToolDocs[1]];
+const geometryInspectionOperations = [
+  spatialToolDocs[0],
+  spatialToolDocs[1],
+  spatialToolDocs[2],
+];
 
 export const spatialPublicToolDocs: ToolSpec[] = [
   {
     name: "inspect_geometry",
     description:
-      "Inspects hierarchy/bounds relationships or performs exact geometry measurements through one read-only command.action.",
+      "Inspects hierarchy/bounds, performs geometry measurements, or detects coplanar face conflicts through one read-only command.action.",
     annotations: { title: "Inspect Geometry", readOnlyHint: true },
     parameters: createToolGroupParameters(geometryInspectionOperations),
     status: STATUS_STABLE,
@@ -655,6 +689,68 @@ export function registerSpatialTools(): void {
       }, null, 2);
     },
   }, spatialToolDocs[1].status);
+
+  createInternalTool(spatialToolDocs[2].name, {
+    ...spatialToolDocs[2],
+    async execute({ pairs, max_triangle_comparisons, max_results_per_pair }) {
+      type CoplanarPair = z.infer<typeof coplanarPairSchema>;
+      const results = (pairs as CoplanarPair[]).map((pair) => {
+        const firstNode = findElementOrThrow(pair.first) as InspectableNode;
+        const secondNode = findElementOrThrow(pair.second) as InspectableNode;
+        const firstGeometry = extractNodeGeometry(firstNode);
+        const secondGeometry = extractNodeGeometry(secondNode);
+        const analysis = findCoplanarTriangleOverlaps(
+          firstGeometry.triangles,
+          secondGeometry.triangles,
+          {
+            distanceTolerance: pair.distance_tolerance,
+            angleToleranceDegrees: pair.angle_tolerance_degrees,
+            minimumOverlapArea: pair.minimum_overlap_area,
+            maxComparisons: max_triangle_comparisons,
+            maxResults: max_results_per_pair,
+          }
+        );
+        const firstBounds = inspectNode(firstNode).world_bounds;
+        const secondBounds = inspectNode(secondNode).world_bounds;
+        const boundsRelation = firstBounds && secondBounds
+          ? analyzeBoundsPair(firstBounds, secondBounds, pair.distance_tolerance)
+          : null;
+        const volumeOverlap = Boolean(
+          boundsRelation &&
+          Object.values(boundsRelation.axes).every(
+            (axis) => axis.penetration_depth > pair.distance_tolerance
+          )
+        );
+        return {
+          first: { uuid: firstNode.uuid, name: firstNode.name },
+          second: { uuid: secondNode.uuid, name: secondNode.name },
+          triangle_counts: {
+            first: firstGeometry.triangles.length,
+            second: secondGeometry.triangles.length,
+          },
+          comparisons: analysis.comparisons,
+          truncated_by_work_limit: analysis.work_limit_reached,
+          truncated_by_result_limit: analysis.result_limit_reached,
+          reported_coplanar_overlap_count: analysis.overlaps.length,
+          z_fighting_risk: analysis.overlaps.length > 0,
+          bounds_volume_overlap: volumeOverlap,
+          overlaps: analysis.overlaps.map((overlap) => ({
+            ...overlap,
+            overlap_area: Number(overlap.overlap_area.toFixed(9)),
+            maximum_plane_offset: Number(overlap.maximum_plane_offset.toFixed(9)),
+            normal: cleanTuple(overlap.normal),
+          })),
+        };
+      });
+      return JSON.stringify({
+        coordinate_space: "world",
+        unit: "Blockbench model unit",
+        note:
+          "z_fighting_risk requires overlapping coplanar rendered surfaces. bounds_volume_overlap is separate and may be intentional.",
+        results,
+      }, null, 2);
+    },
+  }, spatialToolDocs[2].status);
 
   createToolGroup(spatialPublicToolDocs[0], geometryInspectionOperations);
 }

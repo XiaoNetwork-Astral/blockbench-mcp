@@ -4,7 +4,11 @@ import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { cubeSchema } from "@/lib/zodObjects";
 import { STATUS_STABLE } from "@/lib/constants";
-import { findElementOrThrow, getProjectTexture } from "@/lib/util";
+import {
+  assertFaceTextureAssignmentSupported,
+  findElementOrThrow,
+  getProjectTexture,
+} from "@/lib/util";
 import {
   CUBE_FACE_KEYS,
   applyCubeTextureMapping,
@@ -216,6 +220,7 @@ createTool(cubeToolDocs[0].name, {
     if (texture && !projectTexture) {
       throw new Error(`No texture found for "${texture}".`);
     }
+    if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
     const outlinerParent = resolveOutlinerParentOrThrow(group, "cube");
 
     const autouv =

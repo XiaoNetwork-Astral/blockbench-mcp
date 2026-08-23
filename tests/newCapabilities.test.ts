@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import {
   applyTextureToResolvedFaces,
   type FaceTextureElementTarget,
@@ -7,6 +7,7 @@ import {
   angleBetweenVectors,
   closestPointOnBounds,
   closestPointsBetweenTriangleSets,
+  findCoplanarTriangleOverlaps,
   principalAxis,
   type Triangle3,
 } from "@/lib/measurements";
@@ -24,6 +25,30 @@ import {
 } from "@/server/tools/project";
 import { measureGeometryParameters } from "@/server/tools/spatial";
 import { removeTextureParameters } from "@/server/tools/texture";
+import {
+  manageAnimationParameters,
+  normalizeAnimationName,
+} from "@/server/tools/animation";
+import { captureScreenshotParameters } from "@/server/tools/camera";
+import { detectCoplanarFacesParameters } from "@/server/tools/spatial";
+import {
+  assertFaceTextureAssignmentSupported,
+  getProjectTexture,
+  getProjectTextures,
+} from "@/lib/util";
+
+const originalProject = (globalThis as any).Project;
+const originalTexture = (globalThis as any).Texture;
+const originalFormat = (globalThis as any).Format;
+
+afterEach(() => {
+  if (originalProject === undefined) delete (globalThis as any).Project;
+  else (globalThis as any).Project = originalProject;
+  if (originalTexture === undefined) delete (globalThis as any).Texture;
+  else (globalThis as any).Texture = originalTexture;
+  if (originalFormat === undefined) delete (globalThis as any).Format;
+  else (globalThis as any).Format = originalFormat;
+});
 
 function faceElement(
   uuid: string,
@@ -41,6 +66,27 @@ function faceElement(
 }
 
 describe("scoped texture assignment", () => {
+  test("resolves names, UUIDs, and numeric IDs across both Blockbench registries", () => {
+    const first = { id: 0, uuid: "texture-a", name: "first" };
+    const second = { id: 1, uuid: "texture-b", name: "second" };
+    (globalThis as any).Project = { textures: [first] };
+    (globalThis as any).Texture = { all: [first, second] };
+    expect(getProjectTextures()).toEqual([first, second]);
+    expect(getProjectTexture("0")).toBe(first);
+    expect(getProjectTexture("second")).toBe(second);
+    expect(getProjectTexture("texture-b")).toBe(second);
+  });
+
+  test("rejects misleading non-default assignments in strict single-texture formats", () => {
+    const first = { id: 0, uuid: "texture-a", name: "first" };
+    const second = { id: 1, uuid: "texture-b", name: "second" };
+    (globalThis as any).Format = { id: "bedrock_block", single_texture: true };
+    (globalThis as any).Texture = { getDefault: () => first };
+    expect(() => assertFaceTextureAssignmentSupported(second as Texture))
+      .toThrow(/one project texture/i);
+    expect(() => assertFaceTextureAssignmentSupported(first as Texture)).not.toThrow();
+  });
+
   test("writes only resolved target faces and verifies the complete scope", () => {
     const target = faceElement("target", { north: "old", south: false });
     const unrelated = faceElement("unrelated", { north: "keep" });
@@ -180,6 +226,31 @@ describe("geometry measurement primitives", () => {
     expect(angleBetweenVectors(axis!.direction, [1, 0, 0], true).degrees)
       .toBeCloseTo(90);
   });
+
+  test("finds coplanar surface overlap without confusing parallel gaps or crossing faces", () => {
+    const overlapping: Triangle3 = {
+      a: [0.5, 0.25, 0],
+      b: [1.5, 0.25, 0],
+      c: [0.5, 1.25, 0],
+    };
+    const result = findCoplanarTriangleOverlaps([lower], [overlapping]);
+    expect(result.truncated).toBe(false);
+    expect(result.overlaps).toHaveLength(1);
+    expect(result.overlaps[0].overlap_area).toBeGreaterThan(0);
+
+    const separated: Triangle3 = {
+      a: [0, 0, 0.01],
+      b: [2, 0, 0.01],
+      c: [0, 2, 0.01],
+    };
+    expect(findCoplanarTriangleOverlaps([lower], [separated]).overlaps).toHaveLength(0);
+    const crossing: Triangle3 = {
+      a: [0.5, 0.5, -1],
+      b: [0.5, 0.5, 1],
+      c: [1.5, 0.5, 0],
+    };
+    expect(findCoplanarTriangleOverlaps([lower], [crossing]).overlaps).toHaveLength(0);
+  });
 });
 
 describe("project file and new tool contracts", () => {
@@ -240,5 +311,19 @@ describe("project file and new tool contracts", () => {
     });
     expect(parsed.distances).toHaveLength(1);
     expect(parsed.angles[0].orientation).toBe("undirected");
+  });
+
+  test("animation and viewport contracts expose deterministic selection and settling", () => {
+    expect(normalizeAnimationName("draw_rapier")).toBe("animation.draw_rapier");
+    expect(normalizeAnimationName("animation.emma.draw_rapier"))
+      .toBe("animation.emma.draw_rapier");
+    expect(() => manageAnimationParameters.parse({
+      action: "rename",
+      animation_id: "idle",
+    })).toThrow(/new_name/i);
+    expect(captureScreenshotParameters.parse({}).settle_frames).toBe(2);
+    expect(detectCoplanarFacesParameters.parse({
+      pairs: [{ first: "blade", second: "guard" }],
+    })).toMatchObject({ max_triangle_comparisons: 200_000, max_results_per_pair: 100 });
   });
 });

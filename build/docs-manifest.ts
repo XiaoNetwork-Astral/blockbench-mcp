@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { ToolSpec, PromptSpec, ResourceSpec } from "../lib/factories";
 
 // Tool docs imports — each file exports schemas at module level with zero Blockbench deps
-import { cameraToolDocs } from "../server/tools/camera";
+import { cameraPublicToolDocs as cameraToolDocs } from "../server/tools/camera";
 import { codexTextureToolDocs } from "../server/tools/codex-texture";
 import { cubeToolDocs } from "../server/tools/cubes";
 import { displayPublicToolDocs as displayToolDocs } from "../server/tools/display";
@@ -10,7 +10,6 @@ import { elementPublicToolDocs as elementToolDocs } from "../server/tools/elemen
 import { importToolDocs } from "../server/tools/import";
 import { meshPublicToolDocs as meshToolDocs } from "../server/tools/mesh";
 import { paintPublicToolDocs as paintToolDocs } from "../server/tools/paint";
-import { previewToolDocs } from "../server/tools/preview";
 import { projectPublicToolDocs as projectToolDocs } from "../server/tools/project";
 import { spatialPublicToolDocs as spatialToolDocs } from "../server/tools/spatial";
 import { texturePublicToolDocs as textureToolDocs } from "../server/tools/texture";
@@ -33,7 +32,6 @@ export const toolManifest: CategoryGroup[] = [
   { category: "Cubes", tools: cubeToolDocs },
   { category: "Display Settings", tools: displayToolDocs },
   { category: "Camera & Screenshots", tools: cameraToolDocs },
-  { category: "Preview", tools: previewToolDocs },
   { category: "Animation", tools: animationToolDocs },
   { category: "Armature", tools: armatureToolDocs },
   { category: "Elements", tools: elementToolDocs },

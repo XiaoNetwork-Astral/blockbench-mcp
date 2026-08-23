@@ -9,6 +9,8 @@ import {
 } from "@/lib/factories";
 import {
   getProjectTexture,
+  getProjectTextures,
+  assertFaceTextureAssignmentSupported,
   imageContent,
   findElementOrThrow,
   findTextureOrThrow,
@@ -573,7 +575,7 @@ export function registerTextureTools() {
         collections: [],
       });
 
-      const texture = new Texture({
+      let texture = new Texture({
         name,
         width,
         height,
@@ -583,7 +585,10 @@ export function registerTextureTools() {
         render_sides,
         internal: true,
       });
-      texture.add();
+      const addedTexture = (
+        texture.add as unknown as () => Texture | undefined
+      ).call(texture);
+      if (addedTexture instanceof Texture) texture = addedTexture;
 
       try {
         if (data) {
@@ -657,9 +662,22 @@ export function registerTextureTools() {
         });
         Canvas.updateAll();
 
-        return imageContent({
-          url: texture.getDataURL(),
-        });
+        const image = imageContent({ url: texture.getDataURL() });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                name: texture.name,
+                uuid: texture.uuid,
+                id: texture.id,
+                width: texture.width,
+                height: texture.height,
+              }),
+            },
+            ...image.content,
+          ],
+        };
       } catch (error) {
         (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
         if (Texture.all.includes(texture)) texture.remove(true);
@@ -680,6 +698,9 @@ export function registerTextureTools() {
         throw new Error(
           "No default texture available. Use edit_textures with command.action \"create_texture\" to create one first."
         );
+      }
+      if (!Format.per_group_texture) {
+        assertFaceTextureAssignmentSupported(projectTexture);
       }
 
       // Resolve `id` to the concrete set of cubes/meshes to texture.
@@ -762,7 +783,7 @@ export function registerTextureTools() {
         }
       }
       const validTextureUuids = new Set(
-        (Project?.textures ?? Texture.all).map((entry) => entry.uuid)
+        getProjectTextures().map((entry) => entry.uuid)
       );
       const undoAspects: UndoAspects = {
         elements: targets,
@@ -852,7 +873,7 @@ export function registerTextureTools() {
   createInternalTool(textureToolDocs[3].name, {
     ...textureToolDocs[3],
     async execute() {
-      const textures = Project?.textures ?? Texture.all;
+      const textures = getProjectTextures();
 
       return JSON.stringify(
         textures.map((texture) => ({
@@ -860,6 +881,8 @@ export function registerTextureTools() {
           uuid: texture.uuid,
           id: texture.id,
           group: texture.group,
+          is_default: Texture.getDefault()?.uuid === texture.uuid,
+          effective_single_texture: Boolean(Format.single_texture),
         }))
       );
     },

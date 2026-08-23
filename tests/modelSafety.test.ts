@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { resolveUniqueReference } from "@/lib/modelSafety";
+import { resolveUniqueReference, vectorsNearlyEqual } from "@/lib/modelSafety";
 import { rollbackUndoEditStartedAfter } from "@/lib/undoSafety";
 import { analyzeBoundsPair } from "@/lib/spatialRelations";
 import { expandOutlinerGeometryWorldBounds } from "@/lib/sceneBounds";
@@ -15,11 +15,13 @@ import {
 } from "@/server/tools/element";
 import {
   createCylinderParameters,
+  createPyramidParameters,
   createSphereParameters,
   placeMeshParameters,
 } from "@/server/tools/mesh";
 import { addArmatureParameters } from "@/server/tools/armature";
 import { boneRiggingParameters } from "@/server/tools/animation";
+import { reparentElementParameters } from "@/server/tools/element";
 import {
   closeProjectParameters,
   setProjectTextureResolutionParameters,
@@ -40,6 +42,14 @@ describe("deterministic model references", () => {
       .toThrow(/ambiguous.*id-a, id-b/i);
     expect(() => resolveUniqueReference("missing", candidates, "Node", "list_outline"))
       .toThrow(/not found/i);
+  });
+
+  test("accepts harmless floating-point readback differences", () => {
+    expect(vectorsNearlyEqual(
+      [-0.44384999999999986, 1, 2],
+      [-0.44385, 1, 2]
+    )).toBe(true);
+    expect(vectorsNearlyEqual([0, 0, 0], [0, 0.001, 0])).toBe(false);
   });
 });
 
@@ -145,11 +155,25 @@ describe("explicit Outliner parent schemas", () => {
     expect(createSphereParameters.parse({ elements: [sphere], group: "root" }).group).toBe("root");
     expect(() => createCylinderParameters.parse({ elements: [cylinder] })).toThrow();
     expect(createCylinderParameters.parse({ elements: [cylinder], group: "root" }).group).toBe("root");
+    const pyramid = {
+      name: "pyramid",
+      base_center: [0, 0, 0],
+      apex: [0, 4, 0],
+    };
+    expect(() => createPyramidParameters.parse({ elements: [pyramid] })).toThrow();
+    expect(createPyramidParameters.parse({ elements: [pyramid], group: "root" }))
+      .toMatchObject({ group: "root", elements: [{ sides: 4, capped: true }] });
     expect(() => addArmatureParameters.parse({})).toThrow();
     expect(addArmatureParameters.parse({ parent: "root" }).parent).toBe("root");
     expect(() => hytaleCreateQuadParametersSchema.parse({ name: "quad" })).toThrow();
     expect(hytaleCreateQuadParametersSchema.parse({ name: "quad", group: "root" }).group)
       .toBe("root");
+  });
+
+  test("reparenting preserves world transforms by default and requires an explicit parent", () => {
+    expect(() => reparentElementParameters.parse({ id: "part" })).toThrow();
+    expect(reparentElementParameters.parse({ id: "part", parent: "root" }))
+      .toMatchObject({ parent: "root", preserve_world_transform: true });
   });
 
   test("bone rigging makes hierarchy and rename intent explicit", () => {

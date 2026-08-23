@@ -15,7 +15,7 @@ const mutationGuardExemptions = new Set([
   "duplicate_project",
   "select_project",
   "edit_camera",
-  "edit_preview",
+  "set_preview_state",
   "enter_display_mode",
   "ysm_set_workspace",
   "ysm_bind_project",

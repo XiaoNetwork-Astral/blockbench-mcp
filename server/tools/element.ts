@@ -20,6 +20,7 @@ import {
   resolveOutlinerParentOrThrow,
   rollbackCreatedOutlinerEdit,
   translateOutlinerSubtree,
+  vectorsNearlyEqual,
 } from "@/lib/modelSafety";
 
 export const removeElementParameters = z.object({
@@ -187,6 +188,21 @@ export const modifyGroupParameters = z
     path: ["origin", "position"],
   });
 
+export const reparentElementParameters = z.object({
+  id: elementIdSchema.describe("Element or group UUID or unique name."),
+  parent: z
+    .string()
+    .min(1)
+    .describe(
+      "Required target parent UUID or unique name. Use the exact literal 'root' only for intentional root placement."
+    ),
+  preserve_world_transform: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Keep the node and its descendants in the same rendered world-space pose."),
+});
+
 export const elementToolDocs: ToolSpec[] = [
   {
     name: "remove_element",
@@ -290,6 +306,14 @@ export const elementToolDocs: ToolSpec[] = [
     parameters: modifyGroupParameters,
     status: STATUS_STABLE,
   },
+  {
+    name: "reparent_element",
+    description:
+      "Moves one cube, mesh, or group to an explicit parent and preserves its rendered world transform by default.",
+    annotations: { title: "Reparent Element", destructiveHint: true },
+    parameters: reparentElementParameters,
+    status: STATUS_STABLE,
+  },
 ];
 
 const elementReadOperations = [
@@ -305,6 +329,7 @@ const elementEditOperations = [
   elementToolDocs[4],
   elementToolDocs[6],
   elementToolDocs[9],
+  elementToolDocs[10],
 ];
 
 export const elementPublicToolDocs: ToolSpec[] = [
@@ -319,7 +344,7 @@ export const elementPublicToolDocs: ToolSpec[] = [
   {
     name: "edit_elements",
     description:
-      "Creates groups, duplicates, renames, transforms, selects, or removes Outliner elements through one explicit command.action.",
+      "Creates groups, duplicates, renames, transforms, reparents, selects, or removes Outliner elements through one explicit command.action.",
     annotations: { title: "Edit Elements", destructiveHint: true },
     parameters: createToolGroupParameters(elementEditOperations),
     status: STATUS_STABLE,
@@ -739,8 +764,16 @@ export function registerElementTools() {
       for (const cube of Cube.all) {
         const faceKeys: string[] = [];
         for (const [key, face] of Object.entries(cube.faces ?? {})) {
-          const faceTexId = (face as { texture?: unknown }).texture;
-          if (faceTexId === tex.uuid || faceTexId === tex.id) {
+          const typedFace = face as {
+            texture?: unknown;
+            getTexture?: () => Texture | null;
+          };
+          const effectiveTexture = typedFace.getTexture?.();
+          const faceTexId = typedFace.texture;
+          if (
+            effectiveTexture?.uuid === tex.uuid ||
+            (!effectiveTexture && (faceTexId === tex.uuid || String(faceTexId) === String(tex.id)))
+          ) {
             faceKeys.push(key);
           }
         }
@@ -757,8 +790,16 @@ export function registerElementTools() {
       for (const mesh of Mesh.all) {
         const faceKeys: string[] = [];
         for (const [key, face] of Object.entries(mesh.faces ?? {})) {
-          const faceTexId = (face as { texture?: unknown }).texture;
-          if (faceTexId === tex.uuid || faceTexId === tex.id) {
+          const typedFace = face as {
+            texture?: unknown;
+            getTexture?: () => Texture | null;
+          };
+          const effectiveTexture = typedFace.getTexture?.();
+          const faceTexId = typedFace.texture;
+          if (
+            effectiveTexture?.uuid === tex.uuid ||
+            (!effectiveTexture && (faceTexId === tex.uuid || String(faceTexId) === String(tex.id)))
+          ) {
             faceKeys.push(key);
           }
         }
@@ -865,16 +906,12 @@ export function registerElementTools() {
         element.preview_controller?.updateAll(element);
 
         const expectedOrigin = position ?? origin;
-        if (expectedOrigin && expectedOrigin.some(
-          (value: number, index: number) => element.origin[index] !== value
-        )) {
+        if (expectedOrigin && !vectorsNearlyEqual(element.origin, expectedOrigin)) {
           throw new Error(
             `Group origin readback mismatch: expected [${expectedOrigin}], got [${element.origin}].`
           );
         }
-        if (rotation && rotation.some(
-          (value: number, index: number) => element.rotation[index] !== value
-        )) {
+        if (rotation && !vectorsNearlyEqual(element.rotation, rotation)) {
           throw new Error(
             `Group rotation readback mismatch: expected [${rotation}], got [${element.rotation}].`
           );
@@ -906,6 +943,152 @@ export function registerElementTools() {
       }, null, 2);
     },
   }, elementToolDocs[9].status);
+
+  createInternalTool(elementToolDocs[10].name, {
+    ...elementToolDocs[10],
+    async execute({ id, parent, preserve_world_transform }) {
+      const element = findElementOrThrow(id);
+      const childType = element instanceof Group
+        ? "group"
+        : element instanceof Cube
+          ? "cube"
+          : element instanceof Mesh
+            ? "mesh"
+            : undefined;
+      const target = resolveOutlinerParentOrThrow(parent, childType);
+      if (
+        target !== "root" &&
+        (target === element || target.isChildOf?.(element))
+      ) {
+        throw new Error("An element cannot be parented to itself or one of its descendants.");
+      }
+      if (element.parent === target || (target === "root" && element.parent === "root")) {
+        return JSON.stringify({
+          uuid: element.uuid,
+          name: element.name,
+          parent,
+          changed: false,
+          preserved_world_transform: preserve_world_transform,
+        });
+      }
+
+      const state = collectOutlinerSubtree([element]);
+      const sceneObject = element.scene_object;
+      sceneObject.updateMatrixWorld(true);
+      const worldBefore = sceneObject.matrixWorld.clone();
+      const oldParent = element.parent;
+      const oldLocal = sceneObject.matrix.clone();
+      Undo.initEdit({ ...state, outliner: true, collections: [] });
+      try {
+        element.addTo(target);
+        element.preview_controller?.updateTransform?.(element);
+        element.preview_controller?.updateGeometry?.(element);
+
+        if (preserve_world_transform) {
+          const newSceneParent = sceneObject.parent;
+          if (!newSceneParent) throw new Error("The new parent has no scene transform.");
+          newSceneParent.updateMatrixWorld(true);
+          const parentChange = new THREE.Matrix4()
+            .copy(newSceneParent.matrixWorld)
+            .invert();
+          if (oldParent instanceof OutlinerNode) {
+            oldParent.scene_object.updateMatrixWorld(true);
+            parentChange.multiply(oldParent.scene_object.matrixWorld);
+          }
+          const nextLocal = oldLocal.clone().premultiply(parentChange);
+          const position = new THREE.Vector3();
+          const quaternion = new THREE.Quaternion();
+          const scale = new THREE.Vector3();
+          nextLocal.decompose(position, quaternion, scale);
+          if (!vectorsNearlyEqual(scale.toArray(), [1, 1, 1], 1e-5)) {
+            throw new Error(
+              "Preserving this world transform would require unsupported node scaling."
+            );
+          }
+
+          const absolutePosition = Boolean(
+            Format.bone_rig &&
+            element.parent instanceof OutlinerNode &&
+            element.parent.getTypeBehavior?.("parent") &&
+            element.parent.getTypeBehavior?.("use_absolute_position")
+          );
+          if (absolutePosition && element.parent instanceof Group) {
+            position.add(new THREE.Vector3(...element.parent.origin));
+          }
+          const nextPosition = position.toArray() as [number, number, number];
+
+          if (
+            "forEachChild" in element &&
+            element.getTypeBehavior?.("use_absolute_position")
+          ) {
+            const offset = nextPosition.map(
+              (value, index) => value - Number(element.origin[index])
+            ) as [number, number, number];
+            element.forEachChild((child: OutlinerNode) => {
+              const positioned = child as OutlinerNode & {
+                from?: number[];
+                to?: number[];
+                origin?: number[];
+              };
+              for (const vector of [positioned.from, positioned.to, positioned.origin]) {
+                if (!vector) continue;
+                for (let index = 0; index < 3; index++) vector[index] += offset[index];
+              }
+            });
+          }
+
+          if (element instanceof Cube) {
+            const offset = nextPosition.map(
+              (value, index) => value - Number(element.origin[index])
+            ) as [number, number, number];
+            for (let index = 0; index < 3; index++) {
+              element.from[index] += offset[index];
+              element.to[index] += offset[index];
+              element.origin[index] += offset[index];
+            }
+          } else if ("origin" in element) {
+            element.origin.V3_set(nextPosition);
+          }
+
+          if (element.getTypeBehavior?.("rotatable")) {
+            const euler = new THREE.Euler().setFromQuaternion(
+              quaternion,
+              sceneObject.rotation.order
+            );
+            element.rotation.V3_set([
+              THREE.MathUtils.radToDeg(euler.x),
+              THREE.MathUtils.radToDeg(euler.y),
+              THREE.MathUtils.radToDeg(euler.z),
+            ]);
+          }
+          element.preview_controller?.updateAll?.(element);
+          sceneObject.updateMatrixWorld(true);
+          if (!vectorsNearlyEqual(
+            sceneObject.matrixWorld.elements,
+            worldBefore.elements,
+            1e-4
+          )) {
+            throw new Error("World-transform verification failed after reparenting.");
+          }
+        }
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        throw error;
+      }
+
+      Undo.finishEdit("Reparent element", { ...state, outliner: true, collections: [] });
+      Canvas.updateAll();
+      return JSON.stringify({
+        uuid: element.uuid,
+        name: element.name,
+        parent: target === "root"
+          ? "root"
+          : { uuid: target.uuid, name: target.name },
+        changed: true,
+        preserved_world_transform: preserve_world_transform,
+      }, null, 2);
+    },
+  }, elementToolDocs[10].status);
 
   createToolGroup(elementPublicToolDocs[0], elementReadOperations);
   createToolGroup(elementPublicToolDocs[1], elementEditOperations);

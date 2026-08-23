@@ -3,6 +3,21 @@ export interface NamedUuidReference {
   name: string;
 }
 
+/** Compare numeric vectors after harmless floating-point round trips. */
+export function vectorsNearlyEqual(
+  actual: ArrayLike<number>,
+  expected: ArrayLike<number>,
+  tolerance = 1e-9
+): boolean {
+  if (actual.length !== expected.length) return false;
+  for (let index = 0; index < actual.length; index++) {
+    if (Math.abs(Number(actual[index]) - Number(expected[index])) > tolerance) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Resolve references deterministically: an exact UUID wins, while a name must
  * identify exactly one object. Silent first-match behavior is unsafe for model
