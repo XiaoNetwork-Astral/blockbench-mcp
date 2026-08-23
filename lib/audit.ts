@@ -565,7 +565,8 @@ class AuditManager {
   private beginOperation(options: BeginOperationOptions, clientName?: string): AuditOperationHandle {
     const id = createId();
     const startedAt = Date.now();
-    const beforeRuntime = this.captureUndoSnapshot(Project ?? null);
+    const readOnly = options.readOnly ?? false;
+    const beforeRuntime = this.captureUndoSnapshot(Project ?? null, undefined, !readOnly);
     const summary: AuditOperationSummary = {
       id,
       sortKey: `${startedAt.toString().padStart(13, "0")}:${id}`,
@@ -579,7 +580,7 @@ class AuditManager {
       durationMs: null,
       sessionId: options.sessionId ?? null,
       clientName: clientName ?? null,
-      readOnly: options.readOnly ?? false,
+      readOnly,
       projectId: beforeRuntime.point.projectId,
       projectName: beforeRuntime.point.projectName,
       projectRole: beforeRuntime.point.projectRole,
@@ -617,13 +618,17 @@ class AuditManager {
   private finishOperation(handle: AuditOperationHandle, result?: unknown, error?: unknown): void {
     const active = this.activeOperations.get(handle.id);
     if (!active) return;
-    const afterRuntime = this.captureUndoSnapshot(Project ?? null);
+    const afterRuntime = this.captureUndoSnapshot(
+      Project ?? null,
+      undefined,
+      !active.summary.readOnly
+    );
     const finishedAt = Date.now();
     const sameProject =
       active.beforeRuntime.point.projectId !== null &&
       active.beforeRuntime.point.projectId === afterRuntime.point.projectId;
 
-    if (sameProject && active.summary.projectId) {
+    if (!active.summary.readOnly && sameProject && active.summary.projectId) {
       const beforeIds = new Set(active.beforeRuntime.entryIds);
       for (const entryId of afterRuntime.entryIds) {
         if (!beforeIds.has(entryId)) active.observedEntryIds.add(entryId);
@@ -644,10 +649,11 @@ class AuditManager {
     active.summary.resultSummary = error === undefined ? summarizeAuditValue(result ?? "") : "";
     active.summary.errorSummary = error === undefined ? "" : summarizeAuditValue(error);
     active.summary.undoEntryCount = active.observedEntryIds.size;
-    active.summary.undoDelta = sameProject
+    active.summary.undoDelta = !active.summary.readOnly && sameProject
       ? afterRuntime.point.index - active.beforeRuntime.point.index
       : 0;
     active.summary.reversible =
+      !active.summary.readOnly &&
       sameProject &&
       active.beforeRuntime.point.runtimeId === this.runtimeId &&
       active.beforeRuntime.point.index !== afterRuntime.point.index;
@@ -714,7 +720,11 @@ class AuditManager {
     return id;
   }
 
-  private captureUndoSnapshot(project: ModelProject | null, indexOverride?: number): RuntimeUndoSnapshot {
+  private captureUndoSnapshot(
+    project: ModelProject | null,
+    indexOverride?: number,
+    includeHistory = true
+  ): RuntimeUndoSnapshot {
     if (!project) {
       return {
         point: {
@@ -732,8 +742,26 @@ class AuditManager {
       };
     }
     const history = project.undo?.history ?? [];
-    const entryIds = history.map((entry) => this.entryId(entry));
     const index = Math.max(0, Math.min(history.length, indexOverride ?? project.undo?.index ?? 0));
+    if (!includeHistory) {
+      return {
+        point: {
+          runtimeId: this.runtimeId,
+          projectId: project.uuid,
+          projectName: project.name || "Untitled",
+          projectRole: getProjectRole(project),
+          index,
+          total: history.length,
+          // Read-only records are not restore points. Avoid hashing the full
+          // Undo prefix merely to display their project and history position.
+          prefixHash: "read-only",
+          appliedEntryId: null,
+          redoEntryId: null,
+        },
+        entryIds: [],
+      };
+    }
+    const entryIds = history.map((entry) => this.entryId(entry));
     return {
       point: {
         runtimeId: this.runtimeId,
@@ -824,6 +852,14 @@ class AuditManager {
   async planTravel(operationId: string, phase: "before" | "after"): Promise<AuditTravelPlan> {
     const summary = await this.store.getSummary(operationId);
     if (!summary) return this.invalidPlan(operationId, phase, "Audit operation not found.");
+    if (summary.readOnly) {
+      return this.invalidPlan(
+        operationId,
+        phase,
+        "Read-only operations do not create restorable Undo states.",
+        phase === "before" ? summary.before : summary.after
+      );
+    }
     const targetPoint = phase === "before" ? summary.before : summary.after;
     if (!targetPoint.projectId) {
       return this.invalidPlan(operationId, phase, "This operation is not attached to a model project.");
