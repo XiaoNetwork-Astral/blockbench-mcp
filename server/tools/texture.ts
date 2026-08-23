@@ -16,6 +16,10 @@ import {
   applyTextureRenderSettings,
 } from "@/lib/toolFixes";
 import {
+  applyTextureToResolvedFaces,
+  type FaceTextureElementTarget,
+} from "@/lib/faceTextures";
+import {
   colorSchema,
   elementIdSchema,
   textureIdSchema,
@@ -88,10 +92,33 @@ export const applyTextureParameters = z.object({
   texture: textureIdSchema.describe("ID or name of the texture to apply."),
   applyTo: z
     .enum(["all", "blank", "none"])
-    .describe("Apply texture to element or group.")
+    .describe(
+      "Face scope: all faces, only blank/unresolved faces, or (none) the currently selected faces of per-face UV elements. Box UV elements always apply as a whole."
+    )
     .optional()
     .default("blank"),
 });
+
+export const removeTextureParameters = z
+  .object({
+    texture: textureIdSchema.describe("ID, UUID, or unique name of the texture to remove."),
+    replacement: textureIdSchema
+      .optional()
+      .describe(
+        "Optional replacement texture. Every face/group reference is changed atomically before removal."
+      ),
+    clear_references: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        "Explicitly clear all face/group references when no replacement is supplied. Referenced textures are otherwise refused."
+      ),
+  })
+  .refine(({ replacement, clear_references }) => !(replacement && clear_references), {
+    message: "Use either replacement or clear_references, not both.",
+    path: ["replacement", "clear_references"],
+  });
 
 export const addTextureGroupParameters = z.object({
   name: z.string(),
@@ -459,6 +486,17 @@ export const textureToolDocs: ToolSpec[] = [
     parameters: activateTextureParameters,
     status: STATUS_STABLE,
   },
+  {
+    name: "remove_texture",
+    description:
+      "Removes an entire texture from the active project. If it is referenced, supply a replacement texture or explicitly clear references; otherwise the operation refuses before mutation. Reference rewrites and removal share one Undo transaction and are verified before success is returned.",
+    annotations: {
+      title: "Remove Texture",
+      destructiveHint: true,
+    },
+    parameters: removeTextureParameters,
+    status: STATUS_STABLE,
+  },
 ];
 
 // ============================================================================
@@ -627,61 +665,82 @@ export function registerTextureTools() {
         );
       }
 
-      // Save prior selection so the call is non-destructive to UI state.
-      const prevCubeSelection = [...Cube.selected];
-      const prevMeshSelection = [...Mesh.selected];
-      const prevGroup = Group.selected ?? null;
+      // Per-group texture formats persist a texture on the owning Group rather
+      // than on individual faces. Resolve that scope directly as well.
+      if (Format.per_group_texture) {
+        const groups = element instanceof Group
+          ? [element]
+          : element.parent instanceof Group
+            ? [element.parent]
+            : [];
+        if (groups.length === 0) {
+          throw new Error(
+            `Element "${id}" has no owning group in this per-group texture format.`
+          );
+        }
+        Undo.initEdit({ groups, collections: [] });
+        try {
+          for (const group of groups) group.texture = projectTexture.uuid;
+          const failed = groups.filter((group) => group.texture !== projectTexture.uuid);
+          if (failed.length > 0) {
+            throw new Error(
+              `Texture assignment verification failed for groups: ${failed.map((group) => group.uuid).join(", ")}`
+            );
+          }
+        } catch (error) {
+          (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+          throw error;
+        }
+        Undo.finishEdit("Agent applied group texture", { groups, collections: [] });
+        Canvas.updateAll();
+        return JSON.stringify({
+          texture: { name: projectTexture.name, uuid: projectTexture.uuid },
+          scope: { id, kind: "per_group_texture" },
+          target_groups: groups.map((group) => ({ name: group.name, uuid: group.uuid })),
+          verified: true,
+        }, null, 2);
+      }
 
-      // Undo must capture the element face-texture state, not just outliner.
-      Undo.initEdit({
+      const allElements = [...Cube.all, ...Mesh.all] as FaceTextureElementTarget[];
+      const faceTargets = targets as FaceTextureElementTarget[];
+      const selectedFaces = new Map<FaceTextureElementTarget, ReadonlySet<string>>();
+      if (applyTo === "none") {
+        for (const target of targets) {
+          const selected = target instanceof Cube && target.box_uv
+            ? Object.keys(target.faces)
+            : (UVEditor.getSelectedFaces(target) ?? []);
+          selectedFaces.set(
+            target as FaceTextureElementTarget,
+            new Set(selected)
+          );
+        }
+      }
+      const validTextureUuids = new Set(
+        (Project?.textures ?? Texture.all).map((entry) => entry.uuid)
+      );
+      const undoAspects: UndoAspects = {
         elements: targets,
         outliner: false,
         collections: [],
-      });
+      };
+      Undo.initEdit(undoAspects);
 
+      let result;
       try {
-        // Replace selection with the resolved targets so Texture.apply()
-        // operates on exactly this scope.
-        Cube.all.forEach((c: Cube) => {
-          if (c.selected) c.unselect?.();
-        });
-        Mesh.all.forEach((m: Mesh) => {
-          if (m.selected) m.unselect?.();
-        });
-        for (const target of targets) {
-          // @ts-ignore - select method available on outliner elements
-          target.select?.({ shiftKey: true });
-        }
-        updateSelection();
-
-        projectTexture.select();
-
-        Texture.selected?.apply(
-          applyTo === "none" ? false : applyTo === "all" ? true : "blank"
+        result = applyTextureToResolvedFaces(
+          allElements,
+          faceTargets,
+          projectTexture.uuid,
+          applyTo,
+          selectedFaces,
+          validTextureUuids
         );
-
-        projectTexture.updateChangesAfterEdit();
-      } finally {
-        // Restore the caller's original selection.
-        Cube.all.forEach((c: Cube) => {
-          if (c.selected) c.unselect?.();
-        });
-        Mesh.all.forEach((m: Mesh) => {
-          if (m.selected) m.unselect?.();
-        });
-        for (const c of prevCubeSelection) {
-          // @ts-ignore - select method
-          c.select?.({ shiftKey: true });
-        }
-        for (const m of prevMeshSelection) {
-          // @ts-ignore - select method
-          m.select?.({ shiftKey: true });
-        }
-        if (prevGroup) prevGroup.selected = true;
-        updateSelection();
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        throw error;
       }
 
-      Undo.finishEdit("Agent applied texture");
+      Undo.finishEdit("Agent applied texture", undoAspects);
 
       // Force face-level render refresh so the viewport matches the data.
       // Canvas.updateAll() alone sometimes doesn't push new face materials
@@ -692,7 +751,16 @@ export function registerTextureTools() {
       });
       Canvas.updateAll();
 
-      return `Applied texture "${projectTexture.name}" to ${targets.length} element(s) scoped by "${id}" (${element instanceof Group ? "group" : element instanceof Cube ? "cube" : "mesh"}).`;
+      return JSON.stringify({
+        texture: { name: projectTexture.name, uuid: projectTexture.uuid },
+        scope: {
+          id,
+          kind: element instanceof Group ? "group" : element instanceof Cube ? "cube" : "mesh",
+          face_mode: applyTo,
+        },
+        ...result,
+        verified: true,
+      }, null, 2);
     },
   }, textureToolDocs[1].status);
 
@@ -1096,4 +1164,117 @@ export function registerTextureTools() {
       return `Activated texture "${target.name}" (uuid: ${target.uuid}). Paint tools will now target it by default.`;
     },
   }, textureToolDocs[12].status);
+
+  createTool(textureToolDocs[13].name, {
+    ...textureToolDocs[13],
+    async execute({ texture, replacement, clear_references }) {
+      const target = findTextureOrThrow(texture);
+      const replacementTexture = replacement
+        ? findTextureOrThrow(replacement)
+        : undefined;
+      if (replacementTexture?.uuid === target.uuid) {
+        throw new Error("The replacement texture must differ from the texture being removed.");
+      }
+
+      const faceElements = [...Cube.all, ...Mesh.all];
+      const referencedElements = faceElements.filter((element) =>
+        Object.values(element.faces).some((face) => face.texture === target.uuid)
+      );
+      const referencedGroups = Group.all.filter(
+        (group) => group.texture === target.uuid
+      );
+      const referencedFaces = referencedElements.reduce(
+        (count, element) => count + Object.values(element.faces)
+          .filter((face) => face.texture === target.uuid).length,
+        0
+      );
+      const referenceCount = referencedFaces + referencedGroups.length;
+      if (referenceCount > 0 && !replacementTexture && !clear_references) {
+        throw new Error(
+          `Refusing to remove referenced texture "${target.name}" (${target.uuid}): ` +
+            `${referencedFaces} face reference(s), ${referencedGroups.length} group reference(s). ` +
+            "Supply replacement or explicitly set clear_references=true."
+        );
+      }
+
+      const wasSelected = Texture.selected?.uuid === target.uuid;
+      const wasParticle = target.particle;
+      const wasDefault = target.use_as_default;
+      const beforeAspects = {
+        textures: [target, ...(replacementTexture ? [replacementTexture] : [])],
+        elements: referencedElements,
+        groups: referencedGroups,
+        selected_texture: true,
+        collections: [],
+      } as UndoAspects;
+      Undo.initEdit(beforeAspects);
+      try {
+        const nextReference = replacementTexture?.uuid ?? false;
+        for (const element of referencedElements) {
+          for (const face of Object.values(element.faces)) {
+            if (face.texture === target.uuid) face.texture = nextReference;
+          }
+        }
+        for (const group of referencedGroups) {
+          group.texture = replacementTexture?.uuid ?? "";
+        }
+        target.remove(true);
+
+        if (Texture.all.includes(target)) {
+          throw new Error("Blockbench did not remove the requested texture from the project.");
+        }
+        const remainingFaceReferences = faceElements.reduce(
+          (count, element) => count + Object.values(element.faces)
+            .filter((face) => face.texture === target.uuid).length,
+          0
+        );
+        const remainingGroupReferences = Group.all.filter(
+          (group) => group.texture === target.uuid
+        ).length;
+        if (remainingFaceReferences + remainingGroupReferences > 0) {
+          throw new Error(
+            `Removal verification found ${remainingFaceReferences} face and ` +
+              `${remainingGroupReferences} group reference(s) still pointing to the removed texture.`
+          );
+        }
+
+        if (replacementTexture) {
+          if (wasSelected) replacementTexture.select();
+          if (wasParticle) replacementTexture.enableParticle();
+          if (wasDefault) replacementTexture.setAsDefaultTexture();
+        }
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        throw error;
+      }
+
+      const afterAspects = {
+        textures: replacementTexture ? [replacementTexture] : [],
+        elements: referencedElements,
+        groups: referencedGroups,
+        selected_texture: true,
+        collections: [],
+      } as UndoAspects;
+      Undo.finishEdit("Agent removed texture", afterAspects);
+      if ((Canvas as typeof Canvas & { layered_material?: unknown }).layered_material) {
+        Canvas.updateLayeredTextures();
+      }
+      Canvas.updateAllFaces();
+      TextureAnimator.updateButton();
+      BARS.updateConditions();
+      if (Outliner.selected.length > 0) UVEditor.loadData();
+
+      return JSON.stringify({
+        removed: { name: target.name, uuid: target.uuid },
+        replacement: replacementTexture
+          ? { name: replacementTexture.name, uuid: replacementTexture.uuid }
+          : null,
+        cleared_references: !replacementTexture && clear_references,
+        rewritten_face_references: referencedFaces,
+        rewritten_group_references: referencedGroups.length,
+        remaining_textures: Texture.all.length,
+        verified: true,
+      }, null, 2);
+    },
+  }, textureToolDocs[13].status);
 }
