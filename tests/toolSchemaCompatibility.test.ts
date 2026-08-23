@@ -62,13 +62,13 @@ function findTupleItems(value: unknown, path = "schema"): string[] {
 }
 
 describe("Codex MCP schema compatibility", () => {
-  test("all 108 tools avoid unsupported draft-07 tuple items", () => {
+  test("all 114 tools avoid unsupported draft-07 tuple items", () => {
     const failures = toolDocs.flatMap((tool) => {
       const schema = zodToJsonSchema(tool.parameters, { $refStrategy: "root" });
       return findTupleItems(schema).map((path) => `${tool.name}: ${path}`);
     });
 
-    expect(toolDocs).toHaveLength(108);
+    expect(toolDocs).toHaveLength(114);
     expect(failures).toEqual([]);
   });
 
@@ -93,10 +93,10 @@ describe("Codex MCP schema compatibility", () => {
       !category.endsWith("(optional)")
     );
 
-    expect(core).toHaveLength(108);
+    expect(core).toHaveLength(114);
     expect(optional).toHaveLength(12);
-    expect(documented).toHaveLength(120);
-    expect(new Set(documented.map(({ name }) => name)).size).toBe(120);
+    expect(documented).toHaveLength(126);
+    expect(new Set(documented.map(({ name }) => name)).size).toBe(126);
     expect(optional.map(({ name }) => name).sort()).toEqual(
       hytaleToolDocs.map(({ name }) => name).sort()
     );
