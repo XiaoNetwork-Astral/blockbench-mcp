@@ -11,27 +11,27 @@
     <nav class="sidebar">
       <div class="sidebar-brand">
         <h1>Blockbench MCP</h1>
-        <p>v1.7.0-codex.25 — API Reference</p>
+        <p>v1.7.0-codex.26 — API Reference</p>
       </div>
 
       <input id="search" type="text" placeholder="Search tools..." class="search-input" />
 
       <div class="nav-group">
         <p class="nav-heading">Overview</p>
-        <a href="#tools" class="nav-link">Tools <span class="count">(120)</span></a>
+        <a href="#tools" class="nav-link">Tools <span class="count">(126)</span></a>
         <a href="#prompts" class="nav-link">Prompts <span class="count">(5)</span></a>
         <a href="#resources" class="nav-link">Resources <span class="count">(12)</span></a>
       </div>
 
       <div class="nav-group">
         <p class="nav-heading">Categories</p>
-        <a href="#cat-cubes" class="nav-link">Cubes <span class="count">(2)</span></a>
+        <a href="#cat-cubes" class="nav-link">Cubes <span class="count">(3)</span></a>
         <a href="#cat-display-settings" class="nav-link">Display Settings <span class="count">(3)</span></a>
         <a href="#cat-camera-screenshots" class="nav-link">Camera &amp; Screenshots <span class="count">(3)</span></a>
         <a href="#cat-preview" class="nav-link">Preview <span class="count">(1)</span></a>
         <a href="#cat-animation" class="nav-link">Animation <span class="count">(7)</span></a>
         <a href="#cat-armature" class="nav-link">Armature <span class="count">(16)</span></a>
-        <a href="#cat-elements" class="nav-link">Elements <span class="count">(9)</span></a>
+        <a href="#cat-elements" class="nav-link">Elements <span class="count">(10)</span></a>
         <a href="#cat-export" class="nav-link">Export <span class="count">(2)</span></a>
         <a href="#cat-history" class="nav-link">History <span class="count">(4)</span></a>
         <a href="#cat-import-export" class="nav-link">Import/Export <span class="count">(1)</span></a>
@@ -39,9 +39,9 @@
         <a href="#cat-mesh-editing" class="nav-link">Mesh Editing <span class="count">(11)</span></a>
         <a href="#cat-paint-tools" class="nav-link">Paint Tools <span class="count">(12)</span></a>
         <a href="#cat-exact-texture-editing" class="nav-link">Exact Texture Editing <span class="count">(1)</span></a>
-        <a href="#cat-project" class="nav-link">Project <span class="count">(6)</span></a>
-        <a href="#cat-textures" class="nav-link">Textures <span class="count">(13)</span></a>
-        <a href="#cat-spatial-inspection" class="nav-link">Spatial Inspection <span class="count">(1)</span></a>
+        <a href="#cat-project" class="nav-link">Project <span class="count">(8)</span></a>
+        <a href="#cat-textures" class="nav-link">Textures <span class="count">(14)</span></a>
+        <a href="#cat-spatial-inspection" class="nav-link">Spatial Inspection <span class="count">(2)</span></a>
         <a href="#cat-uv-mapping" class="nav-link">UV Mapping <span class="count">(3)</span></a>
         <a href="#cat-ysm-workspace" class="nav-link">YSM Workspace <span class="count">(5)</span></a>
         <a href="#cat-ysm-workflow" class="nav-link">YSM Workflow <span class="count">(3)</span></a>
@@ -52,9 +52,9 @@
     <main class="main">
       <header class="page-header">
         <h1>Blockbench MCP Plugin</h1>
-        <p class="subtitle">API Reference — v1.7.0-codex.25</p>
+        <p class="subtitle">API Reference — v1.7.0-codex.26</p>
         <nav class="stats">
-          <a href="#tools"><strong>120</strong> tools (53 stable, 67 experimental)</a>
+          <a href="#tools"><strong>126</strong> tools (59 stable, 67 experimental)</a>
           <a href="#prompts"><strong>5</strong> prompts</a>
           <a href="#resources"><strong>12</strong> resources</a>
         </nav>
@@ -201,6 +201,35 @@
       <td class="col-type">boolean</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Whether the cube is visible or not.</td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-batch_set_cube_uv" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">batch_set_cube_uv</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Batch Set Cube UV</p>
+      <p class="card-desc">Atomically updates Box UV offsets and/or per-face UV rectangles for up to 500 existing cubes. All cube references are resolved before mutation, duplicate targets are refused, explicit face rectangles switch to per-face UV mode, and every requested value is read back before success.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">updates</td>
+      <td class="col-type">object[]</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Cube UV updates resolved and committed as one atomic Undo edit. <span class="param-meta">[minItems: 1, maxItems: 500]</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -1832,6 +1861,50 @@
       <p class="card-desc">Returns the current selection state: selected cube/mesh/group UUIDs and names, plus the active texture. Use this to verify what `apply_texture` or a paint tool with `fill_mode=&quot;selected_elements&quot;` will target.</p>
       <div class="overflow-x">
         <p class="empty-params">No parameters</p>
+      </div>
+    </div>
+<div id="tool-modify_group" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">modify_group</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Modify Group</p>
+      <p class="card-desc">Updates an ordinary Outliner group/bone. origin changes only its pivot; rotation sets its local Euler rotation; position translates the entire subtree so the group origin reaches an absolute model-space coordinate. The affected subtree is captured in one Undo edit and read back before success.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Group/bone UUID or unique name.</td>
+    </tr><tr>
+      <td class="col-name">origin</td>
+      <td class="col-type">number[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Set the group's model-space pivot directly without translating descendants. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr><tr>
+      <td class="col-name">rotation</td>
+      <td class="col-type">number[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Set the group's local Euler rotation in degrees [x, y, z]. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr><tr>
+      <td class="col-name">position</td>
+      <td class="col-type">number[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Move the complete subtree so the group's model-space origin reaches this absolute [x, y, z] position. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr></tbody>
+    </table>
       </div>
     </div>
         </section>
@@ -3516,6 +3589,84 @@
     </table>
       </div>
     </div>
+<div id="tool-open_bbmodel" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">open_bbmodel</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
+        </div>
+      </div>
+      <p class="card-title">Open BBModel</p>
+      <p class="card-desc">Validates and opens one absolute local .bbmodel file as a new Blockbench project tab. Remote URLs and oversized/invalid JSON are rejected before Blockbench state changes; the result identifies the exact new tab.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">path</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Absolute local .bbmodel path or file:// URL. HTTP(S) is rejected. <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">name</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Optional tab name override after the project opens. <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">select</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Whether to leave the newly opened project selected. <span class="param-meta">(default: <code>true</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-duplicate_project" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">duplicate_project</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Duplicate Project</p>
+      <p class="card-desc">Copies an entire open project—including hierarchy, geometry, textures, UVs, animations, and project metadata—through Blockbench's portable project codec into a new unsaved tab. The source project is not modified.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">project</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Open project UUID, unique name, or exact save path. Defaults to the active project.</td>
+    </tr><tr>
+      <td class="col-name">name</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Name for the unsaved duplicate tab. Defaults to '&lt;source&gt; copy'. <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">select</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Whether to leave the duplicate selected. <span class="param-meta">(default: <code>true</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
         </section>
 <section id="cat-textures" class="category-section">
           <h3 class="category-title">Textures</h3>
@@ -3627,7 +3778,7 @@
       <td class="col-name">applyTo</td>
       <td class="col-type">&quot;all&quot; | &quot;blank&quot; | &quot;none&quot;</td>
       <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Apply texture to element or group. <span class="param-meta">(default: <code>&quot;blank&quot;</code>)</span></td>
+      <td class="col-desc">Face scope: all faces, only blank/unresolved faces, or (none) the currently selected faces of per-face UV elements. Box UV elements always apply as a whole. <span class="param-meta">(default: <code>&quot;blank&quot;</code>)</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -4011,6 +4162,45 @@
     </table>
       </div>
     </div>
+<div id="tool-remove_texture" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">remove_texture</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Remove Texture</p>
+      <p class="card-desc">Removes an entire texture from the active project. If it is referenced, supply a replacement texture or explicitly clear references; otherwise the operation refuses before mutation. Reference rewrites and removal share one Undo transaction and are verified before success is returned.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">texture</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">ID, UUID, or unique name of the texture to remove.</td>
+    </tr><tr>
+      <td class="col-name">replacement</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Optional replacement texture. Every face/group reference is changed atomically before removal.</td>
+    </tr><tr>
+      <td class="col-name">clear_references</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Explicitly clear all face/group references when no replacement is supplied. Referenced textures are otherwise refused. <span class="param-meta">(default: <code>false</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
         </section>
 <section id="cat-spatial-inspection" class="category-section">
           <h3 class="category-title">Spatial Inspection</h3>
@@ -4044,6 +4234,50 @@
       <td class="col-type">object[]</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Pairs whose axis gaps and projection/depth relationship should be compared. <span class="param-meta">(default: <code>[]</code>) [maxItems: 100]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-measure_geometry" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">measure_geometry</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">Measure Geometry</p>
+      <p class="card-desc">Performs batch world-space measurements without changing the model: object pivots/bounds/sizes, exact closest rendered-surface distances when tractable, point and pivot distances, signed three-axis bounds gaps plus penetration depths, and directed or undirected angles between vectors or principal geometry axes. Every result identifies its coordinate space, unit, endpoints, and whether an exact-geometry or bounds fallback method was used.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">elements</td>
+      <td class="col-type">string[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Nodes whose world pivot, bounds, size, and principal long axis should be reported. <span class="param-meta">(default: <code>[]</code>) [maxItems: 100]</span></td>
+    </tr><tr>
+      <td class="col-name">distances</td>
+      <td class="col-type">object[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Point/pivot/center/surface distance measurements in world coordinates. <span class="param-meta">(default: <code>[]</code>) [maxItems: 100]</span></td>
+    </tr><tr>
+      <td class="col-name">angles</td>
+      <td class="col-type">object[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Vector or geometry-long-axis angle measurements. <span class="param-meta">(default: <code>[]</code>) [maxItems: 100]</span></td>
+    </tr><tr>
+      <td class="col-name">tolerance</td>
+      <td class="col-type">number</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Touching tolerance for bounds gap/penetration analysis. <span class="param-meta">(default: <code>0.001</code>) [min: 0, max: 16]</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -4995,7 +5229,7 @@
       </section>
 
       <footer class="page-footer">
-        Generated 2026-08-22T13:42:44.798Z from Zod schemas
+        Generated 2026-08-23T01:04:07.419Z from Zod schemas
       </footer>
     </main>
   </div>

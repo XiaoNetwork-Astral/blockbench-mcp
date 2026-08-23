@@ -22,7 +22,7 @@ url = "http://127.0.0.1:3000/bb-mcp"
 http_headers = { Authorization = "Bearer <BLOCKBENCH_MCP_TOKEN>" }
 ```
 
-Codex 默认会对较大的 MCP 工具目录使用渐进式披露：未在初始上下文中显示的工具仍可通过工具搜索找到。只有在调试完整工具目录时，才在同一配置块中临时加入 `omit_tools_from = ["deferred"]`；日常使用应保留默认行为，避免 108 个核心工具同时挤占上下文。
+Codex 默认会对较大的 MCP 工具目录使用渐进式披露：未在初始上下文中显示的工具仍可通过工具搜索找到。只有在调试完整工具目录时，才在同一配置块中临时加入 `omit_tools_from = ["deferred"]`；日常使用应保留默认行为，避免 114 个核心工具同时挤占上下文。
 
 ## VS Code
 

@@ -137,7 +137,7 @@ Prompt text belongs in `prompts/*.md`. Run `bun run prompts:build` to update the
 ## Verification Checklist
 
 - Automated checks: run `bun run check`.
-- Generated files: run `bun run docs` and confirm the core catalog contains 108 tools plus 12 optional Hytale tools.
+- Generated files: run `bun run docs` and confirm the core catalog contains 114 tools plus 12 optional Hytale tools.
 - Build: run `bun run build` only when a fresh install artifact is actually needed; confirm `dist/codex_blockbench_mcp.js` is produced and remains untracked.
 - Load: In Blockbench → File → Plugins → Load Plugin from File → pick `dist/codex_blockbench_mcp.js`.
 - Settings: Confirm bind host, port, endpoint, authentication, token, audit, and workspace controls.

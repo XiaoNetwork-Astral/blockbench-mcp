@@ -1,6 +1,6 @@
 {
-  "version": "1.7.0-codex.25",
-  "generatedAt": "2026-08-22T13:42:44.798Z",
+  "version": "1.7.0-codex.26",
+  "generatedAt": "2026-08-23T01:04:07.419Z",
   "tools": [
     {
       "name": "place_cube",
@@ -391,6 +391,129 @@
                 "markdownDescription": "Whether the cube is visible or not."
               }
             },
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "batch_set_cube_uv",
+      "title": "Batch Set Cube UV",
+      "description": "Atomically updates Box UV offsets and/or per-face UV rectangles for up to 500 existing cubes. All cube references are resolved before mutation, duplicate targets are refused, explicit face rectangles switch to per-face UV mode, and every requested value is read back before success.",
+      "status": "stable",
+      "category": "Cubes",
+      "annotations": {
+        "destructiveHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/batch_set_cube_uv",
+        "definitions": {
+          "batch_set_cube_uv": {
+            "type": "object",
+            "properties": {
+              "updates": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Cube UUID or unique name.",
+                      "markdownDescription": "Cube UUID or unique name."
+                    },
+                    "uv_offset": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "description": "New Box UV offset [u, v].",
+                      "markdownDescription": "New Box UV offset [u, v]."
+                    },
+                    "face_uv": {
+                      "type": "object",
+                      "properties": {
+                        "north": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "south": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "east": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "west": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "up": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "down": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        }
+                      },
+                      "additionalProperties": false,
+                      "description": "Per-face UV rectangles [u1, v1, u2, v2]. Supplying any face automatically switches the cube to per-face UV mode.",
+                      "markdownDescription": "Per-face UV rectangles [u1, v1, u2, v2]. Supplying any face automatically switches the cube to per-face UV mode."
+                    },
+                    "uv_mode": {
+                      "type": "string",
+                      "enum": [
+                        "preserve",
+                        "box",
+                        "per_face"
+                      ],
+                      "default": "preserve",
+                      "description": "Preserve or explicitly set the cube UV mode.",
+                      "markdownDescription": "Preserve or explicitly set the cube UV mode."
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1,
+                "maxItems": 500,
+                "description": "Cube UV updates resolved and committed as one atomic Undo edit.",
+                "markdownDescription": "Cube UV updates resolved and committed as one atomic Undo edit."
+              }
+            },
+            "required": [
+              "updates"
+            ],
             "additionalProperties": false
           }
         },
@@ -2780,6 +2903,66 @@
           "get_selection": {
             "type": "object",
             "properties": {},
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "modify_group",
+      "title": "Modify Group",
+      "description": "Updates an ordinary Outliner group/bone. origin changes only its pivot; rotation sets its local Euler rotation; position translates the entire subtree so the group origin reaches an absolute model-space coordinate. The affected subtree is captured in one Undo edit and read back before success.",
+      "status": "stable",
+      "category": "Elements",
+      "annotations": {
+        "destructiveHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/modify_group",
+        "definitions": {
+          "modify_group": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Group/bone UUID or unique name.",
+                "markdownDescription": "Group/bone UUID or unique name."
+              },
+              "origin": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Set the group's model-space pivot directly without translating descendants.",
+                "markdownDescription": "Set the group's model-space pivot directly without translating descendants."
+              },
+              "rotation": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Set the group's local Euler rotation in degrees [x, y, z].",
+                "markdownDescription": "Set the group's local Euler rotation in degrees [x, y, z]."
+              },
+              "position": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Move the complete subtree so the group's model-space origin reaches this absolute [x, y, z] position.",
+                "markdownDescription": "Move the complete subtree so the group's model-space origin reaches this absolute [x, y, z] position."
+              }
+            },
+            "required": [
+              "id"
+            ],
             "additionalProperties": false
           }
         },
@@ -5330,6 +5513,89 @@
       }
     },
     {
+      "name": "open_bbmodel",
+      "title": "Open BBModel",
+      "description": "Validates and opens one absolute local .bbmodel file as a new Blockbench project tab. Remote URLs and oversized/invalid JSON are rejected before Blockbench state changes; the result identifies the exact new tab.",
+      "status": "stable",
+      "category": "Project",
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/open_bbmodel",
+        "definitions": {
+          "open_bbmodel": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Absolute local .bbmodel path or file:// URL. HTTP(S) is rejected.",
+                "markdownDescription": "Absolute local .bbmodel path or file:// URL. HTTP(S) is rejected."
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Optional tab name override after the project opens.",
+                "markdownDescription": "Optional tab name override after the project opens."
+              },
+              "select": {
+                "type": "boolean",
+                "default": true,
+                "description": "Whether to leave the newly opened project selected.",
+                "markdownDescription": "Whether to leave the newly opened project selected."
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "duplicate_project",
+      "title": "Duplicate Project",
+      "description": "Copies an entire open project—including hierarchy, geometry, textures, UVs, animations, and project metadata—through Blockbench's portable project codec into a new unsaved tab. The source project is not modified.",
+      "status": "stable",
+      "category": "Project",
+      "annotations": {
+        "destructiveHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/duplicate_project",
+        "definitions": {
+          "duplicate_project": {
+            "type": "object",
+            "properties": {
+              "project": {
+                "type": "string",
+                "description": "Open project UUID, unique name, or exact save path. Defaults to the active project.",
+                "markdownDescription": "Open project UUID, unique name, or exact save path. Defaults to the active project."
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Name for the unsaved duplicate tab. Defaults to '<source> copy'.",
+                "markdownDescription": "Name for the unsaved duplicate tab. Defaults to '<source> copy'."
+              },
+              "select": {
+                "type": "boolean",
+                "default": true,
+                "description": "Whether to leave the duplicate selected.",
+                "markdownDescription": "Whether to leave the duplicate selected."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
       "name": "create_texture",
       "title": "Create Texture",
       "description": "Creates a new texture with the given name and size.",
@@ -5481,8 +5747,8 @@
                   "blank",
                   "none"
                 ],
-                "description": "Apply texture to element or group.",
-                "markdownDescription": "Apply texture to element or group.",
+                "description": "Face scope: all faces, only blank/unresolved faces, or (none) the currently selected faces of per-face UV elements. Box UV elements always apply as a whole.",
+                "markdownDescription": "Face scope: all faces, only blank/unresolved faces, or (none) the currently selected faces of per-face UV elements. Box UV elements always apply as a whole.",
                 "default": "blank"
               }
             },
@@ -5940,6 +6206,47 @@
       }
     },
     {
+      "name": "remove_texture",
+      "title": "Remove Texture",
+      "description": "Removes an entire texture from the active project. If it is referenced, supply a replacement texture or explicitly clear references; otherwise the operation refuses before mutation. Reference rewrites and removal share one Undo transaction and are verified before success is returned.",
+      "status": "stable",
+      "category": "Textures",
+      "annotations": {
+        "destructiveHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/remove_texture",
+        "definitions": {
+          "remove_texture": {
+            "type": "object",
+            "properties": {
+              "texture": {
+                "type": "string",
+                "description": "ID, UUID, or unique name of the texture to remove.",
+                "markdownDescription": "ID, UUID, or unique name of the texture to remove."
+              },
+              "replacement": {
+                "type": "string",
+                "description": "Optional replacement texture. Every face/group reference is changed atomically before removal.",
+                "markdownDescription": "Optional replacement texture. Every face/group reference is changed atomically before removal."
+              },
+              "clear_references": {
+                "type": "boolean",
+                "default": false,
+                "description": "Explicitly clear all face/group references when no replacement is supplied. Referenced textures are otherwise refused.",
+                "markdownDescription": "Explicitly clear all face/group references when no replacement is supplied. Referenced textures are otherwise refused."
+              }
+            },
+            "required": [
+              "texture"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
       "name": "inspect_spatial_relationships",
       "title": "Inspect Spatial Relationships",
       "description": "Reports parentage, world-space centers and bounds for Outliner nodes, then compares requested pairs along all three axes. It flags cases where a front/side/top projection overlaps while the hidden depth axis is separated. Semantic expectations are supplied by the caller; the tool does not guess which parts should connect.",
@@ -6009,6 +6316,430 @@
                 "default": [],
                 "description": "Pairs whose axis gaps and projection/depth relationship should be compared.",
                 "markdownDescription": "Pairs whose axis gaps and projection/depth relationship should be compared."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "measure_geometry",
+      "title": "Measure Geometry",
+      "description": "Performs batch world-space measurements without changing the model: object pivots/bounds/sizes, exact closest rendered-surface distances when tractable, point and pivot distances, signed three-axis bounds gaps plus penetration depths, and directed or undirected angles between vectors or principal geometry axes. Every result identifies its coordinate space, unit, endpoints, and whether an exact-geometry or bounds fallback method was used.",
+      "status": "stable",
+      "category": "Spatial Inspection",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/measure_geometry",
+        "definitions": {
+          "measure_geometry": {
+            "type": "object",
+            "properties": {
+              "elements": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "default": [],
+                "description": "Nodes whose world pivot, bounds, size, and principal long axis should be reported.",
+                "markdownDescription": "Nodes whose world pivot, bounds, size, and principal long axis should be reported."
+              },
+              "distances": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "first": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "point"
+                            },
+                            "point": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "description": "Explicit world-space point [x, y, z].",
+                              "markdownDescription": "Explicit world-space point [x, y, z]."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "point"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "pivot"
+                            },
+                            "element": {
+                              "type": "string",
+                              "description": "Outliner node UUID or unique name.",
+                              "markdownDescription": "Outliner node UUID or unique name."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "element"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "bounds_center"
+                            },
+                            "element": {
+                              "type": "string",
+                              "description": "Outliner node UUID or unique name.",
+                              "markdownDescription": "Outliner node UUID or unique name."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "element"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "surface"
+                            },
+                            "element": {
+                              "type": "string",
+                              "description": "Outliner node whose actual rendered geometry surface should be used. Falls back to world bounds only when geometry is unavailable or too large for the bounded exact calculation.",
+                              "markdownDescription": "Outliner node whose actual rendered geometry surface should be used. Falls back to world bounds only when geometry is unavailable or too large for the bounded exact calculation."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "element"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "second": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "point"
+                            },
+                            "point": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "description": "Explicit world-space point [x, y, z].",
+                              "markdownDescription": "Explicit world-space point [x, y, z]."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "point"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "pivot"
+                            },
+                            "element": {
+                              "type": "string",
+                              "description": "Outliner node UUID or unique name.",
+                              "markdownDescription": "Outliner node UUID or unique name."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "element"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "bounds_center"
+                            },
+                            "element": {
+                              "type": "string",
+                              "description": "Outliner node UUID or unique name.",
+                              "markdownDescription": "Outliner node UUID or unique name."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "element"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "surface"
+                            },
+                            "element": {
+                              "type": "string",
+                              "description": "Outliner node whose actual rendered geometry surface should be used. Falls back to world bounds only when geometry is unavailable or too large for the bounded exact calculation.",
+                              "markdownDescription": "Outliner node whose actual rendered geometry surface should be used. Falls back to world bounds only when geometry is unavailable or too large for the bounded exact calculation."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "element"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "first",
+                    "second"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 100,
+                "default": [],
+                "description": "Point/pivot/center/surface distance measurements in world coordinates.",
+                "markdownDescription": "Point/pivot/center/surface distance measurements in world coordinates."
+              },
+              "angles": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "first": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "vector"
+                            },
+                            "vector": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "description": "World-space direction vector.",
+                              "markdownDescription": "World-space direction vector."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "vector"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "points"
+                            },
+                            "from": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "description": "World-space vector start point.",
+                              "markdownDescription": "World-space vector start point."
+                            },
+                            "to": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "description": "World-space vector end point.",
+                              "markdownDescription": "World-space vector end point."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "from",
+                            "to"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "long_axis"
+                            },
+                            "element": {
+                              "type": "string",
+                              "description": "Outliner node whose principal geometry axis should be measured.",
+                              "markdownDescription": "Outliner node whose principal geometry axis should be measured."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "element"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "second": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "vector"
+                            },
+                            "vector": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "description": "World-space direction vector.",
+                              "markdownDescription": "World-space direction vector."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "vector"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "points"
+                            },
+                            "from": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "description": "World-space vector start point.",
+                              "markdownDescription": "World-space vector start point."
+                            },
+                            "to": {
+                              "type": "array",
+                              "items": {
+                                "type": "number"
+                              },
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "description": "World-space vector end point.",
+                              "markdownDescription": "World-space vector end point."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "from",
+                            "to"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "long_axis"
+                            },
+                            "element": {
+                              "type": "string",
+                              "description": "Outliner node whose principal geometry axis should be measured.",
+                              "markdownDescription": "Outliner node whose principal geometry axis should be measured."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "element"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "orientation": {
+                      "type": "string",
+                      "enum": [
+                        "undirected",
+                        "directed"
+                      ],
+                      "default": "undirected",
+                      "description": "Undirected treats opposite axis directions as the same and returns 0-90 degrees; directed returns 0-180 degrees.",
+                      "markdownDescription": "Undirected treats opposite axis directions as the same and returns 0-90 degrees; directed returns 0-180 degrees."
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "first",
+                    "second"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 100,
+                "default": [],
+                "description": "Vector or geometry-long-axis angle measurements.",
+                "markdownDescription": "Vector or geometry-long-axis angle measurements."
+              },
+              "tolerance": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 16,
+                "default": 0.001,
+                "description": "Touching tolerance for bounds gap/penetration analysis.",
+                "markdownDescription": "Touching tolerance for bounds gap/penetration analysis."
               }
             },
             "additionalProperties": false
