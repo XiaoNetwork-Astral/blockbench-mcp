@@ -1,6 +1,6 @@
 {
-  "version": "1.7.0-codex.28",
-  "generatedAt": "2026-08-23T05:17:40.298Z",
+  "version": "1.7.0-codex.29",
+  "generatedAt": "2026-08-23T12:18:05.377Z",
   "tools": [
     {
       "name": "create_cube",
@@ -774,47 +774,86 @@
       }
     },
     {
-      "name": "inspect_viewport",
-      "title": "Inspect Viewport",
-      "description": "Returns the image data of the current view.",
+      "name": "inspect_blockbench",
+      "title": "Inspect Blockbench",
+      "description": "Captures either the rendered 3D viewport or the complete Blockbench window through one command.action.",
       "status": "stable",
       "category": "Camera & Screenshots",
       "annotations": {
         "readOnlyHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/inspect_viewport",
+        "$ref": "#/definitions/inspect_blockbench",
         "definitions": {
-          "inspect_viewport": {
+          "inspect_blockbench": {
             "type": "object",
             "properties": {
-              "project": {
-                "type": "string",
-                "description": "Project name or UUID.",
-                "markdownDescription": "Project name or UUID."
+              "command": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "capture_viewport"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "project": {
+                            "type": "string",
+                            "description": "Project name or UUID.",
+                            "markdownDescription": "Project name or UUID."
+                          },
+                          "settle_frames": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4,
+                            "default": 2,
+                            "description": "Render frames to wait before capture. Use 0 only when the scene is already stable.",
+                            "markdownDescription": "Render frames to wait before capture. Use 0 only when the scene is already stable."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Arguments for capture_viewport (stable). Use an empty object when the action has no arguments.",
+                        "markdownDescription": "Arguments for capture_viewport (stable). Use an empty object when the action has no arguments."
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "capture_blockbench_ui"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false,
+                        "description": "Arguments for capture_blockbench_ui (stable). Use an empty object when the action has no arguments.",
+                        "markdownDescription": "Arguments for capture_blockbench_ui (stable). Use an empty object when the action has no arguments."
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "Select one action and provide only that action's input object. Supported actions: capture_viewport, capture_blockbench_ui.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: capture_viewport, capture_blockbench_ui."
               }
             },
-            "additionalProperties": false
-          }
-        },
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      }
-    },
-    {
-      "name": "inspect_blockbench_ui",
-      "title": "Inspect Blockbench UI",
-      "description": "Returns the image data of the Blockbench app.",
-      "status": "stable",
-      "category": "Camera & Screenshots",
-      "annotations": {
-        "readOnlyHint": true
-      },
-      "parameters": {
-        "$ref": "#/definitions/inspect_blockbench_ui",
-        "definitions": {
-          "inspect_blockbench_ui": {
-            "type": "object",
-            "properties": {},
+            "required": [
+              "command"
+            ],
             "additionalProperties": false
           }
         },
@@ -888,60 +927,78 @@
       }
     },
     {
-      "name": "edit_preview",
-      "title": "Edit Preview",
-      "description": "Selects a project and applies an animation/time plus temporary bone visibility for live inspection. It does not bake the pose into the model.",
+      "name": "inspect_animation",
+      "title": "Inspect Animation",
+      "description": "Lists animations or returns one animation's keyframes through one read-only command.action.",
       "status": "stable",
-      "category": "Preview",
+      "category": "Animation",
       "annotations": {
-        "destructiveHint": false
+        "readOnlyHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/edit_preview",
+        "$ref": "#/definitions/inspect_animation",
         "definitions": {
-          "edit_preview": {
+          "inspect_animation": {
             "type": "object",
             "properties": {
-              "project": {
-                "type": "string",
-                "description": "Project UUID, exact name, or exact save path. Defaults to the active tab.",
-                "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the active tab."
-              },
-              "animation": {
-                "type": "string",
-                "description": "Exact animation name. Omit to show the default pose.",
-                "markdownDescription": "Exact animation name. Omit to show the default pose."
-              },
-              "time": {
-                "type": "number",
-                "default": 0,
-                "description": "Animation time in seconds.",
-                "markdownDescription": "Animation time in seconds."
-              },
-              "hide_bones": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "default": []
-              },
-              "show_bones": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "default": []
-              },
-              "only_bones": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "default": [],
-                "description": "If non-empty, isolates these bones together with their ancestors and descendants.",
-                "markdownDescription": "If non-empty, isolates these bones together with their ancestors and descendants."
+              "command": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "list_animations"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false,
+                        "description": "Arguments for list_animations (stable). Use an empty object when the action has no arguments.",
+                        "markdownDescription": "Arguments for list_animations (stable). Use an empty object when the action has no arguments."
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "get_animation"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "animation_id": {
+                            "type": "string",
+                            "description": "Animation UUID or exact name. Defaults to the selected animation.",
+                            "markdownDescription": "Animation UUID or exact name. Defaults to the selected animation."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Arguments for get_animation (stable). Use an empty object when the action has no arguments.",
+                        "markdownDescription": "Arguments for get_animation (stable). Use an empty object when the action has no arguments."
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "Select one action and provide only that action's input object. Supported actions: list_animations, get_animation.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: list_animations, get_animation."
               }
             },
+            "required": [
+              "command"
+            ],
             "additionalProperties": false
           }
         },
@@ -1066,6 +1123,52 @@
                         "additionalProperties": false,
                         "description": "Arguments for create_animation (stable). Use an empty object when the action has no arguments.",
                         "markdownDescription": "Arguments for create_animation (stable). Use an empty object when the action has no arguments."
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "manage_animation"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "select",
+                              "rename",
+                              "remove"
+                            ]
+                          },
+                          "animation_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Animation UUID or exact name.",
+                            "markdownDescription": "Animation UUID or exact name."
+                          },
+                          "new_name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Required for rename.",
+                            "markdownDescription": "Required for rename."
+                          }
+                        },
+                        "required": [
+                          "action",
+                          "animation_id"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Arguments for manage_animation (stable). Use an empty object when the action has no arguments.",
+                        "markdownDescription": "Arguments for manage_animation (stable). Use an empty object when the action has no arguments."
                       }
                     },
                     "required": [
@@ -1626,8 +1729,8 @@
                     "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: create_animation, manage_keyframes, bone_rigging, batch_keyframe_operations, animation_copy_paste.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: create_animation, manage_keyframes, bone_rigging, batch_keyframe_operations, animation_copy_paste."
+                "description": "Select one action and provide only that action's input object. Supported actions: create_animation, manage_animation, manage_keyframes, bone_rigging, batch_keyframe_operations, animation_copy_paste.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: create_animation, manage_animation, manage_keyframes, bone_rigging, batch_keyframe_operations, animation_copy_paste."
               }
             },
             "required": [
@@ -1642,7 +1745,7 @@
     {
       "name": "edit_animation_editor",
       "title": "Edit Animation Editor",
-      "description": "Controls the graph editor or animation timeline through one command.action.",
+      "description": "Controls graph curves, the timeline, or the temporary preview pose through one command.action.",
       "status": "stable",
       "category": "Animation",
       "annotations": {
@@ -1800,6 +1903,11 @@
                       "input": {
                         "type": "object",
                         "properties": {
+                          "animation_id": {
+                            "type": "string",
+                            "description": "Animation UUID or name. If not provided, uses current animation.",
+                            "markdownDescription": "Animation UUID or name. If not provided, uses current animation."
+                          },
                           "action": {
                             "type": "string",
                             "enum": [
@@ -1878,10 +1986,71 @@
                       "input"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "set_preview_state"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "project": {
+                            "type": "string",
+                            "description": "Project UUID, exact name, or exact save path. Defaults to the active tab.",
+                            "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the active tab."
+                          },
+                          "animation": {
+                            "type": "string",
+                            "description": "Exact animation name. Omit to show the default pose.",
+                            "markdownDescription": "Exact animation name. Omit to show the default pose."
+                          },
+                          "time": {
+                            "type": "number",
+                            "default": 0,
+                            "description": "Animation time in seconds.",
+                            "markdownDescription": "Animation time in seconds."
+                          },
+                          "hide_bones": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "default": []
+                          },
+                          "show_bones": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "default": []
+                          },
+                          "only_bones": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "default": [],
+                            "description": "If non-empty, isolates these bones together with their ancestors and descendants.",
+                            "markdownDescription": "If non-empty, isolates these bones together with their ancestors and descendants."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Arguments for set_preview_state (stable). Use an empty object when the action has no arguments.",
+                        "markdownDescription": "Arguments for set_preview_state (stable). Use an empty object when the action has no arguments."
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: animation_graph_editor, animation_timeline.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: animation_graph_editor, animation_timeline."
+                "description": "Select one action and provide only that action's input object. Supported actions: animation_graph_editor, animation_timeline, set_preview_state.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: animation_graph_editor, animation_timeline, set_preview_state."
               }
             },
             "required": [
@@ -2852,7 +3021,7 @@
     {
       "name": "edit_elements",
       "title": "Edit Elements",
-      "description": "Creates groups, duplicates, renames, transforms, selects, or removes Outliner elements through one explicit command.action.",
+      "description": "Creates groups, duplicates, renames, transforms, reparents, selects, or removes Outliner elements through one explicit command.action.",
       "status": "stable",
       "category": "Elements",
       "annotations": {
@@ -3180,10 +3349,53 @@
                       "input"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "reparent_element"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Element or group UUID or unique name.",
+                            "markdownDescription": "Element or group UUID or unique name."
+                          },
+                          "parent": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Required target parent UUID or unique name. Use the exact literal 'root' only for intentional root placement.",
+                            "markdownDescription": "Required target parent UUID or unique name. Use the exact literal 'root' only for intentional root placement."
+                          },
+                          "preserve_world_transform": {
+                            "type": "boolean",
+                            "default": true,
+                            "description": "Keep the node and its descendants in the same rendered world-space pose.",
+                            "markdownDescription": "Keep the node and its descendants in the same rendered world-space pose."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "parent"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Arguments for reparent_element (stable). Use an empty object when the action has no arguments.",
+                        "markdownDescription": "Arguments for reparent_element (stable). Use an empty object when the action has no arguments."
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group."
+                "description": "Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group, reparent_element.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group, reparent_element."
               }
             },
             "required": [
@@ -3726,7 +3938,7 @@
     {
       "name": "create_mesh",
       "title": "Create Mesh",
-      "description": "Creates custom meshes, spheres, cylinders, or individual mesh faces through one command.action.",
+      "description": "Creates custom meshes, low-poly sphere/cylinder/pyramid/cone primitives, or individual mesh faces through one command.action.",
       "status": "stable",
       "category": "Mesh Editing",
       "annotations": {
@@ -4106,10 +4318,108 @@
                       "input"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "create_pyramid"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "elements": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "base_center": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "minItems": 3,
+                                  "maxItems": 3,
+                                  "description": "Center of the polygon base in model coordinates.",
+                                  "markdownDescription": "Center of the polygon base in model coordinates."
+                                },
+                                "apex": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "minItems": 3,
+                                  "maxItems": 3,
+                                  "description": "Apex position in model coordinates.",
+                                  "markdownDescription": "Apex position in model coordinates."
+                                },
+                                "radius": {
+                                  "type": "number",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 64,
+                                  "default": 4
+                                },
+                                "sides": {
+                                  "type": "integer",
+                                  "minimum": 3,
+                                  "maximum": 32,
+                                  "default": 4,
+                                  "description": "3 creates a tetrahedron-like pyramid; larger values create a low-poly cone.",
+                                  "markdownDescription": "3 creates a tetrahedron-like pyramid; larger values create a low-poly cone."
+                                },
+                                "base_rotation": {
+                                  "type": "number",
+                                  "default": 0
+                                },
+                                "capped": {
+                                  "type": "boolean",
+                                  "default": true
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "base_center",
+                                "apex"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "minItems": 1
+                          },
+                          "texture": {
+                            "type": "string",
+                            "description": "Texture ID or name. If not provided, uses selected texture.",
+                            "markdownDescription": "Texture ID or name. If not provided, uses selected texture."
+                          },
+                          "group": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for intentional root placement.",
+                            "markdownDescription": "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for intentional root placement."
+                          }
+                        },
+                        "required": [
+                          "elements",
+                          "group"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Arguments for create_pyramid (stable). Use an empty object when the action has no arguments.",
+                        "markdownDescription": "Arguments for create_pyramid (stable). Use an empty object when the action has no arguments."
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: place_mesh, create_sphere, create_mesh_face, create_cylinder.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: place_mesh, create_sphere, create_mesh_face, create_cylinder."
+                "description": "Select one action and provide only that action's input object. Supported actions: place_mesh, create_sphere, create_mesh_face, create_cylinder, create_pyramid.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: place_mesh, create_sphere, create_mesh_face, create_cylinder, create_pyramid."
               }
             },
             "required": [
@@ -4124,7 +4434,7 @@
     {
       "name": "edit_mesh",
       "title": "Edit Mesh",
-      "description": "Extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.",
+      "description": "Selects, extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.",
       "status": "stable",
       "category": "Mesh Editing",
       "annotations": {
@@ -4209,6 +4519,70 @@
                         "additionalProperties": false,
                         "description": "Arguments for subdivide_mesh (experimental). Use an empty object when the action has no arguments.",
                         "markdownDescription": "Arguments for subdivide_mesh (experimental). Use an empty object when the action has no arguments."
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "select_mesh_elements"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "mesh_id": {
+                            "type": "string",
+                            "description": "ID or name of the mesh to select elements from.",
+                            "markdownDescription": "ID or name of the mesh to select elements from."
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "vertex",
+                              "edge",
+                              "face"
+                            ],
+                            "description": "Selection mode.",
+                            "markdownDescription": "Selection mode."
+                          },
+                          "elements": {
+                            "type": "array",
+                            "items": {
+                              "type": [
+                                "string",
+                                "number"
+                              ]
+                            },
+                            "description": "Specific elements to select. If not provided, selects all.",
+                            "markdownDescription": "Specific elements to select. If not provided, selects all."
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "select",
+                              "add",
+                              "remove",
+                              "toggle"
+                            ],
+                            "default": "select",
+                            "description": "Selection action: select (replace), add, remove, or toggle.",
+                            "markdownDescription": "Selection action: select (replace), add, remove, or toggle."
+                          }
+                        },
+                        "required": [
+                          "mesh_id",
+                          "mode"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Arguments for select_mesh_elements (experimental). Use an empty object when the action has no arguments.",
+                        "markdownDescription": "Arguments for select_mesh_elements (experimental). Use an empty object when the action has no arguments."
                       }
                     },
                     "required": [
@@ -4415,99 +4789,8 @@
                     "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: extrude_mesh, subdivide_mesh, move_mesh_vertices, delete_mesh_elements, merge_mesh_vertices, knife_tool.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: extrude_mesh, subdivide_mesh, move_mesh_vertices, delete_mesh_elements, merge_mesh_vertices, knife_tool."
-              }
-            },
-            "required": [
-              "command"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      }
-    },
-    {
-      "name": "edit_mesh_selection",
-      "title": "Edit Mesh Selection",
-      "description": "Selects mesh vertices, edges, or faces. Use command.action=select_mesh_elements.",
-      "status": "stable",
-      "category": "Mesh Editing",
-      "annotations": {
-        "destructiveHint": true
-      },
-      "parameters": {
-        "$ref": "#/definitions/edit_mesh_selection",
-        "definitions": {
-          "edit_mesh_selection": {
-            "type": "object",
-            "properties": {
-              "command": {
-                "type": "object",
-                "properties": {
-                  "action": {
-                    "type": "string",
-                    "const": "select_mesh_elements"
-                  },
-                  "input": {
-                    "type": "object",
-                    "properties": {
-                      "mesh_id": {
-                        "type": "string",
-                        "description": "ID or name of the mesh to select elements from.",
-                        "markdownDescription": "ID or name of the mesh to select elements from."
-                      },
-                      "mode": {
-                        "type": "string",
-                        "enum": [
-                          "vertex",
-                          "edge",
-                          "face"
-                        ],
-                        "description": "Selection mode.",
-                        "markdownDescription": "Selection mode."
-                      },
-                      "elements": {
-                        "type": "array",
-                        "items": {
-                          "type": [
-                            "string",
-                            "number"
-                          ]
-                        },
-                        "description": "Specific elements to select. If not provided, selects all.",
-                        "markdownDescription": "Specific elements to select. If not provided, selects all."
-                      },
-                      "action": {
-                        "type": "string",
-                        "enum": [
-                          "select",
-                          "add",
-                          "remove",
-                          "toggle"
-                        ],
-                        "default": "select",
-                        "description": "Selection action: select (replace), add, remove, or toggle.",
-                        "markdownDescription": "Selection action: select (replace), add, remove, or toggle."
-                      }
-                    },
-                    "required": [
-                      "mesh_id",
-                      "mode"
-                    ],
-                    "additionalProperties": false,
-                    "description": "Arguments for select_mesh_elements (experimental). Use an empty object when the action has no arguments.",
-                    "markdownDescription": "Arguments for select_mesh_elements (experimental). Use an empty object when the action has no arguments."
-                  }
-                },
-                "required": [
-                  "action",
-                  "input"
-                ],
-                "additionalProperties": false,
-                "description": "Select one action and provide only that action's input object. Supported actions: select_mesh_elements.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: select_mesh_elements."
+                "description": "Select one action and provide only that action's input object. Supported actions: extrude_mesh, subdivide_mesh, select_mesh_elements, move_mesh_vertices, delete_mesh_elements, merge_mesh_vertices, knife_tool.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: extrude_mesh, subdivide_mesh, select_mesh_elements, move_mesh_vertices, delete_mesh_elements, merge_mesh_vertices, knife_tool."
               }
             },
             "required": [
@@ -6872,7 +7155,7 @@
     {
       "name": "inspect_geometry",
       "title": "Inspect Geometry",
-      "description": "Inspects hierarchy/bounds relationships or performs exact geometry measurements through one read-only command.action.",
+      "description": "Inspects hierarchy/bounds, performs geometry measurements, or detects coplanar face conflicts through one read-only command.action.",
       "status": "stable",
       "category": "Spatial Inspection",
       "annotations": {
@@ -7387,10 +7670,92 @@
                       "input"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "detect_coplanar_faces"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "pairs": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "first": {
+                                  "type": "string",
+                                  "description": "UUID or unique name of the first Outliner node.",
+                                  "markdownDescription": "UUID or unique name of the first Outliner node."
+                                },
+                                "second": {
+                                  "type": "string",
+                                  "description": "UUID or unique name of the second Outliner node.",
+                                  "markdownDescription": "UUID or unique name of the second Outliner node."
+                                },
+                                "distance_tolerance": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 0.1,
+                                  "default": 0.0001
+                                },
+                                "angle_tolerance_degrees": {
+                                  "type": "number",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 5,
+                                  "default": 0.1
+                                },
+                                "minimum_overlap_area": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 4096,
+                                  "default": 0.000001
+                                }
+                              },
+                              "required": [
+                                "first",
+                                "second"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "minItems": 1,
+                            "maxItems": 50
+                          },
+                          "max_triangle_comparisons": {
+                            "type": "integer",
+                            "minimum": 100,
+                            "maximum": 1000000,
+                            "default": 200000,
+                            "description": "Per-pair work limit for old or low-power computers.",
+                            "markdownDescription": "Per-pair work limit for old or low-power computers."
+                          },
+                          "max_results_per_pair": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 500,
+                            "default": 100
+                          }
+                        },
+                        "required": [
+                          "pairs"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Arguments for detect_coplanar_faces (stable). Use an empty object when the action has no arguments.",
+                        "markdownDescription": "Arguments for detect_coplanar_faces (stable). Use an empty object when the action has no arguments."
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: inspect_spatial_relationships, measure_geometry.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: inspect_spatial_relationships, measure_geometry."
+                "description": "Select one action and provide only that action's input object. Supported actions: inspect_spatial_relationships, measure_geometry, detect_coplanar_faces.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: inspect_spatial_relationships, measure_geometry, detect_coplanar_faces."
               }
             },
             "required": [

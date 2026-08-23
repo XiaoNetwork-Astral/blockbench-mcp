@@ -3,13 +3,13 @@
 - Repository: https://github.com/XiaoNetwork-Astral/blockbench-mcp
 - Upstream: https://github.com/jasonjgardner/blockbench-mcp-plugin
 - License: GPL-3.0-only
-- Version: 1.7.0-codex.28
+- Version: 1.7.0-codex.29
 - Artifact: `dist/codex_blockbench_mcp.js`
 - Default MCP URL: `http://127.0.0.1:3000/bb-mcp`
 
 ## Interface
 
-- 41 core tools and 2 optional Hytale tools.
+- 39 core tools and 2 optional Hytale tools.
 - Public names use `inspect_*`, `edit_*`, `create_*`, `import_*`, and `export_*`.
 - Grouped operations use `{ "command": { "action": "<action>", "input": { ... } } }` and retain action-specific schemas.
 - API docs are generated with `bun run docs` at `docs/index.html` and `docs/api.json`.

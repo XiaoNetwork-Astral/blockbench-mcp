@@ -11,14 +11,14 @@
     <nav class="sidebar">
       <div class="sidebar-brand">
         <h1>Blockbench MCP</h1>
-        <p>v1.7.0-codex.28 — API Reference</p>
+        <p>v1.7.0-codex.29 — API Reference</p>
       </div>
 
       <input id="search" type="text" placeholder="Search tools..." class="search-input" />
 
       <div class="nav-group">
         <p class="nav-heading">Overview</p>
-        <a href="#tools" class="nav-link">Tools <span class="count">(43)</span></a>
+        <a href="#tools" class="nav-link">Tools <span class="count">(41)</span></a>
         <a href="#prompts" class="nav-link">Prompts <span class="count">(5)</span></a>
         <a href="#resources" class="nav-link">Resources <span class="count">(12)</span></a>
       </div>
@@ -27,16 +27,15 @@
         <p class="nav-heading">Categories</p>
         <a href="#cat-cubes" class="nav-link">Cubes <span class="count">(3)</span></a>
         <a href="#cat-display-settings" class="nav-link">Display Settings <span class="count">(2)</span></a>
-        <a href="#cat-camera-screenshots" class="nav-link">Camera &amp; Screenshots <span class="count">(3)</span></a>
-        <a href="#cat-preview" class="nav-link">Preview <span class="count">(1)</span></a>
-        <a href="#cat-animation" class="nav-link">Animation <span class="count">(2)</span></a>
+        <a href="#cat-camera-screenshots" class="nav-link">Camera &amp; Screenshots <span class="count">(2)</span></a>
+        <a href="#cat-animation" class="nav-link">Animation <span class="count">(3)</span></a>
         <a href="#cat-armature" class="nav-link">Armature <span class="count">(3)</span></a>
         <a href="#cat-elements" class="nav-link">Elements <span class="count">(2)</span></a>
         <a href="#cat-export" class="nav-link">Export <span class="count">(2)</span></a>
         <a href="#cat-history" class="nav-link">History <span class="count">(2)</span></a>
         <a href="#cat-import-export" class="nav-link">Import/Export <span class="count">(1)</span></a>
         <a href="#cat-material-instances" class="nav-link">Material Instances <span class="count">(2)</span></a>
-        <a href="#cat-mesh-editing" class="nav-link">Mesh Editing <span class="count">(3)</span></a>
+        <a href="#cat-mesh-editing" class="nav-link">Mesh Editing <span class="count">(2)</span></a>
         <a href="#cat-paint-tools" class="nav-link">Paint Tools <span class="count">(3)</span></a>
         <a href="#cat-exact-texture-editing" class="nav-link">Exact Texture Editing <span class="count">(1)</span></a>
         <a href="#cat-project" class="nav-link">Project <span class="count">(2)</span></a>
@@ -52,9 +51,9 @@
     <main class="main">
       <header class="page-header">
         <h1>Blockbench MCP Plugin</h1>
-        <p class="subtitle">API Reference — v1.7.0-codex.28</p>
+        <p class="subtitle">API Reference — v1.7.0-codex.29</p>
         <nav class="stats">
-          <a href="#tools"><strong>43</strong> tools (33 stable, 10 experimental)</a>
+          <a href="#tools"><strong>41</strong> tools (31 stable, 10 experimental)</a>
           <a href="#prompts"><strong>5</strong> prompts</a>
           <a href="#resources"><strong>12</strong> resources</a>
         </nav>
@@ -298,16 +297,16 @@
         </section>
 <section id="cat-camera-screenshots" class="category-section">
           <h3 class="category-title">Camera &amp; Screenshots</h3>
-          <div id="tool-inspect_viewport" class="card tool-card">
+          <div id="tool-inspect_blockbench" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">inspect_viewport</h3>
+        <h3 class="card-name">inspect_blockbench</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-readonly">read-only</span>
         </div>
       </div>
-      <p class="card-title">Inspect Viewport</p>
-      <p class="card-desc">Returns the image data of the current view.</p>
+      <p class="card-title">Inspect Blockbench</p>
+      <p class="card-desc">Captures either the rendered 3D viewport or the complete Blockbench window through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -319,26 +318,12 @@
         </tr>
       </thead>
       <tbody><tr>
-      <td class="col-name">project</td>
-      <td class="col-type">string</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Project name or UUID.</td>
+      <td class="col-name">command</td>
+      <td class="col-type">object | object</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: capture_viewport, capture_blockbench_ui.</td>
     </tr></tbody>
     </table>
-      </div>
-    </div>
-<div id="tool-inspect_blockbench_ui" class="card tool-card">
-      <div class="card-header">
-        <h3 class="card-name">inspect_blockbench_ui</h3>
-        <div class="card-badges">
-          <span class="badge badge-stable">stable</span>
-          <span class="badge badge-readonly">read-only</span>
-        </div>
-      </div>
-      <p class="card-title">Inspect Blockbench UI</p>
-      <p class="card-desc">Returns the image data of the Blockbench app.</p>
-      <div class="overflow-x">
-        <p class="empty-params">No parameters</p>
       </div>
     </div>
 <div id="tool-edit_camera" class="card tool-card">
@@ -386,18 +371,18 @@
       </div>
     </div>
         </section>
-<section id="cat-preview" class="category-section">
-          <h3 class="category-title">Preview</h3>
-          <div id="tool-edit_preview" class="card tool-card">
+<section id="cat-animation" class="category-section">
+          <h3 class="category-title">Animation</h3>
+          <div id="tool-inspect_animation" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">edit_preview</h3>
+        <h3 class="card-name">inspect_animation</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
-
+          <span class="badge badge-readonly">read-only</span>
         </div>
       </div>
-      <p class="card-title">Edit Preview</p>
-      <p class="card-desc">Selects a project and applies an animation/time plus temporary bone visibility for live inspection. It does not bake the pose into the model.</p>
+      <p class="card-title">Inspect Animation</p>
+      <p class="card-desc">Lists animations or returns one animation's keyframes through one read-only command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -409,43 +394,15 @@
         </tr>
       </thead>
       <tbody><tr>
-      <td class="col-name">project</td>
-      <td class="col-type">string</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Project UUID, exact name, or exact save path. Defaults to the active tab.</td>
-    </tr><tr>
-      <td class="col-name">animation</td>
-      <td class="col-type">string</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Exact animation name. Omit to show the default pose.</td>
-    </tr><tr>
-      <td class="col-name">time</td>
-      <td class="col-type">number</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Animation time in seconds. <span class="param-meta">(default: <code>0</code>)</span></td>
-    </tr><tr>
-      <td class="col-name">hide_bones</td>
-      <td class="col-type">string[]</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc"> <span class="param-meta">(default: <code>[]</code>)</span></td>
-    </tr><tr>
-      <td class="col-name">show_bones</td>
-      <td class="col-type">string[]</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc"> <span class="param-meta">(default: <code>[]</code>)</span></td>
-    </tr><tr>
-      <td class="col-name">only_bones</td>
-      <td class="col-type">string[]</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">If non-empty, isolates these bones together with their ancestors and descendants. <span class="param-meta">(default: <code>[]</code>)</span></td>
+      <td class="col-name">command</td>
+      <td class="col-type">object | object</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: list_animations, get_animation.</td>
     </tr></tbody>
     </table>
       </div>
     </div>
-        </section>
-<section id="cat-animation" class="category-section">
-          <h3 class="category-title">Animation</h3>
-          <div id="tool-edit_animation" class="card tool-card">
+<div id="tool-edit_animation" class="card tool-card">
       <div class="card-header">
         <h3 class="card-name">edit_animation</h3>
         <div class="card-badges">
@@ -467,9 +424,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object | object | object | object</td>
+      <td class="col-type">object | object | object | object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: create_animation, manage_keyframes, bone_rigging, batch_keyframe_operations, animation_copy_paste.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: create_animation, manage_animation, manage_keyframes, bone_rigging, batch_keyframe_operations, animation_copy_paste.</td>
     </tr></tbody>
     </table>
       </div>
@@ -483,7 +440,7 @@
         </div>
       </div>
       <p class="card-title">Edit Animation Editor</p>
-      <p class="card-desc">Controls the graph editor or animation timeline through one command.action.</p>
+      <p class="card-desc">Controls graph curves, the timeline, or the temporary preview pose through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -496,9 +453,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object</td>
+      <td class="col-type">object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: animation_graph_editor, animation_timeline.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: animation_graph_editor, animation_timeline, set_preview_state.</td>
     </tr></tbody>
     </table>
       </div>
@@ -634,7 +591,7 @@
         </div>
       </div>
       <p class="card-title">Edit Elements</p>
-      <p class="card-desc">Creates groups, duplicates, renames, transforms, selects, or removes Outliner elements through one explicit command.action.</p>
+      <p class="card-desc">Creates groups, duplicates, renames, transforms, reparents, selects, or removes Outliner elements through one explicit command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -647,9 +604,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object | object | object | object | object</td>
+      <td class="col-type">object | object | object | object | object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group, reparent_element.</td>
     </tr></tbody>
     </table>
       </div>
@@ -896,7 +853,7 @@
         </div>
       </div>
       <p class="card-title">Create Mesh</p>
-      <p class="card-desc">Creates custom meshes, spheres, cylinders, or individual mesh faces through one command.action.</p>
+      <p class="card-desc">Creates custom meshes, low-poly sphere/cylinder/pyramid/cone primitives, or individual mesh faces through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -909,9 +866,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object | object | object</td>
+      <td class="col-type">object | object | object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: place_mesh, create_sphere, create_mesh_face, create_cylinder.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: place_mesh, create_sphere, create_mesh_face, create_cylinder, create_pyramid.</td>
     </tr></tbody>
     </table>
       </div>
@@ -925,7 +882,7 @@
         </div>
       </div>
       <p class="card-title">Edit Mesh</p>
-      <p class="card-desc">Extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.</p>
+      <p class="card-desc">Selects, extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -938,38 +895,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object | object | object | object | object</td>
+      <td class="col-type">object | object | object | object | object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: extrude_mesh, subdivide_mesh, move_mesh_vertices, delete_mesh_elements, merge_mesh_vertices, knife_tool.</td>
-    </tr></tbody>
-    </table>
-      </div>
-    </div>
-<div id="tool-edit_mesh_selection" class="card tool-card">
-      <div class="card-header">
-        <h3 class="card-name">edit_mesh_selection</h3>
-        <div class="card-badges">
-          <span class="badge badge-stable">stable</span>
-          <span class="badge badge-destructive">destructive</span>
-        </div>
-      </div>
-      <p class="card-title">Edit Mesh Selection</p>
-      <p class="card-desc">Selects mesh vertices, edges, or faces. Use command.action=select_mesh_elements.</p>
-      <div class="overflow-x">
-        <table class="param-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody><tr>
-      <td class="col-name">command</td>
-      <td class="col-type">object</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: select_mesh_elements.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: extrude_mesh, subdivide_mesh, select_mesh_elements, move_mesh_vertices, delete_mesh_elements, merge_mesh_vertices, knife_tool.</td>
     </tr></tbody>
     </table>
       </div>
@@ -1293,7 +1221,7 @@
         </div>
       </div>
       <p class="card-title">Inspect Geometry</p>
-      <p class="card-desc">Inspects hierarchy/bounds relationships or performs exact geometry measurements through one read-only command.action.</p>
+      <p class="card-desc">Inspects hierarchy/bounds, performs geometry measurements, or detects coplanar face conflicts through one read-only command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1306,9 +1234,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object</td>
+      <td class="col-type">object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: inspect_spatial_relationships, measure_geometry.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: inspect_spatial_relationships, measure_geometry, detect_coplanar_faces.</td>
     </tr></tbody>
     </table>
       </div>
@@ -1702,7 +1630,7 @@
       </section>
 
       <footer class="page-footer">
-        Generated 2026-08-23T06:24:37.535Z from Zod schemas
+        Generated 2026-08-23T12:18:05.377Z from Zod schemas
       </footer>
     </main>
   </div>

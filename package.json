@@ -1,6 +1,6 @@
 {
   "name": "codex-blockbench-mcp",
-  "version": "1.7.0-codex.28",
+  "version": "1.7.0-codex.29",
   "description": "Local-first Blockbench MCP plugin with guarded modeling and optional workflow integrations",
   "keywords": [
     "Blockbench",
