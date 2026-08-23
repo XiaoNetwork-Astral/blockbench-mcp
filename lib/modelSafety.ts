@@ -113,6 +113,50 @@ export function collectOutlinerSubtree(roots: readonly OutlinerNode[]): {
   return { elements, groups };
 }
 
+function addOffset(
+  vector: ArrayLike<number>,
+  offset: readonly [number, number, number]
+): [number, number, number] {
+  return [
+    Number(vector[0]) + offset[0],
+    Number(vector[1]) + offset[1],
+    Number(vector[2]) + offset[2],
+  ];
+}
+
+/** Translate an Outliner subtree in model coordinates, including pivots. */
+export function translateOutlinerSubtree(
+  root: OutlinerNode,
+  offset: readonly [number, number, number]
+): void {
+  const visit = (node: OutlinerNode): void => {
+    if (node instanceof Group) {
+      node.origin.V3_set(addOffset(node.origin, offset));
+    } else if (node instanceof Cube) {
+      node.from.V3_set(addOffset(node.from, offset));
+      node.to.V3_set(addOffset(node.to, offset));
+      node.origin.V3_set(addOffset(node.origin, offset));
+    } else if (node instanceof Mesh) {
+      node.origin.V3_set(addOffset(node.origin, offset));
+    } else {
+      const positioned = node as OutlinerNode & {
+        position?: ArrayLike<number> & { V3_set?: (value: number[]) => void };
+        origin?: ArrayLike<number> & { V3_set?: (value: number[]) => void };
+      };
+      if (positioned.position?.V3_set) {
+        positioned.position.V3_set(addOffset(positioned.position, offset));
+      } else if (positioned.origin?.V3_set) {
+        positioned.origin.V3_set(addOffset(positioned.origin, offset));
+      }
+    }
+
+    const children = (node as OutlinerNode & { children?: OutlinerNode[] }).children;
+    if (Array.isArray(children)) children.forEach(visit);
+    node.preview_controller?.updateAll(node);
+  };
+  visit(root);
+}
+
 export function finishCreatedOutlinerEdit(
   action: string,
   roots: readonly OutlinerNode[]

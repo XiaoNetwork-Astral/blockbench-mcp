@@ -9,7 +9,11 @@ export interface Bounds3 {
 
 export interface AxisIntervalRelation {
   gap: number;
+  /** Signed shortest separation from the first interval toward the second. */
+  signed_gap: number;
   overlap: number;
+  /** Alias of overlap, named explicitly for collision/fit measurements. */
+  penetration_depth: number;
   touching: boolean;
 }
 
@@ -33,15 +37,23 @@ export function intervalRelation(
 ): AxisIntervalRelation {
   const rawOverlap = Math.min(aMax, bMax) - Math.max(aMin, bMin);
   if (rawOverlap < -tolerance) {
+    const signedGap = bMin > aMax
+      ? bMin - aMax
+      : bMax - aMin;
     return {
       gap: cleanNumber(-rawOverlap),
+      signed_gap: cleanNumber(signedGap),
       overlap: 0,
+      penetration_depth: 0,
       touching: false,
     };
   }
+  const overlap = cleanNumber(Math.max(0, rawOverlap));
   return {
     gap: 0,
-    overlap: cleanNumber(Math.max(0, rawOverlap)),
+    signed_gap: 0,
+    overlap,
+    penetration_depth: overlap,
     touching: Math.abs(rawOverlap) <= tolerance,
   };
 }

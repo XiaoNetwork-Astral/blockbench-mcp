@@ -4,8 +4,9 @@ import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { cubeSchema } from "@/lib/zodObjects";
 import { STATUS_STABLE } from "@/lib/constants";
-import { getProjectTexture } from "@/lib/util";
+import { findElementOrThrow, getProjectTexture } from "@/lib/util";
 import {
+  CUBE_FACE_KEYS,
   applyCubeTextureMapping,
   type CubeFaceKey,
   type CubeFaceUV,
@@ -112,6 +113,62 @@ export const modifyCubeParameters = z.object({
     .describe("Whether the cube is visible or not."),
 });
 
+const cubeFaceUvUpdateSchema = z.object({
+  north: z.array(z.number()).length(4).optional(),
+  south: z.array(z.number()).length(4).optional(),
+  east: z.array(z.number()).length(4).optional(),
+  west: z.array(z.number()).length(4).optional(),
+  up: z.array(z.number()).length(4).optional(),
+  down: z.array(z.number()).length(4).optional(),
+});
+
+const cubeUvUpdateSchema = z
+  .object({
+    id: z.string().describe("Cube UUID or unique name."),
+    uv_offset: z
+      .array(z.number())
+      .length(2)
+      .optional()
+      .describe("New Box UV offset [u, v]."),
+    face_uv: cubeFaceUvUpdateSchema
+      .optional()
+      .describe(
+        "Per-face UV rectangles [u1, v1, u2, v2]. Supplying any face automatically switches the cube to per-face UV mode."
+      ),
+    uv_mode: z
+      .enum(["preserve", "box", "per_face"])
+      .optional()
+      .default("preserve")
+      .describe("Preserve or explicitly set the cube UV mode."),
+  })
+  .refine(({ uv_offset, face_uv, uv_mode }) =>
+    uv_offset !== undefined || face_uv !== undefined || uv_mode !== "preserve", {
+    message: "Each update must change uv_offset, face_uv, or uv_mode.",
+  })
+  .refine(({ face_uv, uv_mode }) => !(face_uv && uv_mode === "box"), {
+    message: "face_uv cannot be combined with uv_mode='box'.",
+    path: ["face_uv", "uv_mode"],
+  })
+  .refine(({ face_uv, uv_offset }) => !(face_uv && uv_offset), {
+    message: "uv_offset and face_uv target different UV modes; use separate cube updates.",
+    path: ["uv_offset", "face_uv"],
+  });
+
+type CubeUvUpdate = {
+  id: string;
+  uv_offset?: number[];
+  face_uv?: Partial<Record<CubeFaceKey, number[]>>;
+  uv_mode?: "preserve" | "box" | "per_face";
+};
+
+export const batchSetCubeUvParameters = z.object({
+  updates: z
+    .array(cubeUvUpdateSchema)
+    .min(1)
+    .max(500)
+    .describe("Cube UV updates resolved and committed as one atomic Undo edit."),
+});
+
 export const cubeToolDocs: ToolSpec[] = [
   {
     name: "place_cube",
@@ -133,6 +190,17 @@ export const cubeToolDocs: ToolSpec[] = [
       destructiveHint: true,
     },
     parameters: modifyCubeParameters,
+    status: STATUS_STABLE,
+  },
+  {
+    name: "batch_set_cube_uv",
+    description:
+      "Atomically updates Box UV offsets and/or per-face UV rectangles for up to 500 existing cubes. All cube references are resolved before mutation, duplicate targets are refused, explicit face rectangles switch to per-face UV mode, and every requested value is read back before success.",
+    annotations: {
+      title: "Batch Set Cube UV",
+      destructiveHint: true,
+    },
+    parameters: batchSetCubeUvParameters,
     status: STATUS_STABLE,
   },
 ];
@@ -180,7 +248,7 @@ createTool(cubeToolDocs[0].name, {
 
         applyCubeTextureMapping(
           cube,
-          projectTexture,
+          projectTexture ?? undefined,
           element.face_uv as Partial<Record<CubeFaceKey, CubeFaceUV>> | undefined,
           faces as CubeTextureFaceSelection
         );
@@ -268,4 +336,108 @@ createTool(cubeToolDocs[1].name, {
       .join(", ")} with IDs ${cubes.map((cube) => cube.uuid).join(", ")}`;
   },
 }, cubeToolDocs[1].status);
+
+createTool(cubeToolDocs[2].name, {
+  ...cubeToolDocs[2],
+  async execute({ updates }) {
+    const resolved = (updates as CubeUvUpdate[]).map((update) => {
+      const element = findElementOrThrow(update.id);
+      if (!(element instanceof Cube)) {
+        throw new Error(`Element "${update.id}" is not a cube.`);
+      }
+      return { update, cube: element };
+    });
+    const duplicateIds = resolved
+      .map(({ cube }) => cube.uuid)
+      .filter((uuid, index, all) => all.indexOf(uuid) !== index);
+    if (duplicateIds.length > 0) {
+      throw new Error(
+        `Duplicate cube targets are not allowed in one batch: ${[...new Set(duplicateIds)].join(", ")}`
+      );
+    }
+    for (const { update, cube } of resolved) {
+      if (update.uv_offset && !cube.box_uv && update.uv_mode !== "box") {
+        throw new Error(
+          `Cube "${cube.name}" (${cube.uuid}) currently uses per-face UV. ` +
+            "Set uv_mode='box' explicitly before applying uv_offset."
+        );
+      }
+      if (update.uv_offset && update.uv_mode === "per_face") {
+        throw new Error("uv_offset cannot be combined with uv_mode='per_face'.");
+      }
+    }
+
+    const cubes = resolved.map(({ cube }) => cube);
+    const undoAspects = {
+      elements: cubes,
+      uv_only: true,
+      collections: [],
+    } as UndoAspects;
+    Undo.initEdit(undoAspects);
+    try {
+      for (const { update, cube } of resolved) {
+        if (update.uv_mode === "box") cube.setUVMode(true);
+        if (update.uv_mode === "per_face" || update.face_uv) {
+          cube.setUVMode(false);
+        }
+        if (update.uv_offset) {
+          cube.uv_offset[0] = update.uv_offset[0];
+          cube.uv_offset[1] = update.uv_offset[1];
+        }
+        for (const faceKey of CUBE_FACE_KEYS) {
+          const uv = update.face_uv?.[faceKey];
+          if (uv) cube.faces[faceKey].extend({ uv: [...uv] as CubeFaceUV });
+        }
+      }
+
+      const failures: string[] = [];
+      for (const { update, cube } of resolved) {
+        if (update.uv_mode === "box" && !cube.box_uv) {
+          failures.push(`${cube.uuid}: expected Box UV mode`);
+        }
+        if ((update.uv_mode === "per_face" || update.face_uv) && cube.box_uv) {
+          failures.push(`${cube.uuid}: expected per-face UV mode`);
+        }
+        if (update.uv_offset && update.uv_offset.some(
+          (value, index) => cube.uv_offset[index] !== value
+        )) {
+          failures.push(`${cube.uuid}: uv_offset readback mismatch`);
+        }
+        for (const faceKey of CUBE_FACE_KEYS) {
+          const expected = update.face_uv?.[faceKey];
+          if (expected && expected.some(
+            (value, index) => cube.faces[faceKey].uv[index] !== value
+          )) {
+            failures.push(`${cube.uuid}: ${faceKey} face UV readback mismatch`);
+          }
+        }
+      }
+      if (failures.length > 0) {
+        throw new Error(`Cube UV verification failed: ${failures.join("; ")}`);
+      }
+    } catch (error) {
+      (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+      throw error;
+    }
+
+    Undo.finishEdit("Agent batch updated cube UVs", undoAspects);
+    Canvas.updateView({
+      elements: cubes,
+      element_aspects: { faces: true, uv: true, geometry: false },
+    });
+    Canvas.updateAllUVs();
+    if (Outliner.selected.length > 0) UVEditor.loadData();
+
+    return JSON.stringify({
+      updated: resolved.map(({ cube }) => ({
+        name: cube.name,
+        uuid: cube.uuid,
+        uv_mode: cube.box_uv ? "box" : "per_face",
+        uv_offset: [...cube.uv_offset],
+      })),
+      count: cubes.length,
+      verified: true,
+    }, null, 2);
+  },
+}, cubeToolDocs[2].status);
 }

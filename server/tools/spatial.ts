@@ -10,6 +10,19 @@ import {
   type Vector3Tuple,
 } from "@/lib/spatialRelations";
 import { expandOutlinerGeometryWorldBounds } from "@/lib/sceneBounds";
+import {
+  angleBetweenVectors,
+  closestPointOnBounds,
+  closestPointOnTriangles,
+  closestPointsBetweenBounds,
+  closestPointsBetweenTriangleSets,
+  distanceBetweenPoints,
+  normalizeVector,
+  principalAxis,
+  type ClosestPointsResult,
+  type Triangle3,
+} from "@/lib/measurements";
+import { vec3 } from "@/lib/zodObjects";
 
 const THREE_API = (
   globalThis as typeof globalThis & { THREE: typeof import("three") }
@@ -53,6 +66,106 @@ export const inspectSpatialRelationshipsParameters = z
     message: "Provide at least one element or comparison pair.",
   });
 
+function measurementEndpointSchema() {
+  return z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("point"),
+      point: vec3("Explicit world-space point [x, y, z]."),
+    }),
+    z.object({
+      kind: z.literal("pivot"),
+      element: z.string().describe("Outliner node UUID or unique name."),
+    }),
+    z.object({
+      kind: z.literal("bounds_center"),
+      element: z.string().describe("Outliner node UUID or unique name."),
+    }),
+    z.object({
+      kind: z.literal("surface"),
+      element: z.string().describe(
+        "Outliner node whose actual rendered geometry surface should be used. Falls back to world bounds only when geometry is unavailable or too large for the bounded exact calculation."
+      ),
+    }),
+  ]);
+}
+
+function angleVectorSchema() {
+  return z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("vector"),
+      vector: vec3("World-space direction vector."),
+    }),
+    z.object({
+      kind: z.literal("points"),
+      from: vec3("World-space vector start point."),
+      to: vec3("World-space vector end point."),
+    }),
+    z.object({
+      kind: z.literal("long_axis"),
+      element: z.string().describe(
+        "Outliner node whose principal geometry axis should be measured."
+      ),
+    }),
+  ]);
+}
+
+const distanceMeasurementSchema = z.object({
+  first: measurementEndpointSchema(),
+  second: measurementEndpointSchema(),
+  label: z.string().optional(),
+});
+
+const angleMeasurementSchema = z.object({
+  first: angleVectorSchema(),
+  second: angleVectorSchema(),
+  orientation: z
+    .enum(["undirected", "directed"])
+    .optional()
+    .default("undirected")
+    .describe(
+      "Undirected treats opposite axis directions as the same and returns 0-90 degrees; directed returns 0-180 degrees."
+    ),
+  label: z.string().optional(),
+});
+
+export const measureGeometryParameters = z
+  .object({
+    elements: z
+      .array(z.string())
+      .max(100)
+      .optional()
+      .default([])
+      .describe(
+        "Nodes whose world pivot, bounds, size, and principal long axis should be reported."
+      ),
+    distances: z
+      .array(distanceMeasurementSchema)
+      .max(100)
+      .optional()
+      .default([])
+      .describe(
+        "Point/pivot/center/surface distance measurements in world coordinates."
+      ),
+    angles: z
+      .array(angleMeasurementSchema)
+      .max(100)
+      .optional()
+      .default([])
+      .describe("Vector or geometry-long-axis angle measurements."),
+    tolerance: z
+      .number()
+      .min(0)
+      .max(16)
+      .optional()
+      .default(0.001)
+      .describe("Touching tolerance for bounds gap/penetration analysis."),
+  })
+  .refine(
+    ({ elements, distances, angles }) =>
+      elements.length > 0 || distances.length > 0 || angles.length > 0,
+    { message: "Provide at least one element, distance, or angle measurement." }
+  );
+
 export const spatialToolDocs: ToolSpec[] = [
   {
     name: "inspect_spatial_relationships",
@@ -65,9 +178,28 @@ export const spatialToolDocs: ToolSpec[] = [
     parameters: inspectSpatialRelationshipsParameters,
     status: STATUS_STABLE,
   },
+  {
+    name: "measure_geometry",
+    description:
+      "Performs batch world-space measurements without changing the model: object pivots/bounds/sizes, exact closest rendered-surface distances when tractable, point and pivot distances, signed three-axis bounds gaps plus penetration depths, and directed or undirected angles between vectors or principal geometry axes. Every result identifies its coordinate space, unit, endpoints, and whether an exact-geometry or bounds fallback method was used.",
+    annotations: {
+      title: "Measure Geometry",
+      readOnlyHint: true,
+    },
+    parameters: measureGeometryParameters,
+    status: STATUS_STABLE,
+  },
 ];
 
 type InspectableNode = OutlinerElement | Group;
+
+type MeasurementEndpoint = z.infer<ReturnType<typeof measurementEndpointSchema>>;
+type AngleVector = z.infer<ReturnType<typeof angleVectorSchema>>;
+
+interface NodeGeometry {
+  vertices: Vector3Tuple[];
+  triangles: Triangle3[];
+}
 
 function tuple(vector: THREE.Vector3): Vector3Tuple {
   return [
@@ -77,7 +209,57 @@ function tuple(vector: THREE.Vector3): Vector3Tuple {
   ];
 }
 
-function inspectNode(node: InspectableNode) {
+function cleanTuple(vector: Vector3Tuple): Vector3Tuple {
+  return vector.map((value) =>
+    Math.abs(value) < 1e-12 ? 0 : Number(value.toFixed(6))
+  ) as Vector3Tuple;
+}
+
+function extractNodeGeometry(node: InspectableNode): NodeGeometry {
+  const vertices: Vector3Tuple[] = [];
+  const triangles: Triangle3[] = [];
+
+  const visit = (current: InspectableNode): void => {
+    const sceneObject = current.scene_object as THREE.Object3D & {
+      geometry?: THREE.BufferGeometry;
+    };
+    sceneObject.updateWorldMatrix(true, false);
+    const geometry = sceneObject.geometry;
+    const positions = geometry?.attributes?.position;
+    if (positions) {
+      const transformed: Vector3Tuple[] = [];
+      for (let index = 0; index < positions.count; index += 1) {
+        const point = new THREE_API.Vector3(
+          positions.getX(index),
+          positions.getY(index),
+          positions.getZ(index)
+        ).applyMatrix4(sceneObject.matrixWorld);
+        const value: Vector3Tuple = [point.x, point.y, point.z];
+        transformed.push(value);
+        vertices.push(value);
+      }
+      const indices = geometry!.index;
+      const count = indices?.count ?? positions.count;
+      const indexAt = (offset: number): number =>
+        indices ? indices.getX(offset) : offset;
+      for (let offset = 0; offset + 2 < count; offset += 3) {
+        const a = transformed[indexAt(offset)];
+        const b = transformed[indexAt(offset + 1)];
+        const c = transformed[indexAt(offset + 2)];
+        if (a && b && c) triangles.push({ a, b, c });
+      }
+    }
+
+    const children = (current as InspectableNode & {
+      children?: InspectableNode[];
+    }).children;
+    if (Array.isArray(children)) children.forEach(visit);
+  };
+  visit(node);
+  return { vertices, triangles };
+}
+
+function inspectNode(node: InspectableNode, geometry?: NodeGeometry) {
   const sceneObject = node.scene_object;
   sceneObject.updateWorldMatrix(true, true);
 
@@ -93,6 +275,14 @@ function inspectNode(node: InspectableNode) {
   const center = bounds
     ? tuple(box.getCenter(new THREE_API.Vector3()))
     : tuple(worldPosition);
+  const size = bounds
+    ? cleanTuple([
+        bounds.max[0] - bounds.min[0],
+        bounds.max[1] - bounds.min[1],
+        bounds.max[2] - bounds.min[2],
+      ])
+    : null;
+  const axis = geometry ? principalAxis(geometry.vertices) : null;
   const parent = node.parent === "root" || !node.parent
     ? { type: "root" as const, name: "root", uuid: null }
     : {
@@ -109,6 +299,15 @@ function inspectNode(node: InspectableNode) {
     world_origin: tuple(worldPosition),
     world_bounds_center: center,
     world_bounds: bounds,
+    world_size: size,
+    principal_long_axis: axis
+      ? {
+          direction: cleanTuple(axis.direction),
+          extent: Number(axis.extent.toFixed(6)),
+          ambiguous: axis.ambiguous,
+          eigenvalues: cleanTuple(axis.eigenvalues),
+        }
+      : null,
   };
 }
 
@@ -209,4 +408,233 @@ export function registerSpatialTools(): void {
       );
     },
   }, spatialToolDocs[0].status);
+
+  createTool(spatialToolDocs[1].name, {
+    ...spatialToolDocs[1],
+    async execute({ elements, distances, angles, tolerance }) {
+      const nodes = new Map<string, InspectableNode>();
+      const geometries = new Map<string, NodeGeometry>();
+      const inspections = new Map<string, ReturnType<typeof inspectNode>>();
+
+      const resolveNode = (reference: string): InspectableNode => {
+        const node = findElementOrThrow(reference) as InspectableNode;
+        nodes.set(node.uuid, node);
+        return node;
+      };
+      const geometryFor = (node: InspectableNode): NodeGeometry => {
+        let geometry = geometries.get(node.uuid);
+        if (!geometry) {
+          geometry = extractNodeGeometry(node);
+          geometries.set(node.uuid, geometry);
+        }
+        return geometry;
+      };
+      const inspectionFor = (node: InspectableNode) => {
+        let inspection = inspections.get(node.uuid);
+        if (!inspection) {
+          inspection = inspectNode(node, geometryFor(node));
+          inspections.set(node.uuid, inspection);
+        }
+        return inspection;
+      };
+      const nodeFromEndpoint = (
+        endpoint: MeasurementEndpoint
+      ): InspectableNode | null => endpoint.kind === "point"
+        ? null
+        : resolveNode(endpoint.element);
+      const concretePoint = (
+        endpoint: MeasurementEndpoint,
+        node: InspectableNode | null
+      ): Vector3Tuple => {
+        if (endpoint.kind === "point") return [...endpoint.point] as Vector3Tuple;
+        if (!node) throw new Error("Measurement endpoint could not resolve its element.");
+        const inspection = inspectionFor(node);
+        if (endpoint.kind === "pivot") return [...inspection.world_origin] as Vector3Tuple;
+        if (endpoint.kind === "bounds_center") {
+          return [...inspection.world_bounds_center] as Vector3Tuple;
+        }
+        throw new Error("Surface endpoints require a paired closest-point calculation.");
+      };
+      const fallbackBounds = (node: InspectableNode): Bounds3 => {
+        const bounds = inspectionFor(node).world_bounds;
+        if (!bounds) {
+          throw new Error(
+            `Element "${node.name}" (${node.uuid}) has no renderable geometry or bounds.`
+          );
+        }
+        return bounds;
+      };
+
+      const measuredElements = (elements as string[]).map((reference) => {
+        const node = resolveNode(reference);
+        return inspectionFor(node);
+      });
+
+      type DistanceMeasurement = z.infer<typeof distanceMeasurementSchema>;
+      const measuredDistances = (distances as DistanceMeasurement[]).map((measurement) => {
+        const firstNode = nodeFromEndpoint(measurement.first);
+        const secondNode = nodeFromEndpoint(measurement.second);
+        let closest: ClosestPointsResult;
+        let method = "point_to_point";
+
+        if (measurement.first.kind === "surface" && measurement.second.kind === "surface") {
+          const exact = closestPointsBetweenTriangleSets(
+            geometryFor(firstNode!).triangles,
+            geometryFor(secondNode!).triangles
+          );
+          if (exact) {
+            closest = exact;
+            method = "rendered_geometry_surface_to_surface";
+          } else {
+            closest = closestPointsBetweenBounds(
+              fallbackBounds(firstNode!),
+              fallbackBounds(secondNode!)
+            );
+            method = "axis_aligned_bounds_fallback";
+          }
+        } else if (measurement.first.kind === "surface") {
+          const secondPoint = concretePoint(measurement.second, secondNode);
+          const exact = closestPointOnTriangles(
+            secondPoint,
+            geometryFor(firstNode!).triangles
+          );
+          if (exact) {
+            closest = exact;
+            method = "rendered_geometry_surface_to_point";
+          } else {
+            closest = distanceBetweenPoints(
+              closestPointOnBounds(secondPoint, fallbackBounds(firstNode!)),
+              secondPoint
+            );
+            method = "axis_aligned_bounds_fallback";
+          }
+        } else if (measurement.second.kind === "surface") {
+          const firstPoint = concretePoint(measurement.first, firstNode);
+          const exact = closestPointOnTriangles(
+            firstPoint,
+            geometryFor(secondNode!).triangles
+          );
+          if (exact) {
+            closest = {
+              first: exact.second,
+              second: exact.first,
+              distance: exact.distance,
+            };
+            method = "point_to_rendered_geometry_surface";
+          } else {
+            closest = distanceBetweenPoints(
+              firstPoint,
+              closestPointOnBounds(firstPoint, fallbackBounds(secondNode!))
+            );
+            method = "axis_aligned_bounds_fallback";
+          }
+        } else {
+          closest = distanceBetweenPoints(
+            concretePoint(measurement.first, firstNode),
+            concretePoint(measurement.second, secondNode)
+          );
+        }
+
+        const delta: Vector3Tuple = [
+          closest.second[0] - closest.first[0],
+          closest.second[1] - closest.first[1],
+          closest.second[2] - closest.first[2],
+        ];
+        const firstBounds = firstNode ? inspectionFor(firstNode).world_bounds : null;
+        const secondBounds = secondNode ? inspectionFor(secondNode).world_bounds : null;
+        return {
+          label: measurement.label ?? null,
+          coordinate_space: "world",
+          unit: "Blockbench model unit",
+          method,
+          first: {
+            request: measurement.first,
+            resolved_point: cleanTuple(closest.first),
+          },
+          second: {
+            request: measurement.second,
+            resolved_point: cleanTuple(closest.second),
+          },
+          distance: Number(closest.distance.toFixed(6)),
+          signed_axis_delta: cleanTuple(delta),
+          absolute_axis_delta: cleanTuple(delta.map(Math.abs) as Vector3Tuple),
+          bounds_relation: firstBounds && secondBounds
+            ? analyzeBoundsPair(firstBounds, secondBounds, tolerance)
+            : null,
+        };
+      });
+
+      const resolveAngleVector = (request: AngleVector) => {
+        if (request.kind === "vector") {
+          const raw = [...request.vector] as Vector3Tuple;
+          return { raw, source: request, ambiguous: false };
+        }
+        if (request.kind === "points") {
+          const raw: Vector3Tuple = [
+            request.to[0] - request.from[0],
+            request.to[1] - request.from[1],
+            request.to[2] - request.from[2],
+          ];
+          return { raw, source: request, ambiguous: false };
+        }
+        const node = resolveNode(request.element);
+        const axis = principalAxis(geometryFor(node).vertices);
+        if (!axis) {
+          throw new Error(
+            `Element "${node.name}" (${node.uuid}) has no measurable long axis.`
+          );
+        }
+        return {
+          raw: axis.direction,
+          source: {
+            ...request,
+            resolved_element: { name: node.name, uuid: node.uuid },
+            extent: Number(axis.extent.toFixed(6)),
+          },
+          ambiguous: axis.ambiguous,
+        };
+      };
+
+      type AngleMeasurement = z.infer<typeof angleMeasurementSchema>;
+      const measuredAngles = (angles as AngleMeasurement[]).map((measurement) => {
+        const first = resolveAngleVector(measurement.first);
+        const second = resolveAngleVector(measurement.second);
+        const value = angleBetweenVectors(
+          first.raw,
+          second.raw,
+          measurement.orientation === "undirected"
+        );
+        return {
+          label: measurement.label ?? null,
+          coordinate_space: "world",
+          orientation: measurement.orientation,
+          first: {
+            source: first.source,
+            normalized_vector: cleanTuple(normalizeVector(first.raw)),
+            long_axis_ambiguous: first.ambiguous,
+          },
+          second: {
+            source: second.source,
+            normalized_vector: cleanTuple(normalizeVector(second.raw)),
+            long_axis_ambiguous: second.ambiguous,
+          },
+          angle_degrees: Number(value.degrees.toFixed(6)),
+          angle_radians: Number(value.radians.toFixed(9)),
+          normalized_dot: Number(value.dot.toFixed(9)),
+          warning: first.ambiguous || second.ambiguous
+            ? "At least one geometry has no unique principal long axis; interpret this angle cautiously."
+            : null,
+        };
+      });
+
+      return JSON.stringify({
+        coordinate_space: "world",
+        unit: "Blockbench model unit",
+        tolerance,
+        elements: measuredElements,
+        distances: measuredDistances,
+        angles: measuredAngles,
+      }, null, 2);
+    },
+  }, spatialToolDocs[1].status);
 }

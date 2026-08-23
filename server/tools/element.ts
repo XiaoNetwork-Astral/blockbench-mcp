@@ -14,6 +14,7 @@ import {
   finishCreatedOutlinerEdit,
   resolveOutlinerParentOrThrow,
   rollbackCreatedOutlinerEdit,
+  translateOutlinerSubtree,
 } from "@/lib/modelSafety";
 
 export const removeElementParameters = z.object({
@@ -159,6 +160,28 @@ export const renameElementParameters = z.object({
   new_name: z.string().describe("New name to assign."),
 });
 
+export const modifyGroupParameters = z
+  .object({
+    id: z.string().describe("Group/bone UUID or unique name."),
+    origin: vec3(
+      "Set the group's model-space pivot directly without translating descendants."
+    ).optional(),
+    rotation: vec3(
+      "Set the group's local Euler rotation in degrees [x, y, z]."
+    ).optional(),
+    position: vec3(
+      "Move the complete subtree so the group's model-space origin reaches this absolute [x, y, z] position."
+    ).optional(),
+  })
+  .refine(({ origin, rotation, position }) =>
+    origin !== undefined || rotation !== undefined || position !== undefined, {
+    message: "Provide origin, rotation, or position.",
+  })
+  .refine(({ origin, position }) => !(origin && position), {
+    message: "origin and position have different semantics and cannot be combined.",
+    path: ["origin", "position"],
+  });
+
 export const elementToolDocs: ToolSpec[] = [
   {
     name: "remove_element",
@@ -249,6 +272,17 @@ export const elementToolDocs: ToolSpec[] = [
       readOnlyHint: true,
     },
     parameters: getSelectionParameters,
+    status: STATUS_STABLE,
+  },
+  {
+    name: "modify_group",
+    description:
+      "Updates an ordinary Outliner group/bone. origin changes only its pivot; rotation sets its local Euler rotation; position translates the entire subtree so the group origin reaches an absolute model-space coordinate. The affected subtree is captured in one Undo edit and read back before success.",
+    annotations: {
+      title: "Modify Group",
+      destructiveHint: true,
+    },
+    parameters: modifyGroupParameters,
     status: STATUS_STABLE,
   },
 ];
@@ -487,26 +521,6 @@ export function registerElementTools() {
       }
       const targetParent = resolveOutlinerParentOrThrow(parent, element.type);
 
-      const addOffset = (vector: ArrayLike<number>): [number, number, number] => [
-        Number(vector[0]) + offset[0],
-        Number(vector[1]) + offset[1],
-        Number(vector[2]) + offset[2],
-      ];
-      const translate = (node: OutlinerNode): void => {
-        if (node instanceof Group) {
-          node.origin.V3_set(addOffset(node.origin));
-        } else if (node instanceof Cube) {
-          node.from.V3_set(addOffset(node.from));
-          node.to.V3_set(addOffset(node.to));
-          node.origin.V3_set(addOffset(node.origin));
-        } else if (node instanceof Mesh) {
-          node.origin.V3_set(addOffset(node.origin));
-        }
-        const children = (node as OutlinerNode & { children?: OutlinerNode[] }).children;
-        if (Array.isArray(children)) children.forEach(translate);
-        node.preview_controller?.updateAll(node);
-      };
-
       Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
       let duplicate: OutlinerNode | undefined;
       try {
@@ -519,7 +533,7 @@ export function registerElementTools() {
         duplicate = duplicateMethod.call(element);
         if (newName) duplicate.name = newName;
         duplicate.addTo(targetParent);
-        translate(duplicate);
+        translateOutlinerSubtree(duplicate, offset as [number, number, number]);
       } catch (error) {
         if (duplicate) rollbackCreatedOutlinerEdit([duplicate]);
         else Undo.cancelEdit();
@@ -779,4 +793,78 @@ export function registerElementTools() {
       );
     },
   }, elementToolDocs[8].status);
+
+  createTool(elementToolDocs[9].name, {
+    ...elementToolDocs[9],
+    async execute({ id, origin, rotation, position }) {
+      const element = findElementOrThrow(id);
+      if (!(element instanceof Group)) {
+        throw new Error(`Element "${id}" is not an ordinary Outliner group/bone.`);
+      }
+      const affected = collectOutlinerSubtree([element]);
+      const undoAspects: UndoAspects = {
+        elements: affected.elements,
+        groups: affected.groups,
+        outliner: true,
+        collections: [],
+      };
+      Undo.initEdit(undoAspects);
+      try {
+        if (position) {
+          const offset: [number, number, number] = [
+            position[0] - element.origin[0],
+            position[1] - element.origin[1],
+            position[2] - element.origin[2],
+          ];
+          translateOutlinerSubtree(element, offset);
+        } else if (origin) {
+          element.extend({ origin: origin as [number, number, number] });
+        }
+        if (rotation) {
+          element.extend({ rotation: rotation as [number, number, number] });
+        }
+        element.preview_controller?.updateAll(element);
+
+        const expectedOrigin = position ?? origin;
+        if (expectedOrigin && expectedOrigin.some(
+          (value: number, index: number) => element.origin[index] !== value
+        )) {
+          throw new Error(
+            `Group origin readback mismatch: expected [${expectedOrigin}], got [${element.origin}].`
+          );
+        }
+        if (rotation && rotation.some(
+          (value: number, index: number) => element.rotation[index] !== value
+        )) {
+          throw new Error(
+            `Group rotation readback mismatch: expected [${rotation}], got [${element.rotation}].`
+          );
+        }
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        throw error;
+      }
+
+      Undo.finishEdit("Agent modified group", undoAspects);
+      Canvas.updateAll();
+      return JSON.stringify({
+        group: {
+          name: element.name,
+          uuid: element.uuid,
+          origin: [...element.origin],
+          rotation: [...element.rotation],
+        },
+        semantics: position
+          ? "translated_subtree_to_position"
+          : origin
+            ? "changed_pivot_only"
+            : "rotation_only",
+        affected: {
+          groups: affected.groups.length,
+          elements: affected.elements.length,
+        },
+        verified: true,
+      }, null, 2);
+    },
+  }, elementToolDocs[9].status);
 }
