@@ -83,7 +83,7 @@ export function registerExampleTools() {
 ```
 Then import and call the registration function in `server/tools.ts`, add only the public docs array to `build/docs-manifest.ts`, and add regression coverage. When extending an existing group, update its operations array rather than creating another public tool.
 
-- Naming: Public tools and internal action values use the names you provide (no automatic prefix). Action names must remain unique across the registry.
+- Naming: Public tools must follow `<intent>_<domain>[_<facet>]`. Use `inspect_*` for reads, `edit_*` for model or editor-state changes, `create_*` for focused geometry creation, and `import_*`/`export_*` only at file or serialization boundaries. Do not introduce synonyms such as `manage_*`, `configure_*`, `control_*`, `set_*`, `apply_*`, `place_*`, `from_*`, or `list_*` at the public level. Internal `command.action` values have no automatic prefix and must remain unique across the registry.
 - Define schemas without Blockbench globals because docs/tests import them outside Blockbench.
 - Validate inputs with Zod and resolve names deterministically; duplicate names must require an exact UUID.
 - Keep read-only actions and mutating actions in different public groups. The group annotation controls project-role checks, audit snapshots, and failure rollback for every enclosed action.

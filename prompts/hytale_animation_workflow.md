@@ -57,7 +57,7 @@ Set with `edit_hytale` action `hytale_set_animation_loop`:
 
 ### 1. Create Animation
 ```
-Use `edit_animation_data` action `create_animation`:
+Use `edit_animation` action `create_animation`:
 - name: "walk_cycle"
 - animation_length: 1.0 (1 second)
 - loop: true
@@ -65,11 +65,11 @@ Use `edit_animation_data` action `create_animation`:
 
 ### 2. Add Keyframes
 Use animation tools to add keyframes:
-- `edit_animation_data` action `manage_keyframes` for position/rotation/scale
+- `edit_animation` action `manage_keyframes` for position/rotation/scale
 - `edit_hytale` action `hytale_create_visibility_keyframe` for visibility toggles
 
 ### 3. Set Interpolation
-Use `control_animation_editor` action `animation_graph_editor` to adjust curves:
+Use `edit_animation_editor` action `animation_graph_editor` to adjust curves:
 - `smooth` for organic movements
 - `linear` for mechanical movements
 - `stepped` for snappy transitions

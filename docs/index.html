@@ -11,7 +11,7 @@
     <nav class="sidebar">
       <div class="sidebar-brand">
         <h1>Blockbench MCP</h1>
-        <p>v1.7.0-codex.27 — API Reference</p>
+        <p>v1.7.0-codex.28 — API Reference</p>
       </div>
 
       <input id="search" type="text" placeholder="Search tools..." class="search-input" />
@@ -52,7 +52,7 @@
     <main class="main">
       <header class="page-header">
         <h1>Blockbench MCP Plugin</h1>
-        <p class="subtitle">API Reference — v1.7.0-codex.27</p>
+        <p class="subtitle">API Reference — v1.7.0-codex.28</p>
         <nav class="stats">
           <a href="#tools"><strong>43</strong> tools (33 stable, 10 experimental)</a>
           <a href="#prompts"><strong>5</strong> prompts</a>
@@ -72,15 +72,15 @@
         <h2 class="section-title">Tools</h2>
         <section id="cat-cubes" class="category-section">
           <h3 class="category-title">Cubes</h3>
-          <div id="tool-place_cube" class="card tool-card">
+          <div id="tool-create_cube" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">place_cube</h3>
+        <h3 class="card-name">create_cube</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Place Cube</p>
+      <p class="card-title">Create Cube</p>
       <p class="card-desc">Places one or more cubes under a mandatory explicit parent. Use group='root' only for intentional root-level cubes; omitted, missing, or ambiguous parents are rejected before mutation.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -116,15 +116,15 @@
     </table>
       </div>
     </div>
-<div id="tool-modify_cube" class="card tool-card">
+<div id="tool-edit_cube" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">modify_cube</h3>
+        <h3 class="card-name">edit_cube</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Modify Cube</p>
+      <p class="card-title">Edit Cube</p>
       <p class="card-desc">Modifies the cube with the given ID. Auto UV setting: saved as an integer, where 0 means disabled, 1 means enabled, and 2 means relative auto UV (cube position affects UV)</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -205,15 +205,15 @@
     </table>
       </div>
     </div>
-<div id="tool-batch_set_cube_uv" class="card tool-card">
+<div id="tool-edit_cube_uv" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">batch_set_cube_uv</h3>
+        <h3 class="card-name">edit_cube_uv</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Batch Set Cube UV</p>
+      <p class="card-title">Edit Cube UV</p>
       <p class="card-desc">Atomically updates Box UV offsets and/or per-face UV rectangles for up to 500 existing cubes. All cube references are resolved before mutation, duplicate targets are refused, explicit face rectangles switch to per-face UV mode, and every requested value is read back before success.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -298,15 +298,15 @@
         </section>
 <section id="cat-camera-screenshots" class="category-section">
           <h3 class="category-title">Camera &amp; Screenshots</h3>
-          <div id="tool-capture_screenshot" class="card tool-card">
+          <div id="tool-inspect_viewport" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">capture_screenshot</h3>
+        <h3 class="card-name">inspect_viewport</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-readonly">read-only</span>
         </div>
       </div>
-      <p class="card-title">Capture Screenshot</p>
+      <p class="card-title">Inspect Viewport</p>
       <p class="card-desc">Returns the image data of the current view.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -327,29 +327,29 @@
     </table>
       </div>
     </div>
-<div id="tool-capture_app_screenshot" class="card tool-card">
+<div id="tool-inspect_blockbench_ui" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">capture_app_screenshot</h3>
+        <h3 class="card-name">inspect_blockbench_ui</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-readonly">read-only</span>
         </div>
       </div>
-      <p class="card-title">Capture App Screenshot</p>
+      <p class="card-title">Inspect Blockbench UI</p>
       <p class="card-desc">Returns the image data of the Blockbench app.</p>
       <div class="overflow-x">
         <p class="empty-params">No parameters</p>
       </div>
     </div>
-<div id="tool-set_camera_angle" class="card tool-card">
+<div id="tool-edit_camera" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">set_camera_angle</h3>
+        <h3 class="card-name">edit_camera</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Set Camera Angle</p>
+      <p class="card-title">Edit Camera</p>
       <p class="card-desc">Sets the camera angle to the specified value.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -388,15 +388,15 @@
         </section>
 <section id="cat-preview" class="category-section">
           <h3 class="category-title">Preview</h3>
-          <div id="tool-set_preview_state" class="card tool-card">
+          <div id="tool-edit_preview" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">set_preview_state</h3>
+        <h3 class="card-name">edit_preview</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
 
         </div>
       </div>
-      <p class="card-title">Set Preview State</p>
+      <p class="card-title">Edit Preview</p>
       <p class="card-desc">Selects a project and applies an animation/time plus temporary bone visibility for live inspection. It does not bake the pose into the model.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -445,15 +445,15 @@
         </section>
 <section id="cat-animation" class="category-section">
           <h3 class="category-title">Animation</h3>
-          <div id="tool-edit_animation_data" class="card tool-card">
+          <div id="tool-edit_animation" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">edit_animation_data</h3>
+        <h3 class="card-name">edit_animation</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Edit Animation Data</p>
+      <p class="card-title">Edit Animation</p>
       <p class="card-desc">Creates animations, rigs bones, and edits, batches, copies, or pastes keyframes through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -474,15 +474,15 @@
     </table>
       </div>
     </div>
-<div id="tool-control_animation_editor" class="card tool-card">
+<div id="tool-edit_animation_editor" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">control_animation_editor</h3>
+        <h3 class="card-name">edit_animation_editor</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Control Animation Editor</p>
+      <p class="card-title">Edit Animation Editor</p>
       <p class="card-desc">Controls the graph editor or animation timeline through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -657,15 +657,15 @@
         </section>
 <section id="cat-export" class="category-section">
           <h3 class="category-title">Export</h3>
-          <div id="tool-list_export_formats" class="card tool-card">
+          <div id="tool-inspect_export_formats" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">list_export_formats</h3>
+        <h3 class="card-name">inspect_export_formats</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-readonly">read-only</span>
         </div>
       </div>
-      <p class="card-title">List Export Formats</p>
+      <p class="card-title">Inspect Export Formats</p>
       <p class="card-desc">Lists all registered export codecs with their id, display name, file extension, and whether they support compile/export. Use before `export_model` to pick a codec.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -695,7 +695,7 @@
         </div>
       </div>
       <p class="card-title">Export Model</p>
-      <p class="card-desc">Compiles the current project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `list_export_formats` first to discover codec IDs.</p>
+      <p class="card-desc">Compiles the current project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -710,7 +710,7 @@
       <td class="col-name">codec_id</td>
       <td class="col-type">string</td>
       <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Codec ID to use for export (e.g., 'obj', 'gltf', 'project', 'bedrock'). If omitted, uses the current project format's codec. Use `list_export_formats` to see available IDs.</td>
+      <td class="col-desc">Codec ID to use for export (e.g., 'obj', 'gltf', 'project', 'bedrock'). If omitted, uses the current project format's codec. Use `inspect_export_formats` to see available IDs.</td>
     </tr><tr>
       <td class="col-name">options</td>
       <td class="col-type">Record&lt;string, unknown&gt;</td>
@@ -794,16 +794,16 @@
         </section>
 <section id="cat-import-export" class="category-section">
           <h3 class="category-title">Import/Export</h3>
-          <div id="tool-from_geo_json" class="card tool-card">
+          <div id="tool-import_bedrock_geometry" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">from_geo_json</h3>
+        <h3 class="card-name">import_bedrock_geometry</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Import GeoJSON</p>
-      <p class="card-desc">Imports existing Bedrock geometry from serialized JSON (the tool name is retained for compatibility; this is not geographic GeoJSON). Accepts inline JSON, JSON data URLs, and local files only. Remote HTTP(S) fetching is disabled. For new models, use edit_elements actions add_group/modify_group and the place_cube tool instead of this import shortcut.</p>
+      <p class="card-title">Import Bedrock Geometry</p>
+      <p class="card-desc">Imports existing Bedrock geometry from serialized JSON. Accepts inline JSON, JSON data URLs, and local files only; this is not geographic GeoJSON and remote HTTP(S) fetching is disabled. For new models, use edit_elements actions add_group/modify_group and create_cube instead of this import shortcut.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -887,15 +887,15 @@
         </section>
 <section id="cat-mesh-editing" class="category-section">
           <h3 class="category-title">Mesh Editing</h3>
-          <div id="tool-create_mesh_geometry" class="card tool-card">
+          <div id="tool-create_mesh" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">create_mesh_geometry</h3>
+        <h3 class="card-name">create_mesh</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Create Mesh Geometry</p>
+      <p class="card-title">Create Mesh</p>
       <p class="card-desc">Creates custom meshes, spheres, cylinders, or individual mesh faces through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -916,15 +916,15 @@
     </table>
       </div>
     </div>
-<div id="tool-edit_mesh_geometry" class="card tool-card">
+<div id="tool-edit_mesh" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">edit_mesh_geometry</h3>
+        <h3 class="card-name">edit_mesh</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Edit Mesh Geometry</p>
+      <p class="card-title">Edit Mesh</p>
       <p class="card-desc">Extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -945,15 +945,15 @@
     </table>
       </div>
     </div>
-<div id="tool-select_mesh_geometry" class="card tool-card">
+<div id="tool-edit_mesh_selection" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">select_mesh_geometry</h3>
+        <h3 class="card-name">edit_mesh_selection</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Select Mesh Geometry</p>
+      <p class="card-title">Edit Mesh Selection</p>
       <p class="card-desc">Selects mesh vertices, edges, or faces. Use command.action=select_mesh_elements.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -977,15 +977,15 @@
         </section>
 <section id="cat-paint-tools" class="category-section">
           <h3 class="category-title">Paint Tools</h3>
-          <div id="tool-paint_texture" class="card tool-card">
+          <div id="tool-edit_texture_paint" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">paint_texture</h3>
+        <h3 class="card-name">edit_texture_paint</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Paint Texture</p>
+      <p class="card-title">Edit Texture Paint</p>
       <p class="card-desc">Paints, fills, draws, gradients, clones, erases, or samples a texture through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -1006,15 +1006,15 @@
     </table>
       </div>
     </div>
-<div id="tool-configure_paint" class="card tool-card">
+<div id="tool-edit_paint_settings" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">configure_paint</h3>
+        <h3 class="card-name">edit_paint_settings</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Configure Paint</p>
+      <p class="card-title">Edit Paint Settings</p>
       <p class="card-desc">Changes paint preferences or creates and loads brush presets through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -1067,15 +1067,15 @@
         </section>
 <section id="cat-exact-texture-editing" class="category-section">
           <h3 class="category-title">Exact Texture Editing</h3>
-          <div id="tool-apply_texture_pixels_exact" class="card tool-card">
+          <div id="tool-edit_texture_pixels" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">apply_texture_pixels_exact</h3>
+        <h3 class="card-name">edit_texture_pixels</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span>
         </div>
       </div>
-      <p class="card-title">Apply Exact Texture Pixels</p>
+      <p class="card-title">Edit Exact Texture Pixels</p>
       <p class="card-desc">Applies exact RGBA values to texture pixels inside Blockbench so the user can see the change immediately and undo it normally.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -1133,15 +1133,15 @@
     </table>
       </div>
     </div>
-<div id="tool-manage_projects" class="card tool-card">
+<div id="tool-edit_projects" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">manage_projects</h3>
+        <h3 class="card-name">edit_projects</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
         </div>
       </div>
-      <p class="card-title">Manage Projects</p>
+      <p class="card-title">Edit Projects</p>
       <p class="card-desc">Creates, selects, configures, closes, opens, or duplicates Blockbench projects through one explicit command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -1348,15 +1348,15 @@
         </section>
 <section id="cat-ysm-workspace" class="category-section">
           <h3 class="category-title">YSM Workspace</h3>
-          <div id="tool-manage_ysm_workspace" class="card tool-card">
+          <div id="tool-edit_ysm_workspace" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">manage_ysm_workspace</h3>
+        <h3 class="card-name">edit_ysm_workspace</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
         </div>
       </div>
-      <p class="card-title">Manage YSM Workspace</p>
+      <p class="card-title">Edit YSM Workspace</p>
       <p class="card-desc">Configures the YSM workspace and binds, saves, or unbinds projects through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -1409,15 +1409,15 @@
     </table>
       </div>
     </div>
-<div id="tool-manage_ysm_workflow" class="card tool-card">
+<div id="tool-edit_ysm_workflow" class="card tool-card">
       <div class="card-header">
-        <h3 class="card-name">manage_ysm_workflow</h3>
+        <h3 class="card-name">edit_ysm_workflow</h3>
         <div class="card-badges">
           <span class="badge badge-stable">stable</span>
           <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
         </div>
       </div>
-      <p class="card-title">Manage YSM Workflow</p>
+      <p class="card-title">Edit YSM Workflow</p>
       <p class="card-desc">Opens the protected YSM three-tab workflow or performs an explicitly confirmed baseline merge.</p>
       <div class="overflow-x">
         <table class="param-table">
@@ -1702,7 +1702,7 @@
       </section>
 
       <footer class="page-footer">
-        Generated 2026-08-23T03:48:37.148Z from Zod schemas
+        Generated 2026-08-23T05:17:40.298Z from Zod schemas
       </footer>
     </main>
   </div>

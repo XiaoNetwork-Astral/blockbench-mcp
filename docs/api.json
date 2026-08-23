@@ -1,10 +1,10 @@
 {
-  "version": "1.7.0-codex.27",
-  "generatedAt": "2026-08-23T03:48:37.148Z",
+  "version": "1.7.0-codex.28",
+  "generatedAt": "2026-08-23T05:17:40.298Z",
   "tools": [
     {
-      "name": "place_cube",
-      "title": "Place Cube",
+      "name": "create_cube",
+      "title": "Create Cube",
       "description": "Places one or more cubes under a mandatory explicit parent. Use group='root' only for intentional root-level cubes; omitted, missing, or ambiguous parents are rejected before mutation.",
       "status": "stable",
       "category": "Cubes",
@@ -12,9 +12,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/place_cube",
+        "$ref": "#/definitions/create_cube",
         "definitions": {
-          "place_cube": {
+          "create_cube": {
             "type": "object",
             "properties": {
               "elements": {
@@ -281,8 +281,8 @@
       }
     },
     {
-      "name": "modify_cube",
-      "title": "Modify Cube",
+      "name": "edit_cube",
+      "title": "Edit Cube",
       "description": "Modifies the cube with the given ID. Auto UV setting: saved as an integer, where 0 means disabled, 1 means enabled, and 2 means relative auto UV (cube position affects UV)",
       "status": "stable",
       "category": "Cubes",
@@ -290,9 +290,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/modify_cube",
+        "$ref": "#/definitions/edit_cube",
         "definitions": {
-          "modify_cube": {
+          "edit_cube": {
             "type": "object",
             "properties": {
               "id": {
@@ -398,8 +398,8 @@
       }
     },
     {
-      "name": "batch_set_cube_uv",
-      "title": "Batch Set Cube UV",
+      "name": "edit_cube_uv",
+      "title": "Edit Cube UV",
       "description": "Atomically updates Box UV offsets and/or per-face UV rectangles for up to 500 existing cubes. All cube references are resolved before mutation, duplicate targets are refused, explicit face rectangles switch to per-face UV mode, and every requested value is read back before success.",
       "status": "stable",
       "category": "Cubes",
@@ -407,9 +407,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/batch_set_cube_uv",
+        "$ref": "#/definitions/edit_cube_uv",
         "definitions": {
-          "batch_set_cube_uv": {
+          "edit_cube_uv": {
             "type": "object",
             "properties": {
               "updates": {
@@ -774,8 +774,8 @@
       }
     },
     {
-      "name": "capture_screenshot",
-      "title": "Capture Screenshot",
+      "name": "inspect_viewport",
+      "title": "Inspect Viewport",
       "description": "Returns the image data of the current view.",
       "status": "stable",
       "category": "Camera & Screenshots",
@@ -783,9 +783,9 @@
         "readOnlyHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/capture_screenshot",
+        "$ref": "#/definitions/inspect_viewport",
         "definitions": {
-          "capture_screenshot": {
+          "inspect_viewport": {
             "type": "object",
             "properties": {
               "project": {
@@ -801,8 +801,8 @@
       }
     },
     {
-      "name": "capture_app_screenshot",
-      "title": "Capture App Screenshot",
+      "name": "inspect_blockbench_ui",
+      "title": "Inspect Blockbench UI",
       "description": "Returns the image data of the Blockbench app.",
       "status": "stable",
       "category": "Camera & Screenshots",
@@ -810,9 +810,9 @@
         "readOnlyHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/capture_app_screenshot",
+        "$ref": "#/definitions/inspect_blockbench_ui",
         "definitions": {
-          "capture_app_screenshot": {
+          "inspect_blockbench_ui": {
             "type": "object",
             "properties": {},
             "additionalProperties": false
@@ -822,8 +822,8 @@
       }
     },
     {
-      "name": "set_camera_angle",
-      "title": "Set Camera Angle",
+      "name": "edit_camera",
+      "title": "Edit Camera",
       "description": "Sets the camera angle to the specified value.",
       "status": "experimental",
       "category": "Camera & Screenshots",
@@ -831,9 +831,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/set_camera_angle",
+        "$ref": "#/definitions/edit_camera",
         "definitions": {
-          "set_camera_angle": {
+          "edit_camera": {
             "type": "object",
             "properties": {
               "position": {
@@ -888,8 +888,8 @@
       }
     },
     {
-      "name": "set_preview_state",
-      "title": "Set Preview State",
+      "name": "edit_preview",
+      "title": "Edit Preview",
       "description": "Selects a project and applies an animation/time plus temporary bone visibility for live inspection. It does not bake the pose into the model.",
       "status": "stable",
       "category": "Preview",
@@ -897,9 +897,9 @@
         "destructiveHint": false
       },
       "parameters": {
-        "$ref": "#/definitions/set_preview_state",
+        "$ref": "#/definitions/edit_preview",
         "definitions": {
-          "set_preview_state": {
+          "edit_preview": {
             "type": "object",
             "properties": {
               "project": {
@@ -949,8 +949,8 @@
       }
     },
     {
-      "name": "edit_animation_data",
-      "title": "Edit Animation Data",
+      "name": "edit_animation",
+      "title": "Edit Animation",
       "description": "Creates animations, rigs bones, and edits, batches, copies, or pastes keyframes through one command.action.",
       "status": "stable",
       "category": "Animation",
@@ -958,9 +958,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/edit_animation_data",
+        "$ref": "#/definitions/edit_animation",
         "definitions": {
-          "edit_animation_data": {
+          "edit_animation": {
             "type": "object",
             "properties": {
               "command": {
@@ -1640,8 +1640,8 @@
       }
     },
     {
-      "name": "control_animation_editor",
-      "title": "Control Animation Editor",
+      "name": "edit_animation_editor",
+      "title": "Edit Animation Editor",
       "description": "Controls the graph editor or animation timeline through one command.action.",
       "status": "stable",
       "category": "Animation",
@@ -1649,9 +1649,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/control_animation_editor",
+        "$ref": "#/definitions/edit_animation_editor",
         "definitions": {
-          "control_animation_editor": {
+          "edit_animation_editor": {
             "type": "object",
             "properties": {
               "command": {
@@ -3196,8 +3196,8 @@
       }
     },
     {
-      "name": "list_export_formats",
-      "title": "List Export Formats",
+      "name": "inspect_export_formats",
+      "title": "Inspect Export Formats",
       "description": "Lists all registered export codecs with their id, display name, file extension, and whether they support compile/export. Use before `export_model` to pick a codec.",
       "status": "stable",
       "category": "Export",
@@ -3205,9 +3205,9 @@
         "readOnlyHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/list_export_formats",
+        "$ref": "#/definitions/inspect_export_formats",
         "definitions": {
-          "list_export_formats": {
+          "inspect_export_formats": {
             "type": "object",
             "properties": {
               "only_current_format": {
@@ -3226,7 +3226,7 @@
     {
       "name": "export_model",
       "title": "Export Model",
-      "description": "Compiles the current project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `list_export_formats` first to discover codec IDs.",
+      "description": "Compiles the current project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.",
       "status": "experimental",
       "category": "Export",
       "annotations": {
@@ -3241,8 +3241,8 @@
             "properties": {
               "codec_id": {
                 "type": "string",
-                "description": "Codec ID to use for export (e.g., 'obj', 'gltf', 'project', 'bedrock'). If omitted, uses the current project format's codec. Use `list_export_formats` to see available IDs.",
-                "markdownDescription": "Codec ID to use for export (e.g., 'obj', 'gltf', 'project', 'bedrock'). If omitted, uses the current project format's codec. Use `list_export_formats` to see available IDs."
+                "description": "Codec ID to use for export (e.g., 'obj', 'gltf', 'project', 'bedrock'). If omitted, uses the current project format's codec. Use `inspect_export_formats` to see available IDs.",
+                "markdownDescription": "Codec ID to use for export (e.g., 'obj', 'gltf', 'project', 'bedrock'). If omitted, uses the current project format's codec. Use `inspect_export_formats` to see available IDs."
               },
               "options": {
                 "type": "object",
@@ -3451,18 +3451,18 @@
       }
     },
     {
-      "name": "from_geo_json",
-      "title": "Import GeoJSON",
-      "description": "Imports existing Bedrock geometry from serialized JSON (the tool name is retained for compatibility; this is not geographic GeoJSON). Accepts inline JSON, JSON data URLs, and local files only. Remote HTTP(S) fetching is disabled. For new models, use edit_elements actions add_group/modify_group and the place_cube tool instead of this import shortcut.",
+      "name": "import_bedrock_geometry",
+      "title": "Import Bedrock Geometry",
+      "description": "Imports existing Bedrock geometry from serialized JSON. Accepts inline JSON, JSON data URLs, and local files only; this is not geographic GeoJSON and remote HTTP(S) fetching is disabled. For new models, use edit_elements actions add_group/modify_group and create_cube instead of this import shortcut.",
       "status": "stable",
       "category": "Import/Export",
       "annotations": {
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/from_geo_json",
+        "$ref": "#/definitions/import_bedrock_geometry",
         "definitions": {
-          "from_geo_json": {
+          "import_bedrock_geometry": {
             "type": "object",
             "properties": {
               "geojson": {
@@ -3724,8 +3724,8 @@
       }
     },
     {
-      "name": "create_mesh_geometry",
-      "title": "Create Mesh Geometry",
+      "name": "create_mesh",
+      "title": "Create Mesh",
       "description": "Creates custom meshes, spheres, cylinders, or individual mesh faces through one command.action.",
       "status": "stable",
       "category": "Mesh Editing",
@@ -3733,9 +3733,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/create_mesh_geometry",
+        "$ref": "#/definitions/create_mesh",
         "definitions": {
-          "create_mesh_geometry": {
+          "create_mesh": {
             "type": "object",
             "properties": {
               "command": {
@@ -4122,8 +4122,8 @@
       }
     },
     {
-      "name": "edit_mesh_geometry",
-      "title": "Edit Mesh Geometry",
+      "name": "edit_mesh",
+      "title": "Edit Mesh",
       "description": "Extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.",
       "status": "stable",
       "category": "Mesh Editing",
@@ -4131,9 +4131,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/edit_mesh_geometry",
+        "$ref": "#/definitions/edit_mesh",
         "definitions": {
-          "edit_mesh_geometry": {
+          "edit_mesh": {
             "type": "object",
             "properties": {
               "command": {
@@ -4429,8 +4429,8 @@
       }
     },
     {
-      "name": "select_mesh_geometry",
-      "title": "Select Mesh Geometry",
+      "name": "edit_mesh_selection",
+      "title": "Edit Mesh Selection",
       "description": "Selects mesh vertices, edges, or faces. Use command.action=select_mesh_elements.",
       "status": "stable",
       "category": "Mesh Editing",
@@ -4438,9 +4438,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/select_mesh_geometry",
+        "$ref": "#/definitions/edit_mesh_selection",
         "definitions": {
-          "select_mesh_geometry": {
+          "edit_mesh_selection": {
             "type": "object",
             "properties": {
               "command": {
@@ -4520,8 +4520,8 @@
       }
     },
     {
-      "name": "paint_texture",
-      "title": "Paint Texture",
+      "name": "edit_texture_paint",
+      "title": "Edit Texture Paint",
       "description": "Paints, fills, draws, gradients, clones, erases, or samples a texture through one command.action.",
       "status": "experimental",
       "category": "Paint Tools",
@@ -4529,9 +4529,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/paint_texture",
+        "$ref": "#/definitions/edit_texture_paint",
         "definitions": {
-          "paint_texture": {
+          "edit_texture_paint": {
             "type": "object",
             "properties": {
               "command": {
@@ -5225,8 +5225,8 @@
       }
     },
     {
-      "name": "configure_paint",
-      "title": "Configure Paint",
+      "name": "edit_paint_settings",
+      "title": "Edit Paint Settings",
       "description": "Changes paint preferences or creates and loads brush presets through one command.action.",
       "status": "experimental",
       "category": "Paint Tools",
@@ -5234,9 +5234,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/configure_paint",
+        "$ref": "#/definitions/edit_paint_settings",
         "definitions": {
-          "configure_paint": {
+          "edit_paint_settings": {
             "type": "object",
             "properties": {
               "command": {
@@ -5714,8 +5714,8 @@
       }
     },
     {
-      "name": "apply_texture_pixels_exact",
-      "title": "Apply Exact Texture Pixels",
+      "name": "edit_texture_pixels",
+      "title": "Edit Exact Texture Pixels",
       "description": "Applies exact RGBA values to texture pixels inside Blockbench so the user can see the change immediately and undo it normally.",
       "status": "stable",
       "category": "Exact Texture Editing",
@@ -5723,9 +5723,9 @@
         "destructiveHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/apply_texture_pixels_exact",
+        "$ref": "#/definitions/edit_texture_pixels",
         "definitions": {
-          "apply_texture_pixels_exact": {
+          "edit_texture_pixels": {
             "type": "object",
             "properties": {
               "texture_id": {
@@ -5853,8 +5853,8 @@
       }
     },
     {
-      "name": "manage_projects",
-      "title": "Manage Projects",
+      "name": "edit_projects",
+      "title": "Edit Projects",
       "description": "Creates, selects, configures, closes, opens, or duplicates Blockbench projects through one explicit command.action.",
       "status": "stable",
       "category": "Project",
@@ -5863,9 +5863,9 @@
         "openWorldHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/manage_projects",
+        "$ref": "#/definitions/edit_projects",
         "definitions": {
-          "manage_projects": {
+          "edit_projects": {
             "type": "object",
             "properties": {
               "command": {
@@ -7579,8 +7579,8 @@
       }
     },
     {
-      "name": "manage_ysm_workspace",
-      "title": "Manage YSM Workspace",
+      "name": "edit_ysm_workspace",
+      "title": "Edit YSM Workspace",
       "description": "Configures the YSM workspace and binds, saves, or unbinds projects through one command.action.",
       "status": "stable",
       "category": "YSM Workspace",
@@ -7589,9 +7589,9 @@
         "openWorldHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/manage_ysm_workspace",
+        "$ref": "#/definitions/edit_ysm_workspace",
         "definitions": {
-          "manage_ysm_workspace": {
+          "edit_ysm_workspace": {
             "type": "object",
             "properties": {
               "command": {
@@ -7832,8 +7832,8 @@
       }
     },
     {
-      "name": "manage_ysm_workflow",
-      "title": "Manage YSM Workflow",
+      "name": "edit_ysm_workflow",
+      "title": "Edit YSM Workflow",
       "description": "Opens the protected YSM three-tab workflow or performs an explicitly confirmed baseline merge.",
       "status": "stable",
       "category": "YSM Workflow",
@@ -7842,9 +7842,9 @@
         "openWorldHint": true
       },
       "parameters": {
-        "$ref": "#/definitions/manage_ysm_workflow",
+        "$ref": "#/definitions/edit_ysm_workflow",
         "definitions": {
-          "manage_ysm_workflow": {
+          "edit_ysm_workflow": {
             "type": "object",
             "properties": {
               "command": {

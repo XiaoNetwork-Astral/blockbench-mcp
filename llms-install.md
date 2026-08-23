@@ -24,6 +24,8 @@ http_headers = { Authorization = "Bearer <BLOCKBENCH_MCP_TOKEN>" }
 
 Codex 默认会对较大的 MCP 工具目录使用渐进式披露：未在初始上下文中显示的工具仍可通过工具搜索找到。插件当前提供 41 个核心公开工具，日常使用仍应保留默认行为；只有在调试完整目录时，才在同一配置块中临时加入 `omit_tools_from = ["deferred"]`。
 
+公开工具统一采用“意图 + 领域”名称：只读检查使用 `inspect_*`，模型或编辑器状态修改使用 `edit_*`，直接创建几何使用 `create_*`，文件或序列化边界使用 `import_*`／`export_*`。相关的旧操作名位于所选工具的精确 `command.action` 分支中，不需要靠猜测公开工具名调用。
+
 ## VS Code
 
 仓库已经提供 `.vscode/mcp.json`。它会用密码输入框询问令牌，配置等价于：
