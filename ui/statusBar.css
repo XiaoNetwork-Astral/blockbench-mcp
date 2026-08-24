@@ -1,21 +1,42 @@
 #mcp-status-bar {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     padding: 4px 12px;
     background-color: var(--color-dark);
     border-block-start: 1px solid var(--color-border);
     font-size: 0.85em;
-    cursor: default !important;
-    pointer-events: none !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-#mcp-status-bar * {
-    pointer-events: none !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
+#mcp-status-bar .mcp-project-protection {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-block-size: 24px;
+    padding: 2px 7px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--color-subtle_text);
+    font: inherit;
+    cursor: pointer;
+    pointer-events: auto !important;
+}
+
+#mcp-status-bar .mcp-project-protection:hover {
+    background-color: var(--color-accent);
+    color: var(--color-light);
+}
+
+#mcp-status-bar .mcp-project-protection.read-only {
+    color: var(--color-warning);
+}
+
+#mcp-status-bar .mcp-project-protection .material-icons {
+    font-size: 16px;
 }
 
 #mcp-status-bar .mcp-status-indicator {
@@ -24,6 +45,7 @@
     gap: 6px;
     padding: 2px 8px;
     border-radius: 4px;
+    pointer-events: none;
 }
 
 #mcp-status-bar .mcp-status-dot {
@@ -34,13 +56,18 @@
     transition: background-color 0.3s;
 }
 
-#mcp-status-bar .mcp-status-dot.connected {
+#mcp-status-bar .mcp-status-dot.running {
     background-color: #4caf50;
     box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
     animation: pulse 2s ease-in-out infinite;
 }
 
-#mcp-status-bar .mcp-status-dot.disconnected {
+#mcp-status-bar .mcp-status-dot.starting,
+#mcp-status-bar .mcp-status-dot.stopping {
+    background-color: var(--color-warning, #f0a020);
+}
+
+#mcp-status-bar .mcp-status-dot.stopped {
     background-color: #f44336;
 }
 

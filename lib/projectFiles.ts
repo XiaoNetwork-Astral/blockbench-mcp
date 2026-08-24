@@ -51,7 +51,11 @@ export function parseBbmodelText(text: string, source: string): Record<string, u
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error(`A .bbmodel document must contain a JSON object: ${source}`);
   }
-  return parsed as Record<string, unknown>;
+  const document = parsed as Record<string, unknown>;
+  if (!document.meta || typeof document.meta !== "object") {
+    throw new Error(`A .bbmodel document must contain project metadata: ${source}`);
+  }
+  return document;
 }
 
 export function portableBbmodelText(compiled: unknown): string {

@@ -394,7 +394,7 @@ describe("Blockbench settings integration", () => {
     const auth = createSettingRow({ toggle: true });
     const token = createSettingRow({ password: true });
     const labels = new Map([
-      ["codex_mcp_temporary_directory", directory.label],
+      ["codex_mcp_plugin_workspace", directory.label],
       ["codex_mcp_auth_enabled", auth.label],
       ["codex_mcp_auth_token", token.label],
     ]);
@@ -421,8 +421,8 @@ describe("Blockbench settings integration", () => {
 
     settingsSetup();
 
-    expect(directory.input.id).toBe("setting_codex_mcp_temporary_directory");
-    expect(directory.row.querySelector(".codex-mcp-directory-browse")).not.toBeNull();
+    expect(directory.input.id).toBe("setting_codex_mcp_plugin_workspace");
+    expect(directory.row.querySelector(".codex-mcp-workspace-browse")).not.toBeNull();
     expect(token.input.id).toBe("setting_codex_mcp_auth_token");
     const regenerate = token.row.querySelector(".codex-mcp-token-regenerate");
     expect(regenerate).not.toBeNull();
@@ -471,7 +471,7 @@ describe("Blockbench settings integration", () => {
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
     expect(Object.keys(category.items)).toHaveLength(11);
-    expect(category.items.codex_mcp_temporary_directory).toBeDefined();
+    expect(category.items.codex_mcp_plugin_workspace).toBeDefined();
     expect(category.items.codex_mcp_bind_host).toBeDefined();
     expect(category.items.codex_mcp_port).toBeDefined();
     expect(category.items.codex_mcp_auth_enabled).toBeDefined();
@@ -535,7 +535,7 @@ describe("Blockbench settings integration", () => {
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
     expect(Object.keys(category.items)).toHaveLength(11);
-    expect(category.items.codex_mcp_temporary_directory).toBeDefined();
+    expect(category.items.codex_mcp_plugin_workspace).toBeDefined();
     expect(category.items.codex_mcp_bind_host).toBeDefined();
     expect(category.items.codex_mcp_port).toBeDefined();
     expect(category.items.codex_mcp_auth_enabled).toBeDefined();
@@ -559,11 +559,11 @@ describe("Blockbench settings integration", () => {
     const mock = installBlockbenchSettingsMock({
       storedSettings: {
         codex_mcp_port: { value: 3000 },
-        codex_mcp_temporary_directory: { value: "D:\\old-temp" },
+        codex_mcp_plugin_workspace: { value: "D:\\old-temp" },
       },
       persistedSettings: {
         codex_mcp_port: { value: 4312 },
-        codex_mcp_temporary_directory: { value: "D:\\current-temp" },
+        codex_mcp_plugin_workspace: { value: "D:\\current-temp" },
         codex_mcp_auth_enabled: { value: false },
         codex_mcp_auth_token: { value: token },
       },
@@ -573,7 +573,7 @@ describe("Blockbench settings integration", () => {
 
     let category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category.items.codex_mcp_port.value).toBe(4312);
-    expect(category.items.codex_mcp_temporary_directory.value).toBe("D:\\current-temp");
+    expect(category.items.codex_mcp_plugin_workspace.value).toBe("D:\\current-temp");
     expect(category.items.codex_mcp_auth_enabled.value).toBe(false);
     expect(category.items.codex_mcp_auth_token.value).toBe(token);
 
@@ -587,6 +587,6 @@ describe("Blockbench settings integration", () => {
     settingsSetup();
     category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category.items.codex_mcp_port.value).toBe(4789);
-    expect(category.items.codex_mcp_temporary_directory.value).toBe("D:\\current-temp");
+    expect(category.items.codex_mcp_plugin_workspace.value).toBe("D:\\current-temp");
   });
 });

@@ -1,5 +1,6 @@
-import { YSM_WORKSPACE_SETTING, getStoredSettingValue } from "@/lib/pluginSettings";
+import { PLUGIN_WORKSPACE_SETTING, getStoredSettingValue } from "@/lib/pluginSettings";
 
+const LEGACY_SETTING_KEY = "codex_mcp_temporary_directory";
 const LEGACY_STORAGE_KEY = "codex_blockbench_mcp.ysm_workspace";
 
 type ScopedFs = typeof import("node:fs");
@@ -14,8 +15,12 @@ function normalizedRoot(value: unknown): string {
   return candidate ? PathModule.resolve(candidate) : "";
 }
 
-export function getInitialYsmWorkspaceRoot(): string {
-  const stored = String(getStoredSettingValue(YSM_WORKSPACE_SETTING) ?? "").trim();
+export function getInitialPluginWorkspaceRoot(): string {
+  const stored = String(
+    getStoredSettingValue(PLUGIN_WORKSPACE_SETTING)
+      ?? getStoredSettingValue(LEGACY_SETTING_KEY)
+      ?? ""
+  ).trim();
   if (stored) {
     workspaceRoot = normalizedRoot(stored);
     return workspaceRoot;
@@ -33,68 +38,67 @@ export function getInitialYsmWorkspaceRoot(): string {
   return workspaceRoot;
 }
 
-export function getYsmWorkspaceRoot(): string {
+export function getPluginWorkspaceRoot(): string {
   if (typeof Settings !== "undefined") {
-    const configured = Settings.get(YSM_WORKSPACE_SETTING);
+    const configured = Settings.get(PLUGIN_WORKSPACE_SETTING);
     if (configured !== undefined) workspaceRoot = normalizedRoot(configured);
   }
   return workspaceRoot;
 }
 
-export function syncYsmWorkspaceRootFromSetting(value: unknown): void {
+export function syncPluginWorkspaceRootFromSetting(value: unknown): void {
   workspaceRoot = normalizedRoot(value);
   scopedFs = null;
 }
 
-export function setYsmWorkspaceRoot(value: string, requestPermission = true): boolean {
+export function setPluginWorkspaceRoot(value: string, requestPermission = true): boolean {
   const normalized = normalizedRoot(value);
   if (typeof settings !== "undefined") {
-    settings[YSM_WORKSPACE_SETTING]?.set(normalized);
+    settings[PLUGIN_WORKSPACE_SETTING]?.set(normalized);
   }
   // Keep the runtime scope synchronized even if Setting.set() does not invoke
   // onChange in the current Blockbench version.
-  syncYsmWorkspaceRootFromSetting(normalized);
+  syncPluginWorkspaceRootFromSetting(normalized);
   if (!workspaceRoot) return !requestPermission;
-  return requestPermission ? ensureYsmWorkspaceAccess(true) : true;
+  return requestPermission ? ensurePluginWorkspaceAccess(true) : true;
 }
 
-export function chooseYsmWorkspace(): boolean {
+export function choosePluginWorkspace(): boolean {
   const selected = Blockbench.pickDirectory({
-    title: tl("mcp.settings.temporary_directory_picker_title"),
-    startpath: getYsmWorkspaceRoot() || undefined,
+    title: tl("mcp.settings.plugin_workspace_picker_title"),
+    startpath: getPluginWorkspaceRoot() || undefined,
     resource_id: "codex_blockbench_mcp_ysm_workspace",
   });
   if (!selected) return false;
-  return setYsmWorkspaceRoot(selected, true);
+  return setPluginWorkspaceRoot(selected, true);
 }
 
-export function ensureYsmWorkspaceAccess(showPermissionDialog: boolean): boolean {
-  if (!getYsmWorkspaceRoot()) return false;
+export function ensurePluginWorkspaceAccess(showPermissionDialog: boolean): boolean {
+  if (!getPluginWorkspaceRoot()) return false;
   if (scopedFs) return true;
   // @ts-ignore - Blockbench's generated overload omits scoped fs although it is supported at runtime.
   scopedFs = requireNativeModule("fs", {
     scope: workspaceRoot,
     optional: true,
     show_permission_dialog: showPermissionDialog,
-    message:
-      "The Blockbench MCP plugin only needs read/write access inside the selected .codex temporary model workspace.",
+    message: "The Blockbench MCP plugin only needs access inside the selected plugin workspace.",
   }) as ScopedFs | undefined ?? null;
   return Boolean(scopedFs);
 }
 
 function requireWorkspace(): ScopedFs {
-  if (!ensureYsmWorkspaceAccess(true) || !scopedFs) {
+  if (!ensurePluginWorkspaceAccess(true) || !scopedFs) {
     throw new Error(
-      getYsmWorkspaceRoot()
-        ? "Folder-scoped access to the configured YSM workspace was denied."
-        : "No temporary model directory is configured. Set it in Blockbench MCP settings or use edit_ysm_workspace with command.action \"ysm_set_workspace\"."
+      getPluginWorkspaceRoot()
+        ? "Folder-scoped access to the configured plugin workspace was denied."
+        : "No plugin workspace is configured. Set it in Blockbench MCP settings."
     );
   }
   return scopedFs;
 }
 
 function isInsideWorkspace(absolutePath: string): boolean {
-  const relative = PathModule.relative(getYsmWorkspaceRoot(), absolutePath);
+  const relative = PathModule.relative(getPluginWorkspaceRoot(), absolutePath);
   return (
     relative === "" ||
     (!relative.startsWith(`..${PathModule.sep}`) &&
@@ -103,26 +107,26 @@ function isInsideWorkspace(absolutePath: string): boolean {
   );
 }
 
-export function resolveYsmWorkspacePath(relativePath: string): string {
+export function resolvePluginWorkspacePath(relativePath: string): string {
   if (!relativePath || PathModule.isAbsolute(relativePath)) {
-    throw new Error(`YSM paths must be non-empty workspace-relative paths: ${relativePath}`);
+    throw new Error(`Paths must be relative to the plugin workspace: ${relativePath}`);
   }
-  const absolutePath = PathModule.resolve(getYsmWorkspaceRoot(), relativePath);
+  const absolutePath = PathModule.resolve(getPluginWorkspaceRoot(), relativePath);
   if (!isInsideWorkspace(absolutePath)) {
-    throw new Error(`YSM path escapes the selected workspace: ${relativePath}`);
+    throw new Error(`Path escapes the plugin workspace: ${relativePath}`);
   }
   return absolutePath;
 }
 
-export function relativeYsmWorkspacePath(absolutePath: string): string | null {
+export function relativePluginWorkspacePath(absolutePath: string): string | null {
   const resolved = PathModule.resolve(absolutePath);
   if (!isInsideWorkspace(resolved)) return null;
-  return PathModule.relative(getYsmWorkspaceRoot(), resolved).split(PathModule.sep).join("/");
+  return PathModule.relative(getPluginWorkspaceRoot(), resolved).split(PathModule.sep).join("/");
 }
 
 export function readWorkspaceJson(relativePath: string): Record<string, unknown> {
   const fs = requireWorkspace();
-  const absolutePath = resolveYsmWorkspacePath(relativePath);
+  const absolutePath = resolvePluginWorkspacePath(relativePath);
   const text = fs.readFileSync(absolutePath, "utf8");
   try {
     return JSON.parse(text) as Record<string, unknown>;
@@ -135,12 +139,12 @@ export function readWorkspaceJson(relativePath: string): Record<string, unknown>
 
 export function readWorkspaceText(relativePath: string): string {
   const fs = requireWorkspace();
-  return fs.readFileSync(resolveYsmWorkspacePath(relativePath), "utf8");
+  return fs.readFileSync(resolvePluginWorkspacePath(relativePath), "utf8");
 }
 
 export function workspaceFileExists(relativePath: string): boolean {
   const fs = requireWorkspace();
-  const absolutePath = resolveYsmWorkspacePath(relativePath);
+  const absolutePath = resolvePluginWorkspacePath(relativePath);
   return fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile();
 }
 
@@ -156,13 +160,13 @@ export function sha256WorkspaceFile(relativePath: string): string {
   const fs = requireWorkspace();
   return crypto()
     .createHash("sha256")
-    .update(fs.readFileSync(resolveYsmWorkspacePath(relativePath)))
+    .update(fs.readFileSync(resolvePluginWorkspacePath(relativePath)))
     .digest("hex");
 }
 
 function atomicWrite(relativePath: string, value: string | Uint8Array): void {
   const fs = requireWorkspace();
-  const absolutePath = resolveYsmWorkspacePath(relativePath);
+  const absolutePath = resolvePluginWorkspacePath(relativePath);
   fs.mkdirSync(PathModule.dirname(absolutePath), { recursive: true });
   const temporary = `${absolutePath}.tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   fs.writeFileSync(temporary, value);
@@ -184,7 +188,7 @@ export function atomicWriteWorkspaceBytes(relativePath: string, value: Uint8Arra
   atomicWrite(relativePath, value);
 }
 
-export function teardownYsmWorkspace(): void {
+export function teardownPluginWorkspace(): void {
   scopedFs = null;
   cryptoModule = null;
 }

@@ -23,6 +23,7 @@ import { registerCodexTextureTools } from "./tools/codex-texture";
 import { registerYsmTools } from "./tools/ysm";
 import { registerWorkflowTools } from "./tools/workflow";
 import { registerSpatialTools } from "./tools/spatial";
+import { getInitialPluginWorkspaceRoot } from "@/lib/pluginWorkspace";
 
 // Optional plugin integrations. Each function performs its own runtime check.
 import { registerHytaleTools } from "./tools/hytale";
@@ -51,14 +52,18 @@ const registrationFunctions = [
   registerSpatialTools,
   registerTextureTools,
   registerUVTools,
-  registerYsmTools,
-  registerWorkflowTools,
   registerValidatorResources,
 ];
 
 // Register all core tools immediately when this module loads
 for (const register of registrationFunctions) {
   register();
+}
+
+// YSM tools are optional and appear when the plugin workspace is configured.
+if (getInitialPluginWorkspaceRoot()) {
+  registerYsmTools();
+  registerWorkflowTools();
 }
 
 for (const register of [

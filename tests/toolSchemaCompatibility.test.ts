@@ -70,6 +70,9 @@ const corePublicToolDocs = [
   ...spatialPublicToolDocs,
   ...texturePublicToolDocs,
   ...uvPublicToolDocs,
+];
+
+const optionalYsmPublicToolDocs = [
   ...workflowPublicToolDocs,
   ...ysmPublicToolDocs,
 ];
@@ -145,8 +148,6 @@ const expectedCorePublicToolNames = [
   "edit_texture_regions",
   "edit_textures",
   "edit_vertex_weights",
-  "edit_ysm_workflow",
-  "edit_ysm_workspace",
   "export_model",
   "import_bedrock_geometry",
   "inspect_armature",
@@ -160,7 +161,6 @@ const expectedCorePublicToolNames = [
   "inspect_materials",
   "inspect_projects",
   "inspect_textures",
-  "inspect_ysm",
 ].sort();
 
 function findTupleItems(value: unknown, path = "schema"): string[] {
@@ -190,13 +190,13 @@ function findActionLiterals(value: unknown): string[] {
 }
 
 describe("Codex MCP schema compatibility", () => {
-  test("all 39 core public tools avoid unsupported draft-07 tuple items", () => {
+  test("all 36 core public tools avoid unsupported draft-07 tuple items", () => {
     const failures = corePublicToolDocs.flatMap((tool) => {
       const schema = zodToJsonSchema(tool.parameters, { $refStrategy: "root" });
       return findTupleItems(schema).map((path) => `${tool.name}: ${path}`);
     });
 
-    expect(corePublicToolDocs).toHaveLength(39);
+    expect(corePublicToolDocs).toHaveLength(36);
     expect(failures).toEqual([]);
   });
 
@@ -213,7 +213,11 @@ describe("Codex MCP schema compatibility", () => {
 
   test("public tool names follow the predictable intent_domain convention", () => {
     const coreNames = corePublicToolDocs.map(({ name }) => name).sort();
-    const invalidNames = [...corePublicToolDocs, ...hytalePublicToolDocs]
+    const invalidNames = [
+      ...corePublicToolDocs,
+      ...optionalYsmPublicToolDocs,
+      ...hytalePublicToolDocs,
+    ]
       .map(({ name }) => name)
       .filter(
         (name) => !/^(inspect|edit|create|import|export)_[a-z0-9_]+$/.test(name)
@@ -230,6 +234,16 @@ describe("Codex MCP schema compatibility", () => {
     });
 
     expect(hytalePublicToolDocs).toHaveLength(2);
+    expect(failures).toEqual([]);
+  });
+
+  test("all three optional YSM public tools use compatible schemas", () => {
+    const failures = optionalYsmPublicToolDocs.flatMap((tool) => {
+      const schema = zodToJsonSchema(tool.parameters, { $refStrategy: "root" });
+      return findTupleItems(schema).map((path) => `${tool.name}: ${path}`);
+    });
+
+    expect(optionalYsmPublicToolDocs).toHaveLength(3);
     expect(failures).toEqual([]);
   });
 
@@ -271,6 +285,18 @@ describe("Codex MCP schema compatibility", () => {
         command: { action: "add_group", input: { name: "body" } },
       }).success
     ).toBe(false);
+    expect(
+      editElements?.parameters.safeParse({
+        command: {
+          action: "edit_collection",
+          input: {
+            operation: "update",
+            collection: "head_details",
+            members: ["left_eye_pupil", "right_eye_pupil"],
+          },
+        },
+      }).success
+    ).toBe(true);
   });
 
   test("read and write actions never share an audit or mutation boundary", () => {
@@ -314,12 +340,13 @@ describe("Codex MCP schema compatibility", () => {
       !category.endsWith("(optional)")
     );
 
-    expect(core).toHaveLength(39);
-    expect(optional).toHaveLength(2);
+    expect(core).toHaveLength(36);
+    expect(optional).toHaveLength(5);
     expect(documented).toHaveLength(41);
     expect(new Set(documented.map(({ name }) => name)).size).toBe(41);
-    expect(optional.map(({ name }) => name).sort()).toEqual(
-      hytalePublicToolDocs.map(({ name }) => name).sort()
-    );
+    expect(optional.map(({ name }) => name).sort()).toEqual([
+      ...optionalYsmPublicToolDocs,
+      ...hytalePublicToolDocs,
+    ].map(({ name }) => name).sort());
   });
 });

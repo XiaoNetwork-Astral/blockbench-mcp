@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import path from "node:path";
-import { YSM_WORKSPACE_SETTING } from "@/lib/pluginSettings";
+import { PLUGIN_WORKSPACE_SETTING } from "@/lib/pluginSettings";
 import {
-  chooseYsmWorkspace,
-  getInitialYsmWorkspaceRoot,
-  getYsmWorkspaceRoot,
-  setYsmWorkspaceRoot,
-  syncYsmWorkspaceRootFromSetting,
-  teardownYsmWorkspace,
-} from "@/lib/ysmWorkspace";
+  choosePluginWorkspace,
+  getInitialPluginWorkspaceRoot,
+  getPluginWorkspaceRoot,
+  setPluginWorkspaceRoot,
+  syncPluginWorkspaceRootFromSetting,
+  teardownPluginWorkspace,
+} from "@/lib/pluginWorkspace";
 
 const originalGlobals = new Map<string, unknown>();
 
@@ -18,8 +18,8 @@ function replaceGlobal(name: string, value: unknown): void {
 }
 
 afterEach(() => {
-  syncYsmWorkspaceRootFromSetting("");
-  teardownYsmWorkspace();
+  syncPluginWorkspaceRootFromSetting("");
+  teardownPluginWorkspace();
   for (const [name, value] of originalGlobals) {
     if (value === undefined) delete (globalThis as any)[name];
     else (globalThis as any)[name] = value;
@@ -27,11 +27,11 @@ afterEach(() => {
   originalGlobals.clear();
 });
 
-describe("YSM temporary directory setting", () => {
+describe("plugin workspace setting", () => {
   test("reads Blockbench's persisted object shape when restoring the directory", () => {
     replaceGlobal("PathModule", path.win32);
     replaceGlobal("Settings", {
-      stored: { [YSM_WORKSPACE_SETTING]: { value: "D:\\persisted-temp" } },
+      stored: { [PLUGIN_WORKSPACE_SETTING]: { value: "D:\\persisted-temp" } },
       get() {
         return undefined;
       },
@@ -43,7 +43,25 @@ describe("YSM temporary directory setting", () => {
       removeItem() {},
     });
 
-    expect(getInitialYsmWorkspaceRoot()).toBe("D:\\persisted-temp");
+    expect(getInitialPluginWorkspaceRoot()).toBe("D:\\persisted-temp");
+  });
+
+  test("migrates the former YSM directory setting", () => {
+    replaceGlobal("PathModule", path.win32);
+    replaceGlobal("Settings", {
+      stored: { codex_mcp_temporary_directory: { value: "D:\\legacy-setting" } },
+      get() {
+        return undefined;
+      },
+    });
+    replaceGlobal("localStorage", {
+      getItem() {
+        return null;
+      },
+      removeItem() {},
+    });
+
+    expect(getInitialPluginWorkspaceRoot()).toBe("D:\\legacy-setting");
   });
 
   test("migrates the old localStorage path and keeps MCP changes in the native setting", () => {
@@ -53,7 +71,7 @@ describe("YSM temporary directory setting", () => {
     replaceGlobal("Settings", {
       stored: {},
       get(id: string) {
-        return id === YSM_WORKSPACE_SETTING ? configured : undefined;
+        return id === PLUGIN_WORKSPACE_SETTING ? configured : undefined;
       },
     });
     replaceGlobal("localStorage", {
@@ -65,19 +83,19 @@ describe("YSM temporary directory setting", () => {
       },
     });
     replaceGlobal("settings", {
-      [YSM_WORKSPACE_SETTING]: {
+      [PLUGIN_WORKSPACE_SETTING]: {
         set(value: unknown) {
           configured = value;
         },
       },
     });
 
-    expect(getInitialYsmWorkspaceRoot()).toBe("D:\\legacy-ysm");
+    expect(getInitialPluginWorkspaceRoot()).toBe("D:\\legacy-ysm");
     expect(legacy).toBe("");
 
-    expect(setYsmWorkspaceRoot("D:\\new-temp", false)).toBe(true);
+    expect(setPluginWorkspaceRoot("D:\\new-temp", false)).toBe(true);
     expect(configured).toBe("D:\\new-temp");
-    expect(getYsmWorkspaceRoot()).toBe("D:\\new-temp");
+    expect(getPluginWorkspaceRoot()).toBe("D:\\new-temp");
   });
 
   test("updates the visible setting without showing a redundant success message", () => {
@@ -87,11 +105,11 @@ describe("YSM temporary directory setting", () => {
     replaceGlobal("Settings", {
       stored: {},
       get(id: string) {
-        return id === YSM_WORKSPACE_SETTING ? configured : undefined;
+        return id === PLUGIN_WORKSPACE_SETTING ? configured : undefined;
       },
     });
     replaceGlobal("settings", {
-      [YSM_WORKSPACE_SETTING]: {
+      [PLUGIN_WORKSPACE_SETTING]: {
         set(value: unknown) {
           configured = value;
         },
@@ -108,9 +126,9 @@ describe("YSM temporary directory setting", () => {
     replaceGlobal("requireNativeModule", () => ({}));
     replaceGlobal("tl", (key: string) => key);
 
-    expect(chooseYsmWorkspace()).toBe(true);
+    expect(choosePluginWorkspace()).toBe(true);
     expect(configured).toBe("D:\\selected-temp");
-    expect(getYsmWorkspaceRoot()).toBe("D:\\selected-temp");
+    expect(getPluginWorkspaceRoot()).toBe("D:\\selected-temp");
     expect(quickMessages).toBe(0);
   });
 });

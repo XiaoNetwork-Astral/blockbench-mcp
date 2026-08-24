@@ -224,12 +224,11 @@ describe("geometry import source safety", () => {
 });
 
 describe("project mutation safety schemas", () => {
-  test("close requires an explicit discard decision", () => {
+  test("close-without-saving requires an explicit project scope", () => {
+    expect(() => closeProjectParameters.parse({})).toThrow();
+    expect(closeProjectParameters.parse({ targets: "working" }).targets)
+      .toBe("working");
     expect(() => closeProjectParameters.parse({ targets: "active" })).toThrow();
-    expect(closeProjectParameters.parse({
-      targets: "active",
-      discard_unsaved_changes: false,
-    }).discard_unsaved_changes).toBe(false);
   });
 
   test("texture resolution preserves UVs by default", () => {

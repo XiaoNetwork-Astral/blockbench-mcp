@@ -15,13 +15,16 @@ import { setupI18n } from "@/ui/i18n";
 import {
   serverControlsSetup,
   serverControlsTeardown,
-  type McpServerRuntimeState,
   type McpServerStatus,
 } from "@/ui/serverControls";
+import {
+  getMcpServerState,
+  setMcpServerState,
+} from "@/lib/serverRuntime";
 import { sessionManager } from "@/lib/sessions";
 import type { NetServer, SessionTransports } from "@/server/net";
 import createNetServer, { stopNetServer } from "@/server/net";
-import { teardownYsmWorkspace } from "@/lib/ysmWorkspace";
+import { teardownPluginWorkspace } from "@/lib/pluginWorkspace";
 import { auditManager } from "@/lib/audit";
 import { setupProjectProtection, teardownProjectProtection } from "@/lib/projectProtection";
 import {
@@ -40,7 +43,6 @@ import { getIcon } from "@/macros/getIcon" with { type: "macro" };
 let httpServer: NetServer | null = null;
 let sessionTransports: SessionTransports | null = null;
 let netModule: Parameters<typeof createNetServer>[0] | null = null;
-let serverState: McpServerRuntimeState = "stopped";
 let stoppingServer: Promise<void> | null = null;
 let pluginLoaded = false;
 let activeServerUrl: string | null = null;
@@ -52,7 +54,7 @@ function currentServerUrl(): string {
 
 function getServerStatus(): McpServerStatus {
   return {
-    state: serverState,
+    state: getMcpServerState(),
     url: activeServerUrl ?? currentServerUrl(),
     authenticationEnabled: activeAuthenticationEnabled ?? Boolean(getMcpAuthToken()),
     connectedClients: sessionManager.getClientCount(),
@@ -86,7 +88,7 @@ function warnAboutServerExposure(host: string, authToken: string): void {
 
 async function startMcpServer(showFeedback = true): Promise<void> {
   if (stoppingServer) await stoppingServer;
-  if (httpServer || serverState === "starting") {
+  if (httpServer || getMcpServerState() === "starting") {
     if (showFeedback) Blockbench.showQuickMessage(tl("mcp.server_controls.already_running"), 2500);
     return;
   }
@@ -95,7 +97,7 @@ async function startMcpServer(showFeedback = true): Promise<void> {
     return;
   }
 
-  serverState = "starting";
+  setMcpServerState("starting");
   const host = getMcpBindHost();
   const authToken = getMcpAuthToken();
   const sessionTimeoutMin = getSessionTimeoutMinutes();
@@ -122,7 +124,7 @@ async function startMcpServer(showFeedback = true): Promise<void> {
 
     server.once("listening", () => {
       if (httpServer === server) {
-        serverState = "running";
+        setMcpServerState("running");
         if (showFeedback && pluginLoaded) {
           Blockbench.showQuickMessage(
             tl("mcp.server_controls.started", [activeServerUrl ?? currentServerUrl()]),
@@ -135,7 +137,7 @@ async function startMcpServer(showFeedback = true): Promise<void> {
       if (httpServer === server) {
         httpServer = null;
         sessionTransports = null;
-        serverState = "stopped";
+        setMcpServerState("stopped");
         activeServerUrl = null;
         activeAuthenticationEnabled = null;
       }
@@ -144,7 +146,7 @@ async function startMcpServer(showFeedback = true): Promise<void> {
       if (httpServer === server && !server.listening) {
         httpServer = null;
         sessionTransports = null;
-        serverState = "stopped";
+        setMcpServerState("stopped");
         activeServerUrl = null;
         activeAuthenticationEnabled = null;
       }
@@ -154,7 +156,7 @@ async function startMcpServer(showFeedback = true): Promise<void> {
       Blockbench.showQuickMessage(tl("mcp.server_controls.starting"), 2200);
     }
   } catch (error) {
-    serverState = "stopped";
+    setMcpServerState("stopped");
     activeServerUrl = null;
     activeAuthenticationEnabled = null;
     throw error;
@@ -166,14 +168,14 @@ async function stopMcpServer(showFeedback = true): Promise<void> {
   const serverToStop = httpServer;
   const transportsToStop = sessionTransports;
   if (!serverToStop || !transportsToStop) {
-    serverState = "stopped";
+    setMcpServerState("stopped");
     if (showFeedback) Blockbench.showQuickMessage(tl("mcp.server_controls.already_stopped"), 2500);
     return;
   }
 
   httpServer = null;
   sessionTransports = null;
-  serverState = "stopping";
+  setMcpServerState("stopping");
   stoppingServer = stopNetServer(serverToStop, transportsToStop, 5000)
     .then(() => {
       if (showFeedback && pluginLoaded) {
@@ -181,7 +183,7 @@ async function stopMcpServer(showFeedback = true): Promise<void> {
       }
     })
     .finally(() => {
-      serverState = "stopped";
+      setMcpServerState("stopped");
       activeServerUrl = null;
       activeAuthenticationEnabled = null;
       stoppingServer = null;
@@ -230,7 +232,7 @@ BBPlugin.register(PLUGIN_ID, {
 
     if (!netModule) {
       console.error("[MCP] Failed to get net module - server will not start");
-      Blockbench.showQuickMessage("MCP Server requires network permission", 3000);
+      Blockbench.showQuickMessage(tl("mcp.server_controls.network_unavailable"), 3000);
       return;
     }
     await startMcpServer(false);
@@ -249,17 +251,15 @@ BBPlugin.register(PLUGIN_ID, {
 
     uiTeardown();
     settingsTeardown();
-    teardownYsmWorkspace();
+    teardownPluginWorkspace();
   },
 
   oninstall() {
-    Blockbench.showQuickMessage("Installed Blockbench MCP", 2000);
   },
 
   onuninstall() {
-    Blockbench.showQuickMessage("Uninstalled Blockbench MCP", 2000);
     settingsTeardown();
     serverControlsTeardown();
-    teardownYsmWorkspace();
+    teardownPluginWorkspace();
   },
 });

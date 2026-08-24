@@ -381,50 +381,19 @@ createTool(cubeToolDocs[2].name, {
       collections: [],
     } as UndoAspects;
     Undo.initEdit(undoAspects);
-    try {
-      for (const { update, cube } of resolved) {
-        if (update.uv_mode === "box") cube.setUVMode(true);
-        if (update.uv_mode === "per_face" || update.face_uv) {
-          cube.setUVMode(false);
-        }
-        if (update.uv_offset) {
-          cube.uv_offset[0] = update.uv_offset[0];
-          cube.uv_offset[1] = update.uv_offset[1];
-        }
-        for (const faceKey of CUBE_FACE_KEYS) {
-          const uv = update.face_uv?.[faceKey];
-          if (uv) cube.faces[faceKey].extend({ uv: [...uv] as CubeFaceUV });
-        }
+    for (const { update, cube } of resolved) {
+      if (update.uv_mode === "box") cube.setUVMode(true);
+      if (update.uv_mode === "per_face" || update.face_uv) {
+        cube.setUVMode(false);
       }
-
-      const failures: string[] = [];
-      for (const { update, cube } of resolved) {
-        if (update.uv_mode === "box" && !cube.box_uv) {
-          failures.push(`${cube.uuid}: expected Box UV mode`);
-        }
-        if ((update.uv_mode === "per_face" || update.face_uv) && cube.box_uv) {
-          failures.push(`${cube.uuid}: expected per-face UV mode`);
-        }
-        if (update.uv_offset && update.uv_offset.some(
-          (value, index) => cube.uv_offset[index] !== value
-        )) {
-          failures.push(`${cube.uuid}: uv_offset readback mismatch`);
-        }
-        for (const faceKey of CUBE_FACE_KEYS) {
-          const expected = update.face_uv?.[faceKey];
-          if (expected && expected.some(
-            (value, index) => cube.faces[faceKey].uv[index] !== value
-          )) {
-            failures.push(`${cube.uuid}: ${faceKey} face UV readback mismatch`);
-          }
-        }
+      if (update.uv_offset) {
+        cube.uv_offset[0] = update.uv_offset[0];
+        cube.uv_offset[1] = update.uv_offset[1];
       }
-      if (failures.length > 0) {
-        throw new Error(`Cube UV verification failed: ${failures.join("; ")}`);
+      for (const faceKey of CUBE_FACE_KEYS) {
+        const uv = update.face_uv?.[faceKey];
+        if (uv) cube.faces[faceKey].extend({ uv: [...uv] as CubeFaceUV });
       }
-    } catch (error) {
-      (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
-      throw error;
     }
 
     Undo.finishEdit("Agent batch updated cube UVs", undoAspects);
@@ -443,7 +412,6 @@ createTool(cubeToolDocs[2].name, {
         uv_offset: [...cube.uv_offset],
       })),
       count: cubes.length,
-      verified: true,
     }, null, 2);
   },
 }, cubeToolDocs[2].status);

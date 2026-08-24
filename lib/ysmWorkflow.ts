@@ -1,17 +1,17 @@
 import {
   atomicWriteWorkspaceText,
   readWorkspaceText,
-  resolveYsmWorkspacePath,
+  resolvePluginWorkspacePath,
   sha256WorkspaceFile,
   workspaceFileExists,
-} from "@/lib/ysmWorkspace";
+} from "@/lib/pluginWorkspace";
 import {
   describeProject,
   getProjectRole,
   setProjectRole,
   type ProjectRole,
 } from "@/lib/projectRoles";
-import { refreshProjectProtection } from "@/lib/projectProtection";
+import { getForegroundProject, runInProjectContext } from "@/lib/projectContext";
 
 const STORAGE_KEY = "codex_blockbench_mcp.ysm_workflow.v1";
 
@@ -55,7 +55,7 @@ function saveState(state: YsmWorkflowState): void {
 
 function validateBbmodel(relativePath: string): void {
   if (!/\.bbmodel$/i.test(relativePath) || !workspaceFileExists(relativePath)) {
-    throw new Error(`Workflow project must be an existing .bbmodel inside the YSM workspace: ${relativePath}`);
+    throw new Error(`Workflow project must be an existing .bbmodel inside the plugin workspace: ${relativePath}`);
   }
   try {
     const parsed = JSON.parse(readWorkspaceText(relativePath));
@@ -68,7 +68,7 @@ function validateBbmodel(relativePath: string): void {
 }
 
 function openBbmodel(relativePath: string): ModelProject {
-  const absolutePath = resolveYsmWorkspacePath(relativePath);
+  const absolutePath = resolvePluginWorkspacePath(relativePath);
   const before = new Set(ModelProject.all);
   loadModelFile({
     name: PathModule.basename(absolutePath),
@@ -86,7 +86,6 @@ function assignRole(project: ModelProject, role: Exclude<ProjectRole, "unassigne
   setProjectRole(project, role);
   project.name = `${roleTitles[role]}｜${skinName}`;
   project.saved = true;
-  refreshProjectProtection(project);
 }
 
 async function closeProjects(projects: ModelProject[], discardUnsaved: boolean): Promise<void> {
@@ -124,7 +123,7 @@ function exactRoleProject(
 }
 
 function assertProjectPath(project: ModelProject, relativePath: string, role: string): void {
-  const expected = resolveYsmWorkspacePath(relativePath);
+  const expected = resolvePluginWorkspacePath(relativePath);
   if (project.save_path !== expected) {
     throw new Error(
       `The open ${role} tab points to ${project.save_path || "an unsaved path"}, expected ${expected}.`
@@ -183,11 +182,14 @@ export function workflowStatus(): Record<string, unknown> {
   };
 }
 
-function compileActiveProject(): string {
+function compileProject(project: ModelProject): string {
   if (!Codecs.project || typeof Codecs.project.compile !== "function") {
     throw new Error("Blockbench's project codec is unavailable.");
   }
-  const compiled = Codecs.project.compile({ bitmaps: true, absolute_paths: false });
+  const compiled = runInProjectContext(
+    project,
+    () => Codecs.project.compile({ bitmaps: true, absolute_paths: false })
+  );
   if (typeof compiled === "string") return compiled;
   if (compiled && typeof compiled === "object") return JSON.stringify(compiled, null, 2);
   throw new Error("Blockbench returned no portable .bbmodel content.");
@@ -203,6 +205,7 @@ export async function mergeWorkingIntoBaseline(): Promise<Record<string, unknown
   const legacy = exactRoleProject(byRole, "legacy_reference");
   const baseline = exactRoleProject(byRole, "new_baseline");
   const working = exactRoleProject(byRole, "working_copy");
+  const foreground = getForegroundProject();
   assertProjectPath(legacy, state.legacyBbmodel, "legacy reference");
   assertProjectPath(baseline, state.baselineBbmodel, "new baseline");
   assertProjectPath(working, state.workingBbmodel, "working copy");
@@ -214,14 +217,13 @@ export async function mergeWorkingIntoBaseline(): Promise<Record<string, unknown
     );
   }
 
-  working.select();
-  const compiled = compileActiveProject();
+  const compiled = compileProject(working);
   const closed = await baseline.close(true);
   if (!closed) throw new Error("Blockbench refused to close the current baseline tab.");
 
   atomicWriteWorkspaceText(state.workingBbmodel, compiled);
   atomicWriteWorkspaceText(state.baselineBbmodel, compiled);
-  working.save_path = resolveYsmWorkspacePath(state.workingBbmodel);
+  working.save_path = resolvePluginWorkspacePath(state.workingBbmodel);
   working.saved = true;
 
   const reopenedBaseline = openBbmodel(state.baselineBbmodel);
@@ -233,7 +235,10 @@ export async function mergeWorkingIntoBaseline(): Promise<Record<string, unknown
   if (appendedIndex >= 0) ModelProject.all.splice(appendedIndex, 1);
   const workingIndex = ModelProject.all.indexOf(working);
   ModelProject.all.splice(Math.max(0, workingIndex), 0, reopenedBaseline);
-  working.select();
+  const restoredForeground = foreground === baseline ? reopenedBaseline : foreground;
+  if (restoredForeground && ModelProject.all.includes(restoredForeground)) {
+    restoredForeground.select();
+  }
 
   state.baselineSha256 = sha256WorkspaceFile(state.baselineBbmodel);
   state.workingSha256 = sha256WorkspaceFile(state.workingBbmodel);

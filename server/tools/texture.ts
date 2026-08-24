@@ -478,7 +478,7 @@ export const textureToolDocs: ToolSpec[] = [
   {
     name: "remove_texture",
     description:
-      "Removes an entire texture from the active project. If it is referenced, supply a replacement texture or explicitly clear references; otherwise the operation refuses before mutation. Reference rewrites and removal share one Undo transaction and are verified before success is returned.",
+      "Removes an entire texture from the MCP working project. If it is referenced, supply a replacement texture or explicitly clear references; otherwise the operation refuses before mutation. Reference rewrites and removal share one Undo transaction.",
     annotations: {
       title: "Remove Texture",
       destructiveHint: true,
@@ -746,29 +746,16 @@ export function registerTextureTools() {
           );
         }
         Undo.initEdit({ groups, collections: [] });
-        try {
-          for (const group of groups) group.texture = projectTexture.uuid;
-          const failed = groups.filter((group) => group.texture !== projectTexture.uuid);
-          if (failed.length > 0) {
-            throw new Error(
-              `Texture assignment verification failed for groups: ${failed.map((group) => group.uuid).join(", ")}`
-            );
-          }
-        } catch (error) {
-          (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
-          throw error;
-        }
+        for (const group of groups) group.texture = projectTexture.uuid;
         Undo.finishEdit("Agent applied group texture", { groups, collections: [] });
         Canvas.updateAll();
         return JSON.stringify({
           texture: { name: projectTexture.name, uuid: projectTexture.uuid },
           scope: { id, kind: "per_group_texture" },
           target_groups: groups.map((group) => ({ name: group.name, uuid: group.uuid })),
-          verified: true,
         }, null, 2);
       }
 
-      const allElements = [...Cube.all, ...Mesh.all] as FaceTextureElementTarget[];
       const faceTargets = targets as FaceTextureElementTarget[];
       const selectedFaces = new Map<FaceTextureElementTarget, ReadonlySet<string>>();
       if (applyTo === "none") {
@@ -791,21 +778,13 @@ export function registerTextureTools() {
         collections: [],
       };
       Undo.initEdit(undoAspects);
-
-      let result;
-      try {
-        result = applyTextureToResolvedFaces(
-          allElements,
-          faceTargets,
-          projectTexture.uuid,
-          applyTo,
-          selectedFaces,
-          validTextureUuids
-        );
-      } catch (error) {
-        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
-        throw error;
-      }
+      const result = applyTextureToResolvedFaces(
+        faceTargets,
+        projectTexture.uuid,
+        applyTo,
+        selectedFaces,
+        validTextureUuids
+      );
 
       Undo.finishEdit("Agent applied texture", undoAspects);
 
@@ -826,7 +805,6 @@ export function registerTextureTools() {
           face_mode: applyTo,
         },
         ...result,
-        verified: true,
       }, null, 2);
     },
   }, textureToolDocs[1].status);

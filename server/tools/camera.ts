@@ -10,7 +10,8 @@ import {
 } from "@/lib/factories";
 import { captureScreenshot, captureAppScreenshot } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
-import { vec3, projectionEnum } from "@/lib/zodObjects";
+import { vec3 } from "@/lib/zodObjects";
+import { setSessionCameraState } from "@/lib/projectContext";
 
 export const captureScreenshotParameters = z.object({
   project: z.string().optional().describe("Project name or UUID."),
@@ -22,6 +23,8 @@ export const captureScreenshotParameters = z.object({
     .optional()
     .default(2)
     .describe("Render frames to wait before capture. Use 0 only when the scene is already stable."),
+  width: z.number().int().min(64).max(1600).optional().default(800),
+  height: z.number().int().min(64).max(1200).optional().default(600),
 });
 
 export const captureAppScreenshotParameters = z.object({});
@@ -30,13 +33,15 @@ export const setCameraAngleParameters = z.object({
   position: vec3("Camera position."),
   target: vec3("Camera target position.").optional(),
   rotation: vec3("Camera rotation.").optional(),
-  projection: projectionEnum.describe("Camera projection type."),
+  projection: z.enum(["orthographic", "perspective"]).describe("MCP camera projection type."),
+  zoom: z.number().positive().max(100).optional().describe("Orthographic zoom. Defaults to 0.5."),
 });
 
 export const cameraToolDocs: ToolSpec[] = [
   {
     name: "capture_viewport",
-    description: "Returns the image data of the current view.",
+    description:
+      "Renders the requested or MCP working project offscreen without selecting its Blockbench tab.",
     annotations: {
       title: "Inspect Viewport",
       readOnlyHint: true,
@@ -69,7 +74,8 @@ export const cameraPublicToolDocs: ToolSpec[] = [
   },
   {
     name: "edit_camera",
-    description: "Sets the camera angle to the specified value.",
+    description:
+      "Sets this MCP session's offscreen camera for its working project without changing the user's visible viewport.",
     annotations: {
       title: "Edit Camera",
       destructiveHint: true,
@@ -82,8 +88,15 @@ export const cameraPublicToolDocs: ToolSpec[] = [
 export function registerCameraTools() {
   createInternalTool(cameraToolDocs[0].name, {
     ...cameraToolDocs[0],
-    async execute({ project, settle_frames }) {
-      return await captureScreenshot(project, settle_frames);
+    async execute({ project, settle_frames, width, height }, context) {
+      return await captureScreenshot(
+        project,
+        settle_frames,
+        context.sessionId,
+        context.project,
+        width,
+        height
+      );
     },
   }, cameraToolDocs[0].status);
 
@@ -96,19 +109,25 @@ export function registerCameraTools() {
 
   createTool(cameraPublicToolDocs[1].name, {
     ...cameraPublicToolDocs[1],
-    async execute(angle: { position: number[]; target?: number[]; rotation?: number[]; projection: string }) {
-      const preview = Preview.selected;
-
-      if (!preview) {
-        throw new Error("No preview found in the Blockbench editor.");
-      }
-
-      // @ts-expect-error Angle CAN be loaded like this
-      preview.loadAnglePreset({
-        ...angle
+    async execute(angle, context) {
+      const project = context.project!;
+      setSessionCameraState(context.sessionId, project.uuid, {
+        position: [angle.position[0], angle.position[1], angle.position[2]],
+        target: angle.target
+          ? [angle.target[0], angle.target[1], angle.target[2]]
+          : undefined,
+        rotation: angle.rotation
+          ? [angle.rotation[0], angle.rotation[1], angle.rotation[2]]
+          : undefined,
+        projection: angle.projection,
+        zoom: angle.zoom,
       });
-
-      return await captureScreenshot(undefined, 2);
+      return await captureScreenshot(
+        undefined,
+        2,
+        context.sessionId,
+        project
+      );
     },
   }, cameraPublicToolDocs[1].status);
 

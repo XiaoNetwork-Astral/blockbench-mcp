@@ -139,12 +139,7 @@ function serializeDisplaySlot(slot: DisplaySlot) {
   };
 }
 
-function getDisplaySettingsOrThrow(): DisplaySettings {
-  if (!Project) {
-    throw new Error(
-      "No project is open. Create or open a project before using display settings."
-    );
-  }
+function getDisplaySettings(): DisplaySettings {
   return Project.display_settings as unknown as DisplaySettings;
 }
 
@@ -230,7 +225,7 @@ export function registerDisplayTools() {
   createInternalTool(displayToolDocs[0].name, {
     ...displayToolDocs[0],
     async execute({ slot }) {
-      const settings = getDisplaySettingsOrThrow();
+      const settings = getDisplaySettings();
       if (slot) {
         const displaySlot = settings[slot];
         return JSON.stringify(
@@ -265,7 +260,7 @@ export function registerDisplayTools() {
   createInternalTool(displayToolDocs[1].name, {
     ...displayToolDocs[1],
     async execute(args) {
-      const settings = getDisplaySettingsOrThrow();
+      const settings = getDisplaySettings();
       assertDisplayModeSupported();
       assertRuntimeSlotAvailable(args.slot);
       if (!hasDisplayTransformChange(args)) {
@@ -319,8 +314,7 @@ export function registerDisplayTools() {
 
   createInternalTool(displayToolDocs[2].name, {
     ...displayToolDocs[2],
-    async execute({ slot, reference }) {
-      getDisplaySettingsOrThrow();
+    async execute({ slot, reference }, context) {
       assertDisplayModeSupported();
       assertRuntimeSlotAvailable(slot);
       const referenceModel = reference
@@ -351,7 +345,12 @@ export function registerDisplayTools() {
         notes.push(`Loaded reference "${reference}".`);
       }
 
-      const screenshot = await captureScreenshot(undefined, 2);
+      const screenshot = await captureScreenshot(
+        undefined,
+        2,
+        context.sessionId,
+        context.project
+      );
       return {
         content: [
           { type: "text" as const, text: notes.join(" ") },

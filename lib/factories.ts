@@ -9,6 +9,14 @@ import {
   captureUndoEditToken,
   rollbackUndoEditStartedAfter,
 } from "@/lib/undoSafety";
+import {
+  FOREGROUND_ONLY_OPERATIONS,
+  PROJECT_CONTEXT_BYPASS_OPERATIONS,
+  getForegroundProject,
+  getSessionWorkingProjectId,
+  requireSessionWorkingProject,
+  runInProjectContext,
+} from "@/lib/projectContext";
 
 /**
  * Declarative tool spec for documentation and registration.
@@ -67,6 +75,14 @@ export const resources: Record<string, IMCPResource> = {};
 export interface ToolContext {
   reportProgress: (progress: { progress: number; total: number }) => void;
   sessionId?: string;
+  /** Project owned by this MCP session for the current invocation. */
+  project: ModelProject | null;
+  /** Tab the user was viewing when the invocation began. */
+  foregroundProject: ModelProject | null;
+  /** Whether project and foregroundProject are different tabs. */
+  background: boolean;
+  /** Re-enter a project only for one synchronous callback after an await. */
+  runInProject: <T>(callback: () => T, project?: ModelProject) => T;
 }
 
 interface TextContent {
@@ -89,7 +105,7 @@ interface ToolDefinition {
   description: string;
   inputSchema: Record<string, z.ZodType>;
   outputSchema?: Record<string, z.ZodType> | z.ZodType;
-  execute: (args: Record<string, unknown>, context?: ToolContext) => Promise<ToolResult>;
+  execute: (args: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>;
   resolveMutationToolName?: (args: Record<string, unknown>) => string;
   annotations?: {
     title?: string;
@@ -98,6 +114,19 @@ interface ToolDefinition {
     openWorldHint?: boolean;
     readOnlyHint?: boolean;
   };
+}
+
+interface ToolRegistrar {
+  registerTool: (
+    toolName: string,
+    definition: {
+      title: string;
+      description: string;
+      inputSchema: Record<string, z.ZodType>;
+      annotations?: ToolDefinition["annotations"];
+    },
+    callback: (args: unknown, extra: unknown) => Promise<unknown>
+  ) => void;
 }
 
 /**
@@ -109,20 +138,27 @@ interface ToolRequestExtra {
   sessionId?: string;
 }
 
+export type SessionIdProvider = () => string | undefined;
+
+/** Attach the transport-owned MCP session id to one SDK tool callback. */
+export function toolRequestExtraForSession(
+  extra: unknown,
+  getSessionId?: SessionIdProvider
+): ToolRequestExtra {
+  const requestExtra = (extra && typeof extra === "object"
+    ? extra
+    : {}) as ToolRequestExtra;
+  const sessionId = getSessionId?.();
+  return sessionId ? { ...requestExtra, sessionId } : requestExtra;
+}
+
 function normalizeToolResult(result: ToolResult): unknown {
   if (typeof result === "string") {
     return {
       content: [{ type: "text", text: result }],
     };
   }
-
-  if (result && typeof result === "object" && "content" in result) {
-    return result;
-  }
-
-  return {
-    content: [{ type: "text", text: JSON.stringify(result) }],
-  };
+  return result;
 }
 
 async function invokeTool(
@@ -132,36 +168,108 @@ async function invokeTool(
   extra: ToolRequestExtra
 ): Promise<unknown> {
   const readOnly = toolDef.annotations?.readOnlyHint === true;
+  const operationName = toolDef.resolveMutationToolName?.(args) ?? name;
+  const bypassProjectContext = PROJECT_CONTEXT_BYPASS_OPERATIONS.has(operationName);
+  const foregroundProject = getForegroundProject();
+  let project: ModelProject | null = foregroundProject;
+
+  if (!bypassProjectContext) {
+    // Import is also valid on Blockbench's empty start screen. Every other
+    // project-scoped operation needs a real session binding.
+    const emptyImport =
+      operationName === "import_bedrock_geometry" &&
+      !getSessionWorkingProjectId(extra.sessionId) &&
+      !foregroundProject;
+    project = emptyImport ? null : requireSessionWorkingProject(extra.sessionId);
+  }
+
+  if (
+    project &&
+    foregroundProject &&
+    project !== foregroundProject &&
+    FOREGROUND_ONLY_OPERATIONS.has(operationName)
+  ) {
+    throw new Error(
+      `Action "${operationName}" still depends on Blockbench's visible paint/display UI. ` +
+        `The MCP working project is "${project.name}" while the foreground tab is ` +
+        `"${foregroundProject.name}". Show the working project explicitly before using this action; ` +
+        "geometry, hierarchy, UV, animation-data, inspection, Undo, and viewport capture remain background-safe."
+    );
+  }
+
+  const route = <T>(callback: () => T): T =>
+    project && !bypassProjectContext
+      ? runInProjectContext(project, callback)
+      : callback();
   // Read-only tools cannot open an Undo edit, so sampling the edit token and
   // attempting rollback on failure only adds work to high-frequency queries.
-  const undoEditAtStart = readOnly ? undefined : captureUndoEditToken();
-  const handle = auditManager.beginMcpOperation({
-    toolName: name,
-    title: toolDef.title,
-    args,
-    sessionId: extra.sessionId,
-    readOnly,
-  });
+  let undoEditAtStart: unknown;
+  let handle: ReturnType<typeof auditManager.beginMcpOperation> | undefined;
 
   try {
-    const reportProgress: ToolContext["reportProgress"] = () => {};
-    const context: ToolContext = { reportProgress, sessionId: extra.sessionId };
-    // A reference tab is writable only through the small explicit exemption
-    // list. Tools must opt into read-only status; missing metadata never grants
-    // mutation access by accident.
-    if (!readOnly) {
-      assertAgentMayMutateProject(
-        toolDef.resolveMutationToolName?.(args) ?? name
-      );
-    }
-    const result = await toolDef.execute(args, context);
-    auditManager.finishMcpOperation(handle, result);
+    const execution = route(() => {
+      undoEditAtStart = readOnly ? undefined : captureUndoEditToken();
+      handle = auditManager.beginMcpOperation({
+        toolName: operationName,
+        title: toolDef.title,
+        args,
+        sessionId: extra.sessionId,
+        readOnly,
+      });
+      const reportProgress: ToolContext["reportProgress"] = () => {};
+      const context: ToolContext = {
+        reportProgress,
+        sessionId: extra.sessionId,
+        project,
+        foregroundProject,
+        background: Boolean(project && foregroundProject && project !== foregroundProject),
+        runInProject: <T>(callback: () => T, target = project ?? undefined): T => {
+          if (!target) return callback();
+          return runInProjectContext(target, callback);
+        },
+      };
+      // A reference tab is writable only through the small explicit exemption
+      // list. Tools must opt into read-only status; missing metadata never grants
+      // mutation access by accident.
+      if (!readOnly && !bypassProjectContext) {
+        assertAgentMayMutateProject(operationName);
+      }
+      return toolDef.execute(args, context);
+    });
+    const result = await execution;
+    if (handle) route(() => auditManager.finishMcpOperation(handle!, result));
     return normalizeToolResult(result);
   } catch (error) {
-    if (!readOnly) rollbackUndoEditStartedAfter(undoEditAtStart);
-    auditManager.finishMcpOperation(handle, undefined, error);
+    route(() => {
+      if (!readOnly) rollbackUndoEditStartedAfter(undoEditAtStart);
+      if (handle) auditManager.finishMcpOperation(handle, undefined, error);
+    });
     throw error;
   }
+}
+
+function registerToolDefinition(
+  server: unknown,
+  name: string,
+  toolDef: ToolDefinition,
+  getSessionId?: SessionIdProvider
+): void {
+  (server as ToolRegistrar).registerTool(
+    name,
+    {
+      title: toolDef.title,
+      description: toolDef.description,
+      inputSchema: toolDef.inputSchema,
+      annotations: toolDef.annotations,
+    },
+    (args, extra) =>
+      invokeTool(
+        name,
+        toolDef,
+        args as Record<string, unknown>,
+        toolRequestExtraForSession(extra, getSessionId)
+      )
+  );
 }
 
 type ToolGroupOption = z.ZodObject<{
@@ -183,9 +291,7 @@ export function createToolGroupParameters(
   const options = operations.map((operation) =>
     z.object({
       action: z.literal(operation.name),
-      input: operation.parameters.describe(
-        `Arguments for ${operation.name} (${operation.status}). Use an empty object when the action has no arguments.`
-      ),
+      input: operation.parameters,
     })
   ) as ToolGroupOption[];
   const command = options.length === 1
@@ -246,7 +352,7 @@ export function createTool<T extends z.ZodType>(
       readOnlyHint?: boolean;
     };
     parameters: T;
-    execute: (args: z.infer<T>, context?: ToolContext) => Promise<ToolResult>;
+    execute: (args: z.infer<T>, context: ToolContext) => Promise<ToolResult>;
     resolveMutationToolName?: (args: z.infer<T>) => string;
   },
   status: IMCPTool["status"] = "stable",
@@ -275,38 +381,7 @@ export function createTool<T extends z.ZodType>(
 
   // Register with server if enabled
   if (enabled) {
-    type ToolArgs = z.infer<T>;
-
-    const server = getServer();
-
-    const registerTool = server.registerTool.bind(server) as unknown as (
-      toolName: string,
-      definition: {
-        title: string;
-        description: string;
-        inputSchema: Record<string, z.ZodType>;
-        annotations?: ToolDefinition["annotations"];
-      },
-      callback: (args: unknown, extra: unknown) => Promise<unknown>
-    ) => void;
-
-    registerTool(
-      name,
-      {
-        title: toolDef.title,
-        description: toolDef.description,
-        inputSchema,
-        annotations: toolDef.annotations,
-      },
-      async (args: unknown, extra: unknown) => {
-        return invokeTool(
-          name,
-          toolDef,
-          args as ToolArgs & Record<string, unknown>,
-          (extra ?? {}) as ToolRequestExtra
-        );
-      }
-    );
+    registerToolDefinition(getServer(), name, toolDef);
   }
 
   tools[name] = {
@@ -336,7 +411,7 @@ export function createInternalTool<T extends z.ZodType>(
       readOnlyHint?: boolean;
     };
     parameters: T;
-    execute: (args: z.infer<T>, context?: ToolContext) => Promise<ToolResult>;
+    execute: (args: z.infer<T>, context: ToolContext) => Promise<ToolResult>;
   },
   _status: IMCPTool["status"] = "stable"
 ): void {
@@ -358,32 +433,17 @@ export function createToolGroup(
   spec: ToolSpec,
   operations: readonly ToolSpec[]
 ) {
-  const allowed = new Set(operations.map((operation) => operation.name));
-  const description = `${spec.description} Supported command.action values: ${[
-    ...allowed,
-  ].join(", ")}.`;
   return createTool(
     spec.name,
     {
-      description,
+      description: spec.description,
       annotations: spec.annotations,
       parameters: spec.parameters,
       async execute(args, context) {
         const command = (args as {
           command: { action: string; input: Record<string, unknown> };
         }).command;
-        if (!allowed.has(command.action)) {
-          throw new Error(
-            `Action "${command.action}" is not part of ${spec.name}.`
-          );
-        }
-        const operation = toolDefinitions[command.action];
-        if (!operation) {
-          throw new Error(
-            `Internal action "${command.action}" was not registered.`
-          );
-        }
-        return operation.execute(command.input, context);
+        return toolDefinitions[command.action].execute(command.input, context);
       },
       resolveMutationToolName(args) {
         return (args as { command: { action: string } }).command.action;
@@ -394,59 +454,16 @@ export function createToolGroup(
 }
 
 /**
- * Gets all tool definitions for server reconstruction
- */
-export function getAllToolDefinitions() {
-  return toolDefinitions;
-}
-
-/**
- * Gets enabled tool definitions for server reconstruction
- */
-export function getEnabledToolDefinitions() {
-  return Object.fromEntries(
-    Object.entries(toolDefinitions).filter(([name]) => tools[name]?.enabled)
-  );
-}
-
-/**
  * Registers all enabled tools on a server instance
  * Used to set up new session servers with the same tools
  */
-export function registerToolsOnServer(server: unknown) {
-  const enabledDefs = getEnabledToolDefinitions();
-
-  const typedServer = server as {
-    registerTool: (
-      toolName: string,
-      definition: {
-        title: string;
-        description: string;
-        inputSchema: Record<string, z.ZodType>;
-        annotations?: ToolDefinition["annotations"];
-      },
-      callback: (args: unknown, extra: unknown) => Promise<unknown>
-    ) => void;
-  };
-
-  for (const [name, toolDef] of Object.entries(enabledDefs)) {
-    typedServer.registerTool(
-      name,
-      {
-        title: toolDef.title,
-        description: toolDef.description,
-        inputSchema: toolDef.inputSchema,
-        annotations: toolDef.annotations,
-      },
-      async (args: unknown, extra: unknown) => {
-        return invokeTool(
-          name,
-          toolDef,
-          args as Record<string, unknown>,
-          (extra ?? {}) as ToolRequestExtra
-        );
-      }
-    );
+export function registerToolsOnServer(
+  server: unknown,
+  getSessionId?: SessionIdProvider
+) {
+  for (const [name, toolDef] of Object.entries(toolDefinitions)) {
+    if (!tools[name]?.enabled) continue;
+    registerToolDefinition(server, name, toolDef, getSessionId);
   }
 }
 
@@ -454,7 +471,6 @@ export function registerToolsOnServer(server: unknown) {
  * Resource definition storage for dynamic server reconstruction
  */
 interface ResourceDefinition {
-  name: string;
   uriTemplate: string;
   metadata: {
     title?: string;
@@ -472,6 +488,39 @@ interface ResourceDefinition {
 }
 
 const resourceDefinitions: Record<string, ResourceDefinition> = {};
+
+interface ResourceRegistrar {
+  registerResource: (
+    resourceName: string,
+    uriOrTemplate: ResourceTemplate,
+    metadata: ResourceDefinition["metadata"],
+    readCallback: (
+      uri: URL,
+      variables: Record<string, string | string[]>
+    ) => ReturnType<ResourceDefinition["readCallback"]>
+  ) => void;
+}
+
+function registerResourceDefinition(
+  server: unknown,
+  name: string,
+  definition: ResourceDefinition
+): void {
+  (server as ResourceRegistrar).registerResource(
+    name,
+    new ResourceTemplate(definition.uriTemplate, { list: definition.listCallback }),
+    definition.metadata,
+    (uri, variables) => definition.readCallback(
+      uri,
+      Object.fromEntries(
+        Object.entries(variables).map(([key, value]) => [
+          key,
+          Array.isArray(value) ? value[0] ?? "" : value,
+        ])
+      )
+    )
+  );
+}
 
 /**
  * Creates a new MCP resource and registers it with the server using the official SDK.
@@ -506,7 +555,6 @@ export function createResource(
   }
 
   const resourceDef: ResourceDefinition = {
-    name,
     uriTemplate: config.uriTemplate,
     metadata: {
       title: config.title,
@@ -516,52 +564,8 @@ export function createResource(
     readCallback: config.readCallback,
   };
 
-  // Store resource definition for session reconstruction
   resourceDefinitions[name] = resourceDef;
-
-  // Register with the current server instance
-  // Use ResourceTemplate to enable dynamic resource listing via listCallback
-  const server = getServer();
-
-  const registerResource = (
-    server as unknown as {
-      registerResource: (
-        resourceName: string,
-        uriOrTemplate: ResourceTemplate,
-        metadata: {
-          title?: string;
-          description?: string;
-        },
-        readCallback: (
-          uri: URL,
-          variables: Record<string, string | string[]>
-        ) => Promise<{
-          contents: Array<{ uri: string; text: string; mimeType?: string } | { uri: string; blob: string; mimeType?: string }>;
-        }>
-      ) => void;
-    }
-  ).registerResource.bind(server);
-
-  registerResource(
-    name,
-    new ResourceTemplate(config.uriTemplate, { list: config.listCallback }),
-    {
-      title: config.title,
-      description: config.description,
-    },
-    async (uri: URL, variables: Record<string, string | string[]>) => {
-      const normalizedVariables = Object.fromEntries(
-        Object.entries(variables).map(([key, value]) => {
-          if (Array.isArray(value)) {
-            return [key, value[0] ?? ""];
-          }
-          return [key, value];
-        })
-      ) as Record<string, string>;
-
-      return config.readCallback(uri, normalizedVariables);
-    }
-  );
+  registerResourceDefinition(getServer(), name, resourceDef);
 
   resources[name] = {
     name,
@@ -573,52 +577,12 @@ export function createResource(
 }
 
 /**
- * Gets all resource definitions for server reconstruction
- */
-export function getAllResourceDefinitions() {
-  return resourceDefinitions;
-}
-
-/**
  * Registers all resources on a server instance
  * Used to set up new session servers with the same resources
  */
 export function registerResourcesOnServer(server: unknown) {
-  const typedServer = server as {
-    registerResource: (
-      resourceName: string,
-      uriOrTemplate: ResourceTemplate,
-      metadata: {
-        title?: string;
-        description?: string;
-      },
-      readCallback: (
-        uri: URL,
-        variables: Record<string, string | string[]>
-      ) => Promise<{
-        contents: Array<{ uri: string; text: string; mimeType?: string } | { uri: string; blob: string; mimeType?: string }>;
-      }>
-    ) => void;
-  };
-
   for (const [name, resourceDef] of Object.entries(resourceDefinitions)) {
-    typedServer.registerResource(
-      name,
-      new ResourceTemplate(resourceDef.uriTemplate, { list: resourceDef.listCallback }),
-      resourceDef.metadata,
-      async (uri: URL, variables: Record<string, string | string[]>) => {
-        const normalizedVariables = Object.fromEntries(
-          Object.entries(variables).map(([key, value]) => {
-            if (Array.isArray(value)) {
-              return [key, value[0] ?? ""];
-            }
-            return [key, value];
-          })
-        ) as Record<string, string>;
-
-        return resourceDef.readCallback(uri, normalizedVariables);
-      }
-    );
+    registerResourceDefinition(server, name, resourceDef);
   }
 }
 
@@ -628,7 +592,6 @@ interface PromptMessage {
 }
 
 interface PromptDefinition {
-  name: string;
   title: string;
   description: string;
   argsSchema: Record<string, z.ZodType>;
@@ -638,6 +601,30 @@ interface PromptDefinition {
 }
 
 const promptDefinitions: Record<string, PromptDefinition> = {};
+
+interface PromptRegistrar {
+  registerPrompt: (
+    promptName: string,
+    definition: Pick<PromptDefinition, "title" | "description" | "argsSchema">,
+    callback: PromptDefinition["generate"]
+  ) => void;
+}
+
+function registerPromptDefinition(
+  server: unknown,
+  name: string,
+  definition: PromptDefinition
+): void {
+  (server as PromptRegistrar).registerPrompt(
+    name,
+    {
+      title: definition.title,
+      description: definition.description,
+      argsSchema: definition.argsSchema,
+    },
+    definition.generate
+  );
+}
 
 /**
  * Creates a prompt definition and registers it on the reference server.
@@ -663,34 +650,13 @@ export function createPrompt<T extends z.ZodRawShape>(
   const argsSchema = prompt.argsSchema.shape;
   if (enabled) {
     const promptDef: PromptDefinition = {
-      name,
       title: prompt.title ?? prompt.description,
       description: prompt.description,
       argsSchema,
       generate: async (args) => prompt.generate(args as z.infer<z.ZodObject<T>>),
     };
     promptDefinitions[name] = promptDef;
-
-    const server = getServer() as unknown as {
-      registerPrompt: (
-        promptName: string,
-        definition: {
-          title: string;
-          description: string;
-          argsSchema: Record<string, z.ZodType>;
-        },
-        callback: PromptDefinition["generate"]
-      ) => void;
-    };
-    server.registerPrompt(
-      name,
-      {
-        title: promptDef.title,
-        description: promptDef.description,
-        argsSchema: promptDef.argsSchema,
-      },
-      promptDef.generate
-    );
+    registerPromptDefinition(getServer(), name, promptDef);
   }
 
   prompts[name] = {
@@ -703,33 +669,9 @@ export function createPrompt<T extends z.ZodRawShape>(
   return prompts[name];
 }
 
-export function getAllPromptDefinitions() {
-  return promptDefinitions;
-}
-
 /** Register all enabled prompts on a newly-created MCP session server. */
 export function registerPromptsOnServer(server: unknown) {
-  const typedServer = server as {
-    registerPrompt: (
-      promptName: string,
-      definition: {
-        title: string;
-        description: string;
-        argsSchema: Record<string, z.ZodType>;
-      },
-      callback: PromptDefinition["generate"]
-    ) => void;
-  };
-
   for (const [name, promptDef] of Object.entries(promptDefinitions)) {
-    typedServer.registerPrompt(
-      name,
-      {
-        title: promptDef.title,
-        description: promptDef.description,
-        argsSchema: promptDef.argsSchema,
-      },
-      promptDef.generate
-    );
+    registerPromptDefinition(server, name, promptDef);
   }
 }

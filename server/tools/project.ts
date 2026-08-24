@@ -10,14 +10,23 @@ import {
 import { STATUS_STABLE } from "@/lib/constants";
 import {
   describeProject,
+  isProjectProtected,
+  setProjectReadOnly,
 } from "@/lib/projectRoles";
+import {
+  forgetProjectState,
+  getForegroundProject,
+  getSessionWorkingProjectId,
+  peekSessionWorkingProject,
+  resolveOpenProject,
+  setSessionWorkingProject,
+} from "@/lib/projectContext";
 import { scaleProjectElementUvs } from "@/lib/toolFixes";
 import {
   normalizeLocalBbmodelPath,
   parseBbmodelText,
   portableBbmodelText,
 } from "@/lib/projectFiles";
-import { compileCodecResult } from "@/server/tools/export";
 
 export const createProjectParameters = z.object({
   name: z.string().min(1),
@@ -25,14 +34,31 @@ export const createProjectParameters = z.object({
     .string()
     .default("bedrock_block")
     .describe("Project format ID from Blockbench's Formats registry."),
+  show: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Also show the new tab in Blockbench. By default it becomes the MCP working project without taking the foreground."),
 });
 
 export const getProjectInfoParameters = z.object({});
 
 export const listProjectsParameters = z.object({});
 
-export const selectProjectParameters = z.object({
+export const setWorkingProjectParameters = z.object({
   project: z.string().describe("Project UUID, exact name, or exact save path."),
+});
+
+export const showProjectParameters = setWorkingProjectParameters;
+
+export const setProjectReadOnlyParameters = z.object({
+  project: z
+    .string()
+    .optional()
+    .describe("Project UUID, exact name, or exact save path. Defaults to this session's MCP working project."),
+  read_only: z
+    .boolean()
+    .describe("true blocks model editing by both the user and MCP while view navigation remains available; false removes only the explicit read-only flag."),
 });
 
 export const setProjectTextureResolutionParameters = z.object({
@@ -50,16 +76,11 @@ export const setProjectTextureResolutionParameters = z.object({
 export const closeProjectParameters = z.object({
   targets: z
     .union([
-      z.enum(["active", "all"]),
+      z.enum(["working", "foreground", "all"]),
       z.array(z.string().min(1)).min(1),
     ])
     .describe(
-      'Use "active", "all", or an explicit array of project UUIDs, unique names, or exact save paths.'
-    ),
-  discard_unsaved_changes: z
-    .boolean()
-    .describe(
-      "Required safety switch. true explicitly authorizes discarding unsaved changes in every selected target."
+      'Use "working", "foreground", "all", or an explicit array of project UUIDs, unique names, or exact save paths.'
     ),
 });
 
@@ -73,11 +94,11 @@ export const openBbmodelParameters = z.object({
     .min(1)
     .optional()
     .describe("Optional tab name override after the project opens."),
-  select: z
+  show: z
     .boolean()
     .optional()
-    .default(true)
-    .describe("Whether to leave the newly opened project selected."),
+    .default(false)
+    .describe("Also show the newly opened tab in Blockbench. It always becomes this MCP session's working project."),
 });
 
 export const duplicateProjectParameters = z.object({
@@ -85,18 +106,18 @@ export const duplicateProjectParameters = z.object({
     .string()
     .optional()
     .describe(
-      "Open project UUID, unique name, or exact save path. Defaults to the active project."
+      "Open project UUID, unique name, or exact save path. Defaults to the MCP working project."
     ),
   name: z
     .string()
     .min(1)
     .optional()
     .describe("Name for the unsaved duplicate tab. Defaults to '<source> copy'."),
-  select: z
+  show: z
     .boolean()
     .optional()
-    .default(true)
-    .describe("Whether to leave the duplicate selected."),
+    .default(false)
+    .describe("Also show the duplicate in Blockbench. It always becomes this MCP session's working project."),
 });
 
 export const projectToolDocs: ToolSpec[] = [
@@ -134,20 +155,42 @@ export const projectToolDocs: ToolSpec[] = [
     status: STATUS_STABLE,
   },
   {
-    name: "select_project",
+    name: "set_working_project",
     description:
-      "Selects an existing Blockbench project tab by UUID, exact name, or exact save path without closing any other tab.",
+      "Binds this MCP session to an open project without changing the visible tab. Use this before background work.",
     annotations: {
-      title: "Select Project",
+      title: "Set MCP Working Project",
       destructiveHint: false,
     },
-    parameters: selectProjectParameters,
+    parameters: setWorkingProjectParameters,
+    status: STATUS_STABLE,
+  },
+  {
+    name: "show_project",
+    description:
+      "Changes the visible Blockbench tab without changing this MCP session's working project. Use only when the user asks to see that tab.",
+    annotations: {
+      title: "Show Project in Blockbench",
+      destructiveHint: false,
+    },
+    parameters: showProjectParameters,
+    status: STATUS_STABLE,
+  },
+  {
+    name: "set_project_read_only",
+    description:
+      "Turns project editing on or off for both the user and MCP while preserving tab switching and camera navigation. Turning it off removes only this explicit lock, not workflow-role protection.",
+    annotations: {
+      title: "Set Project Read Only",
+      destructiveHint: false,
+    },
+    parameters: setProjectReadOnlyParameters,
     status: STATUS_STABLE,
   },
   {
     name: "set_project_texture_resolution",
     description:
-      "Sets the active project's texture resolution. Existing UV coordinates are preserved unless modify_uv is explicitly true.",
+      "Sets the MCP working project's texture resolution. Existing UV coordinates are preserved unless modify_uv is explicitly true.",
     annotations: {
       title: "Set Project Texture Resolution",
       destructiveHint: true,
@@ -156,11 +199,11 @@ export const projectToolDocs: ToolSpec[] = [
     status: STATUS_STABLE,
   },
   {
-    name: "close_project",
+    name: "close_projects_without_saving",
     description:
-      "Closes the active project, all projects, or explicitly named project tabs. The required discard_unsaved_changes flag prevents accidental data loss.",
+      "Closes the MCP working project, foreground project, all projects, or explicitly named tabs and explicitly discards unsaved changes.",
     annotations: {
-      title: "Close Project",
+      title: "Close Projects Without Saving",
       destructiveHint: true,
     },
     parameters: closeProjectParameters,
@@ -199,13 +242,15 @@ const projectEditOperations = [
   projectToolDocs[5],
   projectToolDocs[6],
   projectToolDocs[7],
+  projectToolDocs[8],
+  projectToolDocs[9],
 ];
 
 export const projectPublicToolDocs: ToolSpec[] = [
   {
     name: "inspect_projects",
     description:
-      "Lists open Blockbench projects or returns detailed information for the active project through a read-only command.action.",
+      "Lists open tabs with separate foreground/MCP-working markers or returns details for the MCP working project.",
     annotations: { title: "Inspect Projects", readOnlyHint: true },
     parameters: createToolGroupParameters(projectReadOperations),
     status: STATUS_STABLE,
@@ -213,7 +258,7 @@ export const projectPublicToolDocs: ToolSpec[] = [
   {
     name: "edit_projects",
     description:
-      "Creates, selects, configures, closes, opens, or duplicates Blockbench projects through one explicit command.action.",
+      "Creates, binds, configures, closes, opens, duplicates, or explicitly shows projects. Bind with set_working_project for background work; show_project changes the user's visible tab.",
     annotations: {
       title: "Edit Projects",
       destructiveHint: true,
@@ -223,28 +268,6 @@ export const projectPublicToolDocs: ToolSpec[] = [
     status: STATUS_STABLE,
   },
 ];
-
-export function findProjectOrThrow(reference: string): ModelProject {
-  const uuidMatches = ModelProject.all.filter((project) => project.uuid === reference);
-  if (uuidMatches.length === 1) return uuidMatches[0];
-
-  const matches = ModelProject.all.filter(
-    (project) =>
-      project.name === reference ||
-      Boolean(project.save_path && project.save_path === reference)
-  );
-  const uniqueMatches = [...new Map(matches.map((project) => [project.uuid, project])).values()];
-  if (uniqueMatches.length === 1) return uniqueMatches[0];
-  if (uniqueMatches.length > 1) {
-    throw new Error(
-      `Project reference "${reference}" is ambiguous (${uniqueMatches.length} matches: ` +
-        `${uniqueMatches.map((project) => project.uuid).join(", ")}). Use an exact UUID from inspect_projects with command.action "list_projects".`
-    );
-  }
-  throw new Error(
-    `Project "${reference}" not found. Use inspect_projects with command.action "list_projects" to inspect open tabs.`
-  );
-}
 
 function readLocalBbmodel(path: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -302,7 +325,7 @@ function sameLocalPath(first: string, second: string): boolean {
 export function registerProjectTools() {
   createInternalTool(projectToolDocs[0].name, {
     ...projectToolDocs[0],
-    async execute({ name, format }) {
+    async execute({ name, format, show }, context) {
       const selectedFormat = Formats[format];
       if (!selectedFormat) {
         const available = Object.keys(Formats).sort().slice(0, 30).join(", ");
@@ -310,27 +333,31 @@ export function registerProjectTools() {
           `Project format "${format}" was not found. Available format IDs include: ${available}`
         );
       }
+      const previous = getForegroundProject();
       const created = newProject(selectedFormat);
 
-      if (!created) {
+      if (!created || !Project) {
         throw new Error("Failed to create project.");
       }
 
-      Project!.name = name;
+      const createdProject = Project;
+      createdProject.name = name;
+      setSessionWorkingProject(context.sessionId, createdProject);
+      if (!show && previous && previous !== createdProject && ModelProject.all.includes(previous)) {
+        previous.select();
+      }
 
-      return `Created project with name "${name}" (UUID: ${Project?.uuid}) and format "${format}".`;
+      return JSON.stringify({
+        created: describeProject(createdProject),
+        mcp_working_project: createdProject.uuid,
+        foreground_project: getForegroundProject()?.uuid ?? null,
+      }, null, 2);
     },
   }, projectToolDocs[0].status);
 
   createInternalTool(projectToolDocs[1].name, {
     ...projectToolDocs[1],
-    async execute() {
-      if (!Project) {
-        throw new Error(
-          "No project is open. Use edit_projects with command.action \"create_project\", or open an existing file in Blockbench."
-        );
-      }
-
+    async execute(_args, context) {
       const format = Format as { id?: string; name?: string; display_name?: string } | undefined;
 
       const rootGroups = Outliner.root
@@ -347,6 +374,8 @@ export function registerProjectTools() {
             name: Project.name,
             uuid: Project.uuid,
             save_path: (Project as { save_path?: string }).save_path ?? null,
+            mcp_working: context.project?.uuid === Project.uuid,
+            foreground: context.foregroundProject?.uuid === Project.uuid,
           },
           format: {
             id: format?.id ?? null,
@@ -374,12 +403,19 @@ export function registerProjectTools() {
 
   createInternalTool(projectToolDocs[2].name, {
     ...projectToolDocs[2],
-    async execute() {
+    async execute(_args, context) {
+      const foreground = getForegroundProject();
+      const workingId = getSessionWorkingProjectId(context.sessionId);
       return JSON.stringify(
         {
-          active_project: Project?.uuid ?? null,
+          foreground_project: foreground?.uuid ?? null,
+          mcp_working_project: workingId,
           count: ModelProject.all.length,
-          projects: ModelProject.all.map(describeProject),
+          projects: ModelProject.all.map((project) => ({
+            ...describeProject(project),
+            foreground: project.uuid === foreground?.uuid,
+            mcp_working: project.uuid === workingId,
+          })),
         },
         null,
         2
@@ -389,23 +425,54 @@ export function registerProjectTools() {
 
   createInternalTool(projectToolDocs[3].name, {
     ...projectToolDocs[3],
-    async execute({ project }) {
-      const target = findProjectOrThrow(project);
-      if (!target.selected && !target.select()) {
-        throw new Error(`Blockbench refused to select project "${target.name}".`);
-      }
-      return JSON.stringify(describeProject(target), null, 2);
+    async execute({ project }, context) {
+      const target = resolveOpenProject(project);
+      setSessionWorkingProject(context.sessionId, target);
+      return JSON.stringify({
+        mcp_working_project: target.uuid,
+        foreground_project: getForegroundProject()?.uuid ?? null,
+        project: describeProject(target),
+      }, null, 2);
     },
   }, projectToolDocs[3].status);
 
   createInternalTool(projectToolDocs[4].name, {
     ...projectToolDocs[4],
-    async execute({ width, height, modify_uv }) {
-      if (!Project) {
+    async execute({ project }) {
+      const target = resolveOpenProject(project);
+      if (!target.selected && !target.select()) {
+        throw new Error(`Blockbench refused to show project "${target.name}".`);
+      }
+      return JSON.stringify({
+        foreground_project: target.uuid,
+        project: describeProject(target),
+      }, null, 2);
+    },
+  }, projectToolDocs[4].status);
+
+  createInternalTool(projectToolDocs[5].name, {
+    ...projectToolDocs[5],
+    async execute({ project, read_only }, context) {
+      const target = project
+        ? resolveOpenProject(project)
+        : peekSessionWorkingProject(context.sessionId);
+      if (!target) {
         throw new Error(
-          "No active project. Use edit_projects with command.action \"create_project\" or \"select_project\" first."
+          'No MCP working project. Use command.action "set_working_project" or provide project explicitly.'
         );
       }
+      setProjectReadOnly(target, read_only);
+      return JSON.stringify({
+        project: describeProject(target),
+        requested_read_only: read_only,
+        effective_read_only: isProjectProtected(target),
+      }, null, 2);
+    },
+  }, projectToolDocs[5].status);
+
+  createInternalTool(projectToolDocs[6].name, {
+    ...projectToolDocs[6],
+    async execute({ width, height, modify_uv }) {
       const previousWidth = Project.texture_width;
       const previousHeight = Project.texture_height;
       if (previousWidth === width && previousHeight === height) {
@@ -452,34 +519,31 @@ export function registerProjectTools() {
         changed: true,
       });
     },
-  }, projectToolDocs[4].status);
+  }, projectToolDocs[6].status);
 
-  createInternalTool(projectToolDocs[5].name, {
-    ...projectToolDocs[5],
-    async execute({ targets, discard_unsaved_changes }) {
-      const selectedTargets = targets === "all"
-        ? [...ModelProject.all]
-        : targets === "active"
-        ? Project
-          ? [Project]
-          : []
-        : [...new Map(
-            (targets as string[]).map((reference: string) => {
-              const project = findProjectOrThrow(reference);
-              return [project.uuid, project] as const;
-            })
-          ).values()];
+  createInternalTool(projectToolDocs[7].name, {
+    ...projectToolDocs[7],
+    async execute({ targets }, context) {
+      let selectedTargets: ModelProject[];
+      if (targets === "all") {
+        selectedTargets = [...ModelProject.all];
+      } else if (targets === "working") {
+        const working = peekSessionWorkingProject(context.sessionId);
+        selectedTargets = working ? [working] : [];
+      } else if (targets === "foreground") {
+        const foreground = getForegroundProject();
+        selectedTargets = foreground ? [foreground] : [];
+      } else {
+        selectedTargets = [...new Map(
+          targets.map((reference: string) => {
+            const project = resolveOpenProject(reference);
+            return [project.uuid, project] as const;
+          })
+        ).values()];
+      }
 
       if (selectedTargets.length === 0) {
         throw new Error("No matching open projects to close.");
-      }
-      const unsaved = selectedTargets.filter((project) => !project.saved);
-      if (unsaved.length > 0 && !discard_unsaved_changes) {
-        throw new Error(
-          `Refusing to close ${unsaved.length} unsaved project(s): ` +
-            `${unsaved.map((project) => `${project.name} (${project.uuid})`).join(", ")}. ` +
-            "Save them first or explicitly set discard_unsaved_changes to true."
-        );
       }
 
       const closed: Array<{ name: string; uuid: string }> = [];
@@ -492,26 +556,30 @@ export function registerProjectTools() {
           );
         }
         closed.push(identity);
+        forgetProjectState(identity.uuid);
       }
 
       return JSON.stringify({ closed });
     },
-  }, projectToolDocs[5].status);
+  }, projectToolDocs[7].status);
 
-  createInternalTool(projectToolDocs[6].name, {
-    ...projectToolDocs[6],
-    async execute({ path, name, select }) {
+  createInternalTool(projectToolDocs[8].name, {
+    ...projectToolDocs[8],
+    async execute({ path, name, show }, context) {
       const normalizedPath = normalizeLocalBbmodelPath(path);
       const existing = ModelProject.all.find((project) =>
         Boolean(project.save_path && sameLocalPath(project.save_path, normalizedPath)) ||
         Boolean(project.export_path && sameLocalPath(project.export_path, normalizedPath))
       );
       if (existing) {
-        if (select && !existing.selected) existing.select();
+        setSessionWorkingProject(context.sessionId, existing);
+        if (show && !existing.selected) existing.select();
         return JSON.stringify({
           source_path: normalizedPath,
           opened: describeProject(existing),
-          selected: existing.selected,
+          shown: existing.selected,
+          mcp_working_project: existing.uuid,
+          foreground_project: getForegroundProject()?.uuid ?? null,
           reused_existing_tab: true,
           ignored_name_override: name ?? null,
         }, null, 2);
@@ -526,46 +594,40 @@ export function registerProjectTools() {
       }, {});
       const opened = openedProjectSince(before);
       if (name) opened.name = name;
-      if (select) opened.select();
+      setSessionWorkingProject(context.sessionId, opened);
+      if (show) opened.select();
       else if (previous && ModelProject.all.includes(previous)) previous.select();
 
       return JSON.stringify({
         source_path: normalizedPath,
         opened: describeProject(opened),
-        selected: opened.selected,
+        shown: opened.selected,
+        mcp_working_project: opened.uuid,
+        foreground_project: getForegroundProject()?.uuid ?? null,
         reused_existing_tab: false,
       }, null, 2);
     },
-  }, projectToolDocs[6].status);
+  }, projectToolDocs[8].status);
 
-  createInternalTool(projectToolDocs[7].name, {
-    ...projectToolDocs[7],
-    async execute({ project, name, select }) {
+  createInternalTool(projectToolDocs[9].name, {
+    ...projectToolDocs[9],
+    async execute({ project, name, show }, context) {
       const source = project
-        ? findProjectOrThrow(project)
-        : Project;
+        ? resolveOpenProject(project)
+        : peekSessionWorkingProject(context.sessionId) ?? getForegroundProject();
       if (!source) {
-        throw new Error("No active project to duplicate.");
+        throw new Error("No MCP working project to duplicate.");
       }
       const previous = Project ?? null;
-      if (!source.selected && !source.select()) {
-        throw new Error(`Blockbench refused to select source project "${source.name}".`);
-      }
       if (!Codecs.project || typeof Codecs.project.compile !== "function") {
-        if (previous && previous !== source) previous.select();
         throw new Error("Blockbench's portable project codec is unavailable.");
       }
 
-      let content: string;
-      try {
-        content = portableBbmodelText(await compileCodecResult(
-          Codecs.project.compile.bind(Codecs.project),
-          { bitmaps: true, absolute_paths: false }
-        ));
-      } catch (error) {
-        if (previous && previous !== source) previous.select();
-        throw error;
-      }
+      const compiled = context.runInProject(
+        () => Codecs.project.compile({ bitmaps: true, absolute_paths: false }),
+        source
+      );
+      const content = portableBbmodelText(compiled);
 
       const before = new Set(ModelProject.all);
       loadModelFile({
@@ -581,17 +643,20 @@ export function registerProjectTools() {
       duplicate.save_path = "";
       duplicate.export_path = "";
       duplicate.saved = false;
-      if (select) duplicate.select();
+      setSessionWorkingProject(context.sessionId, duplicate);
+      if (show) duplicate.select();
       else if (previous && ModelProject.all.includes(previous)) previous.select();
 
       return JSON.stringify({
         source: describeProject(source),
         duplicate: describeProject(duplicate),
         portable_bytes: new TextEncoder().encode(content).byteLength,
-        selected: duplicate.selected,
+        shown: duplicate.selected,
+        mcp_working_project: duplicate.uuid,
+        foreground_project: getForegroundProject()?.uuid ?? null,
       }, null, 2);
     },
-  }, projectToolDocs[7].status);
+  }, projectToolDocs[9].status);
 
   createToolGroup(projectPublicToolDocs[0], projectReadOperations);
   createToolGroup(projectPublicToolDocs[1], projectEditOperations);

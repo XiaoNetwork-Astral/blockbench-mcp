@@ -2,8 +2,9 @@
 /// <reference types="blockbench-types" />
 import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
-import { captureAppScreenshot } from "@/lib/util";
+import { captureScreenshot } from "@/lib/util";
 import { STATUS_STABLE } from "@/lib/constants";
+import { setSessionWorkingProject } from "@/lib/projectContext";
 import {
   assertGeometryJsonSize,
   classifyGeometryJsonSource,
@@ -21,7 +22,7 @@ export const importToolDocs: ToolSpec[] = [
   {
     name: "import_bedrock_geometry",
     description:
-      "Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the active project. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.",
+      "Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the MCP working project without changing the foreground tab. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.",
     annotations: {
       title: "Import Bedrock Geometry",
       destructiveHint: true,
@@ -113,7 +114,7 @@ function readLocalGeometryJson(path: string): Promise<string> {
 export function registerImportTools() {
   createTool(importToolDocs[0].name, {
     ...importToolDocs[0],
-    async execute({ geojson }) {
+    async execute({ geojson }, context) {
       const source = classifyGeometryJsonSource(geojson);
       const jsonText = source.kind === "inline"
         ? source.text
@@ -131,22 +132,33 @@ export function registerImportTools() {
         throw new Error("Bedrock geometry JSON must contain an object or array document.");
       }
       const path = source.kind === "local_file" ? source.path : "";
-      const destination = loadBedrockGeometryDocument(
-        Codecs.bedrock,
-        document,
-        path,
-        Project
-      );
-      const importedProject =
-        Project && typeof Project === "object"
-          ? Project
-          : null;
+      const load = () => {
+        const destination = loadBedrockGeometryDocument(
+          Codecs.bedrock,
+          document,
+          path,
+          Project
+        );
+        const importedProject =
+          Project && typeof Project === "object"
+            ? Project
+            : null;
+        return { destination, importedProject };
+      };
+      const { destination, importedProject } = context.project
+        ? context.runInProject(load, context.project)
+        : load();
       if (!importedProject) {
         throw new Error("Blockbench did not create or select an imported project.");
       }
+      setSessionWorkingProject(context.sessionId, importedProject);
 
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      const screenshot = await captureAppScreenshot();
+      const screenshot = await captureScreenshot(
+        undefined,
+        2,
+        context.sessionId,
+        importedProject
+      );
       return {
         content: [
           {

@@ -87,11 +87,10 @@ describe("scoped texture assignment", () => {
     expect(() => assertFaceTextureAssignmentSupported(first as Texture)).not.toThrow();
   });
 
-  test("writes only resolved target faces and verifies the complete scope", () => {
+  test("writes only resolved target faces", () => {
     const target = faceElement("target", { north: "old", south: false });
     const unrelated = faceElement("unrelated", { north: "keep" });
     const result = applyTextureToResolvedFaces(
-      [target, unrelated],
       [target],
       "requested",
       "all",
@@ -117,7 +116,6 @@ describe("scoped texture assignment", () => {
     });
     applyTextureToResolvedFaces(
       [target],
-      [target],
       "requested",
       "blank",
       new Map(),
@@ -129,7 +127,6 @@ describe("scoped texture assignment", () => {
 
     applyTextureToResolvedFaces(
       [target],
-      [target],
       "selected",
       "none",
       new Map([[target, new Set(["north"])]]),
@@ -137,28 +134,6 @@ describe("scoped texture assignment", () => {
     );
     expect(target.faces.north.texture).toBe("selected");
     expect(target.faces.south.texture).toBe("requested");
-  });
-
-  test("throws before commit when face readback does not match", () => {
-    const stubbornFace: { texture?: string | false | null } = {};
-    Object.defineProperty(stubbornFace, "texture", {
-      configurable: true,
-      get: () => "old",
-      set: () => {},
-    });
-    const target: FaceTextureElementTarget = {
-      uuid: "target",
-      name: "target",
-      faces: { north: stubbornFace },
-    };
-    expect(() => applyTextureToResolvedFaces(
-      [target],
-      [target],
-      "requested",
-      "all",
-      new Map(),
-      new Set(["old", "requested"])
-    )).toThrow(/verification failed/i);
   });
 });
 
@@ -292,9 +267,9 @@ describe("project file and new tool contracts", () => {
       origin: [0, 0, 0],
       position: [1, 1, 1],
     })).toThrow();
-    expect(openBbmodelParameters.parse({ path: "D:\\model.bbmodel" }).select)
-      .toBe(true);
-    expect(duplicateProjectParameters.parse({}).select).toBe(true);
+    expect(openBbmodelParameters.parse({ path: "D:\\model.bbmodel" }).show)
+      .toBe(false);
+    expect(duplicateProjectParameters.parse({}).show).toBe(false);
   });
 
   test("measurement schema supports batched surface distances and long-axis angles", () => {

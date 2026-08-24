@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
+import { parseBbmodelText } from "@/lib/projectFiles";
 
 export const listExportFormatsParameters = z.object({
   only_current_format: z
@@ -60,7 +61,7 @@ export const exportToolDocs: ToolSpec[] = [
   {
     name: "export_model",
     description:
-      "Compiles the current project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.",
+      "Compiles the MCP working project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.",
     annotations: {
       title: "Export Model",
       destructiveHint: false,
@@ -81,33 +82,129 @@ interface ICodecSummary {
   belongs_to_current_format: boolean;
 }
 
-function isStringifiable(value: unknown): value is string {
-  return typeof value === "string";
+interface ProgrammaticCodec {
+  id?: string;
+  name?: string;
+  extension?: string;
+  compile?: (options?: unknown) => unknown | Promise<unknown>;
+  getExportOptions?: () => Record<string, unknown>;
+  fileName?: () => string;
+}
+
+interface ExportPlan {
+  id: string;
+  codec: ProgrammaticCodec & {
+    compile: (options?: unknown) => unknown | Promise<unknown>;
+  };
+  options: unknown;
+  fileName: string;
 }
 
 function toTextContent(raw: unknown): string {
   if (raw === null || raw === undefined) return "";
-  if (isStringifiable(raw)) return raw;
-  if (raw instanceof ArrayBuffer) {
-    return `[binary: ${raw.byteLength} bytes]`;
-  }
-  if (typeof raw === "object") {
-    try {
-      return JSON.stringify(raw, null, 2);
-    } catch {
-      return String(raw);
-    }
-  }
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "object") return JSON.stringify(raw, null, 2);
   return String(raw);
 }
 
-/** Resolve both synchronous and asynchronous Blockbench codec compilers. */
-export async function compileCodecResult(
+function createExportPlan(
+  codecId: string | undefined,
+  options: Record<string, unknown> | undefined,
+  targetName: string
+): ExportPlan {
+  // @ts-ignore - Codecs and Format are Blockbench globals
+  const registry = Codecs as Record<string, ProgrammaticCodec>;
+  // @ts-ignore - Format is a Blockbench global
+  const id = codecId ?? (Format as { codec?: { id?: string } } | undefined)?.codec?.id;
+  if (!id) {
+    throw new Error(
+      "No codec_id provided and the MCP project format has no default codec. Use `inspect_export_formats` to pick one."
+    );
+  }
+  const codec = registry[id];
+  if (!codec) {
+    throw new Error(
+      `Codec "${id}" not found. Use \`inspect_export_formats\` to see available codecs.`
+    );
+  }
+  if (typeof codec.compile !== "function") {
+    throw new Error(`Codec "${id}" does not support programmatic export.`);
+  }
+  return {
+    id,
+    codec: codec as ExportPlan["codec"],
+    options: options ?? codec.getExportOptions?.(),
+    fileName: codec.fileName?.() ?? targetName,
+  };
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return Boolean(
+    value &&
+      (typeof value === "object" || typeof value === "function") &&
+      typeof (value as PromiseLike<unknown>).then === "function"
+  );
+}
+
+/** Compile while the target project is installed as Blockbench's active data context. */
+export async function compileCodecInProject(
   compile: (options?: unknown) => unknown | Promise<unknown>,
-  options?: unknown,
-  receiver?: unknown
+  options: unknown,
+  receiver: unknown,
+  runInProject: <T>(callback: () => T) => T,
+  background: boolean,
+  codecId: string
 ): Promise<unknown> {
-  return await Promise.resolve(compile.call(receiver, options));
+  const started = runInProject(() => compile.call(receiver, options));
+  if (background && isPromiseLike(started)) {
+    void Promise.resolve(started).catch(() => undefined);
+    throw new Error(
+      `Codec "${codecId}" returned an asynchronous compilation and cannot safely export an inactive tab. ` +
+        "Show the MCP working project before exporting with this codec."
+    );
+  }
+  return started;
+}
+
+function nodeSignature(items: unknown): string | null {
+  if (!Array.isArray(items)) return null;
+  const ids: string[] = [];
+  for (const item of items) {
+    const uuid = item && typeof item === "object"
+      ? (item as { uuid?: unknown }).uuid
+      : undefined;
+    if (typeof uuid !== "string") return null;
+    ids.push(uuid);
+  }
+  return ids.sort().join("\n");
+}
+
+/** One final identity check before a portable project export can reach disk. */
+export function assertPortableProjectExportMatches(
+  raw: unknown,
+  target: {
+    name: string;
+    elements: ArrayLike<{ uuid: string }>;
+    groups: ArrayLike<{ uuid: string }>;
+  }
+): void {
+  const exported = (typeof raw === "string"
+    ? parseBbmodelText(raw, "compiled project")
+    : raw) as {
+    name?: unknown;
+    elements?: unknown;
+    groups?: unknown;
+  } | null;
+  if (
+    !exported ||
+    exported.name !== target.name ||
+    nodeSignature(exported.elements) !== nodeSignature(Array.from(target.elements)) ||
+    nodeSignature(exported.groups) !== nodeSignature(Array.from(target.groups))
+  ) {
+    throw new Error(
+      `Refusing to write the .bbmodel: compiled content does not match MCP project "${target.name}".`
+    );
+  }
 }
 
 export function registerExportTools() {
@@ -160,60 +257,22 @@ export function registerExportTools() {
 
   createTool(exportToolDocs[1].name, {
     ...exportToolDocs[1],
-    async execute({ codec_id, options, path, max_content_length }) {
-      if (!Project) {
-        throw new Error(
-          "No project is open. Use `create_project` or open a project first."
-        );
-      }
+    async execute({ codec_id, options, path, max_content_length }, context) {
+      const targetProject = context.project!;
+      const runInTarget = <T>(callback: () => T): T =>
+        context.runInProject(callback, targetProject);
 
-      // @ts-ignore - Codecs is a Blockbench global
-      const registry = Codecs as Record<
-        string,
-        {
-          id?: string;
-          name?: string;
-          extension?: string;
-          compile?: (opts?: unknown) => unknown | Promise<unknown>;
-          getExportOptions?: () => Record<string, unknown>;
-          fileName?: () => string;
-        }
-      >;
+      const plan = runInTarget(() =>
+        createExportPlan(codec_id, options, targetProject.name)
+      );
 
-      // @ts-ignore - Format is a Blockbench global
-      const formatCodec = (Format as { codec?: { id?: string } } | undefined)?.codec;
-      const resolvedId = codec_id ?? formatCodec?.id;
-
-      if (!resolvedId) {
-        throw new Error(
-          "No codec_id provided and the current project format has no default codec. Use `inspect_export_formats` to pick one."
-        );
-      }
-
-      const codec = registry[resolvedId];
-      if (!codec) {
-        const available = Object.keys(registry).sort().slice(0, 20).join(", ");
-        throw new Error(
-          `Codec "${resolvedId}" not found. Available (first 20): ${available}. Use \`inspect_export_formats\` for the full list.`
-        );
-      }
-
-      if (typeof codec.compile !== "function") {
-        throw new Error(
-          `Codec "${resolvedId}" does not support programmatic export (no compile() method).`
-        );
-      }
-
-      const effectiveOptions =
-        options ??
-        (typeof codec.getExportOptions === "function"
-          ? codec.getExportOptions()
-          : undefined);
-
-      const rawResult = await compileCodecResult(
-        codec.compile,
-        effectiveOptions,
-        codec
+      const rawResult = await compileCodecInProject(
+        plan.codec.compile,
+        plan.options,
+        plan.codec,
+        runInTarget,
+        context.background,
+        plan.id
       );
 
       const isArrayBuffer = rawResult instanceof ArrayBuffer;
@@ -237,6 +296,9 @@ export function registerExportTools() {
 
       let wrote_to_path: string | null = null;
       if (path) {
+        if (plan.id === "project") {
+          assertPortableProjectExportMatches(rawResult, targetProject);
+        }
         // @ts-ignore - requireNativeModule is a Blockbench global
         const fs = requireNativeModule("fs", {
           message: `MCP export_model requested write access to save model to ${path}`,
@@ -263,13 +325,15 @@ export function registerExportTools() {
       return JSON.stringify(
         {
           codec: {
-            id: resolvedId,
-            name: codec.name ?? resolvedId,
-            extension: codec.extension ?? null,
+            id: plan.id,
+            name: plan.codec.name ?? plan.id,
+            extension: plan.codec.extension ?? null,
           },
-          file_name: typeof codec.fileName === "function"
-            ? codec.fileName()
-            : Project.name,
+          project: {
+            uuid: targetProject.uuid,
+            name: targetProject.name,
+          },
+          file_name: plan.fileName,
           byte_length: byteLength,
           encoding,
           wrote_to_path,

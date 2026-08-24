@@ -15,6 +15,10 @@ import {
 } from '@/lib/sessions'
 import { isAuthorizedMcpRequest } from '@/lib/security'
 import { formatMcpHostForUrl } from '@/lib/pluginSettings'
+import {
+  clearAllProjectSessionState,
+  clearSessionProjectState
+} from '@/lib/projectContext'
 
 export type { NetServer }
 
@@ -95,6 +99,7 @@ export async function stopNetServer (
     new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, timeoutMs)))
   ])
   sessionManager.clear({ keepListeners: true })
+  clearAllProjectSessionState()
 
   const sockets = serverSockets.get(server) ?? new Set<Socket>()
   const remaining = Math.max(0, deadline - Date.now())
@@ -212,6 +217,7 @@ export default function createNetServer (
 
   // Register callback to close transport when sessionManager removes a session (e.g., timeout)
   sessionManager.setRemovalCallback(async (sessionId: string) => {
+    clearSessionProjectState(sessionId)
     const session = sessionTransports.get(sessionId)
     if (session) {
       // Make the session unreachable before awaiting transport shutdown so a
@@ -486,8 +492,13 @@ export default function createNetServer (
             }
             const sessionServer = createMcpServer()
 
+            // The MCP SDK callback metadata does not expose the transport's
+            // session id. Keep it in this server's closure so project routing,
+            // camera state, and audit records remain isolated per connection.
+            const sessionContext: { id?: string } = {}
+
             // Register the private fork's tools and resources on this session.
-            registerToolsOnServer(sessionServer)
+            registerToolsOnServer(sessionServer, () => sessionContext.id)
             registerResourcesOnServer(sessionServer)
             registerPromptsOnServer(sessionServer)
 
@@ -504,6 +515,7 @@ export default function createNetServer (
               sessionIdGenerator: () => crypto.randomUUID(),
               enableJsonResponse: true,
               onsessioninitialized: (newSessionId: string) => {
+                sessionContext.id = newSessionId
                 if (!sessionManager.add(newSessionId, clientMetadata)) {
                   void newSession.transport.close().catch(() => {})
                   return
@@ -730,7 +742,10 @@ export default function createNetServer (
 
   httpServer.on('error', (err: Error) => {
     console.error('[MCP] Server error:', err)
-    Blockbench.showQuickMessage(`MCP Server error: ${err.message}`, 3000)
+    Blockbench.showQuickMessage(
+      `${tl("mcp.server_controls.error_title")}: ${err.message}`,
+      3000
+    )
   })
 
   return [httpServer, sessionTransports]

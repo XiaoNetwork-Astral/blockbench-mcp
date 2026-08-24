@@ -16,7 +16,7 @@ import {
   MCP_BIND_HOST_SETTING,
   MIN_AUDIT_RETENTION,
   MIN_MCP_PORT,
-  YSM_WORKSPACE_SETTING,
+  PLUGIN_WORKSPACE_SETTING,
   createMcpAuthToken,
   getInitialMcpAuthToken,
   getMcpAuthEnabled,
@@ -24,15 +24,15 @@ import {
 } from "@/lib/pluginSettings";
 import { isLoopbackMcpHost } from "@/lib/security";
 import {
-  chooseYsmWorkspace,
-  getInitialYsmWorkspaceRoot,
-  syncYsmWorkspaceRootFromSetting,
-} from "@/lib/ysmWorkspace";
+  choosePluginWorkspace,
+  getInitialPluginWorkspaceRoot,
+  syncPluginWorkspaceRootFromSetting,
+} from "@/lib/pluginWorkspace";
 import settingsCSS from "@/ui/settings.css";
 
 const CATEGORY_ID = PLUGIN_ID;
 const TOKEN_ACTION_CLASS = "codex-mcp-token-regenerate";
-const DIRECTORY_ACTION_CLASS = "codex-mcp-directory-browse";
+const WORKSPACE_ACTION_CLASS = "codex-mcp-workspace-browse";
 const AUTH_WARNING_CLASS = "codex-mcp-auth-inline-warning";
 const SETTING_ROW_CLASS = "codex-mcp-setting-row";
 const STACKED_SETTING_ROW_CLASS = "codex-mcp-stacked-setting";
@@ -474,17 +474,17 @@ function ensureInlineTokenAction(): void {
   else row.appendChild(action);
 }
 
-function ensureInlineDirectoryAction(): void {
-  const row = getVisibleSettingRow(YSM_WORKSPACE_SETTING);
+function ensureInlineWorkspaceAction(): void {
+  const row = getVisibleSettingRow(PLUGIN_WORKSPACE_SETTING);
   const input = row?.querySelector<HTMLInputElement>("input.dark_bordered");
-  if (!input || !row || row.querySelector(`.${DIRECTORY_ACTION_CLASS}`)) return;
+  if (!input || !row || row.querySelector(`.${WORKSPACE_ACTION_CLASS}`)) return;
 
   const action = document.createElement("div");
-  action.className = `tool ${DIRECTORY_ACTION_CLASS}`;
+  action.className = `tool ${WORKSPACE_ACTION_CLASS}`;
   action.setAttribute("role", "button");
   action.setAttribute("tabindex", "0");
-  action.setAttribute("aria-label", tl("mcp.settings.temporary_directory_browse_name"));
-  action.title = tl("mcp.settings.temporary_directory_browse_desc");
+  action.setAttribute("aria-label", tl("mcp.settings.plugin_workspace_browse_name"));
+  action.title = tl("mcp.settings.plugin_workspace_browse_desc");
 
   const icon = document.createElement("i");
   icon.className = "material-icons";
@@ -494,7 +494,7 @@ function ensureInlineDirectoryAction(): void {
   const activate = (event: Event) => {
     event.preventDefault();
     event.stopPropagation();
-    chooseYsmWorkspace();
+    choosePluginWorkspace();
   };
   action.addEventListener("click", activate);
   action.addEventListener("keydown", (event) => {
@@ -508,14 +508,14 @@ function ensureInlineDirectoryAction(): void {
 function removeInlineSettingExtras(): void {
   if (typeof document === "undefined") return;
   document
-    .querySelectorAll(`.${TOKEN_ACTION_CLASS}, .${DIRECTORY_ACTION_CLASS}, .${AUTH_WARNING_CLASS}`)
+    .querySelectorAll(`.${TOKEN_ACTION_CLASS}, .${WORKSPACE_ACTION_CLASS}, .${AUTH_WARNING_CLASS}`)
     .forEach((element) => element.remove());
 }
 
 function ensureInlineSettingActions(): void {
   decorateVisibleSettingRows();
   ensureInlineTokenAction();
-  ensureInlineDirectoryAction();
+  ensureInlineWorkspaceAction();
   ensureInlineAuthState();
 }
 
@@ -608,13 +608,13 @@ export function settingsSetup(): void {
   refreshPersistedPluginSettings();
   ensureSettingsCategory();
 
-  addSetting(YSM_WORKSPACE_SETTING, {
-    name: tl("mcp.settings.temporary_directory_name"),
-    description: tl("mcp.settings.temporary_directory_desc"),
+  addSetting(PLUGIN_WORKSPACE_SETTING, {
+    name: tl("mcp.settings.plugin_workspace_name"),
+    description: tl("mcp.settings.plugin_workspace_desc"),
     type: "text",
-    value: getInitialYsmWorkspaceRoot(),
+    value: getInitialPluginWorkspaceRoot(),
     icon: "folder_special",
-    onChange: syncYsmWorkspaceRootFromSetting,
+    onChange: syncPluginWorkspaceRootFromSetting,
   });
   addSetting(MCP_BIND_HOST_SETTING, {
     name: tl("mcp.settings.bind_host_name"),

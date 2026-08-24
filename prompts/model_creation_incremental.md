@@ -1,6 +1,6 @@
 # Incremental Blockbench modeling workflow
 
-1. Inspect the active project, format, texture resolution, Outliner, selection, object counts, textures, UV mode, animation state, and unsaved state before editing. Preserve unknown objects unless the user explicitly authorizes removal.
+1. Inspect and bind the MCP working project without showing its tab, then inspect its format, texture resolution, Outliner, selection, object counts, textures, UV mode, animation state, and unsaved state before editing. The user may view another tab while you work; change the visible tab only when asked. Preserve unknown objects unless the user explicitly authorizes removal.
 2. Plan the model as a hierarchy of body, major parts, connectors, attachments, and details. Create parent groups before their children. Every created, duplicated, or moved Outliner node must receive an explicit parent; use the literal `"root"` only when a root-level node is intentional. Never treat a missing or ambiguous parent as root.
 3. Work from silhouette and proportions toward details. Build one small, inspectable stage at a time and read back its names, UUIDs, parents, transforms, texture references, and UVs. Validate one representative repeated or mirrored part before expanding it.
 4. For every attachment, record what it connects to and check world-space position and per-axis bounds. Inspect front, side, top, and a three-quarter view. Two parts whose projection overlaps in one view but whose depth ranges are separated are not attached.

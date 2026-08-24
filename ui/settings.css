@@ -43,7 +43,7 @@ dialog#settings #settingslist > li.codex-mcp-number-setting input[type="number"]
   text-align: left;
 }
 
-dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_temporary_directory"] > input.dark_bordered,
+dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_plugin_workspace"] > input.dark_bordered,
 dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"] > input.dark_bordered {
   flex: 1 1 240px;
   width: auto !important;
@@ -51,7 +51,7 @@ dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"
 }
 
 dialog#settings .codex-mcp-token-regenerate,
-dialog#settings .codex-mcp-directory-browse {
+dialog#settings .codex-mcp-workspace-browse {
   display: inline-flex;
   flex: 0 0 34px;
   width: 34px;
@@ -65,7 +65,7 @@ dialog#settings .codex-mcp-directory-browse {
   cursor: pointer;
 }
 
-dialog#settings .codex-mcp-directory-browse {
+dialog#settings .codex-mcp-workspace-browse {
   margin-right: 4%;
 }
 
@@ -90,15 +90,15 @@ dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"
 
 dialog#settings .codex-mcp-token-regenerate:hover,
 dialog#settings .codex-mcp-token-regenerate:focus-visible,
-dialog#settings .codex-mcp-directory-browse:hover,
-dialog#settings .codex-mcp-directory-browse:focus-visible {
+dialog#settings .codex-mcp-workspace-browse:hover,
+dialog#settings .codex-mcp-workspace-browse:focus-visible {
   color: var(--color-light);
   background-color: var(--color-button);
   outline: none;
 }
 
 dialog#settings .codex-mcp-token-regenerate > i,
-dialog#settings .codex-mcp-directory-browse > i {
+dialog#settings .codex-mcp-workspace-browse > i {
   font-size: 20px;
   pointer-events: none;
 }

@@ -1,6 +1,6 @@
 {
-  "version": "1.7.0-codex.30",
-  "generatedAt": "2026-08-24T02:21:16.328Z",
+  "version": "1.7.0-codex.35",
+  "generatedAt": "2026-08-24T10:34:24.715Z",
   "tools": [
     {
       "name": "create_cube",
@@ -563,9 +563,7 @@
                         "markdownDescription": "Display slot to read. Omit to return all populated slots."
                       }
                     },
-                    "additionalProperties": false,
-                    "description": "Arguments for get_display_transform (experimental). Use an empty object when the action has no arguments.",
-                    "markdownDescription": "Arguments for get_display_transform (experimental). Use an empty object when the action has no arguments."
+                    "additionalProperties": false
                   }
                 },
                 "required": [
@@ -700,9 +698,7 @@
                         "required": [
                           "slot"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for set_display_transform (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for set_display_transform (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -748,9 +744,7 @@
                         "required": [
                           "slot"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for enter_display_mode (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for enter_display_mode (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -812,11 +806,21 @@
                             "default": 2,
                             "description": "Render frames to wait before capture. Use 0 only when the scene is already stable.",
                             "markdownDescription": "Render frames to wait before capture. Use 0 only when the scene is already stable."
+                          },
+                          "width": {
+                            "type": "integer",
+                            "minimum": 64,
+                            "maximum": 1600,
+                            "default": 800
+                          },
+                          "height": {
+                            "type": "integer",
+                            "minimum": 64,
+                            "maximum": 1200,
+                            "default": 600
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for capture_viewport (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for capture_viewport (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -835,9 +839,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for capture_blockbench_ui (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for capture_blockbench_ui (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -863,7 +865,7 @@
     {
       "name": "edit_camera",
       "title": "Edit Camera",
-      "description": "Sets the camera angle to the specified value.",
+      "description": "Sets this MCP session's offscreen camera for its working project without changing the user's visible viewport.",
       "status": "experimental",
       "category": "Camera & Screenshots",
       "annotations": {
@@ -908,12 +910,18 @@
               "projection": {
                 "type": "string",
                 "enum": [
-                  "unset",
                   "orthographic",
                   "perspective"
                 ],
-                "description": "Camera projection type.",
-                "markdownDescription": "Camera projection type."
+                "description": "MCP camera projection type.",
+                "markdownDescription": "MCP camera projection type."
+              },
+              "zoom": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "description": "Orthographic zoom. Defaults to 0.5.",
+                "markdownDescription": "Orthographic zoom. Defaults to 0.5."
               }
             },
             "required": [
@@ -953,9 +961,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for list_animations (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for list_animations (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -980,9 +986,7 @@
                             "markdownDescription": "Animation UUID or exact name. Defaults to the selected animation."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for get_animation (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for get_animation (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -1120,9 +1124,7 @@
                           "name",
                           "bones"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for create_animation (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for create_animation (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -1166,9 +1168,7 @@
                           "action",
                           "animation_id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for manage_animation (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for manage_animation (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -1323,9 +1323,7 @@
                           "channel",
                           "keyframes"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for manage_keyframes (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for manage_keyframes (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -1442,9 +1440,7 @@
                           "action",
                           "bone_data"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for bone_rigging (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for bone_rigging (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -1584,9 +1580,7 @@
                         "required": [
                           "operation"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for batch_keyframe_operations (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for batch_keyframe_operations (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -1717,9 +1711,7 @@
                         "required": [
                           "action"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for animation_copy_paste (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for animation_copy_paste (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -1882,9 +1874,7 @@
                           "channel",
                           "action"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for animation_graph_editor (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for animation_graph_editor (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -1976,9 +1966,7 @@
                         "required": [
                           "action"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for animation_timeline (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for animation_timeline (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -1999,8 +1987,8 @@
                         "properties": {
                           "project": {
                             "type": "string",
-                            "description": "Project UUID, exact name, or exact save path. Defaults to the active tab.",
-                            "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the active tab."
+                            "description": "Project UUID, exact name, or exact save path. Defaults to the MCP working project.",
+                            "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the MCP working project."
                           },
                           "animation": {
                             "type": "string",
@@ -2037,9 +2025,7 @@
                             "markdownDescription": "If non-empty, isolates these bones together with their ancestors and descendants."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for set_preview_state (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for set_preview_state (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2089,9 +2075,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for list_armatures (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for list_armatures (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2125,9 +2109,7 @@
                         "required": [
                           "id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for get_armature (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for get_armature (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2152,9 +2134,7 @@
                             "markdownDescription": "Filter bones by armature UUID or name. If not provided, lists all bones."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for list_armature_bones (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for list_armature_bones (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2188,9 +2168,7 @@
                         "required": [
                           "id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for get_armature_bone (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for get_armature_bone (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2220,9 +2198,7 @@
                             "markdownDescription": "Filter weights by specific bone."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for get_vertex_weights (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for get_vertex_weights (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2302,9 +2278,7 @@
                         "required": [
                           "parent"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for add_armature (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for add_armature (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2332,9 +2306,7 @@
                         "required": [
                           "id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for remove_armature (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for remove_armature (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2378,9 +2350,7 @@
                         "required": [
                           "id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for update_armature (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for update_armature (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2464,9 +2434,7 @@
                         "required": [
                           "parent_id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for add_armature_bone (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for add_armature_bone (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2500,9 +2468,7 @@
                         "required": [
                           "id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for remove_armature_bone (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for remove_armature_bone (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2573,9 +2539,7 @@
                         "required": [
                           "id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for update_armature_bone (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for update_armature_bone (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2619,9 +2583,7 @@
                         "required": [
                           "ids"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for update_armature_bones_batch (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for update_armature_bones_batch (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2668,9 +2630,7 @@
                             "markdownDescription": "Clear existing selection before selecting."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for select_armature_bones (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for select_armature_bones (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2745,9 +2705,7 @@
                           "bone_id",
                           "weights"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for set_vertex_weights_batch (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for set_vertex_weights_batch (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2780,9 +2738,7 @@
                         "required": [
                           "bone_id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for clear_vertex_weights (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for clear_vertex_weights (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2808,7 +2764,7 @@
     {
       "name": "inspect_elements",
       "title": "Inspect Elements",
-      "description": "Lists the Outliner, searches elements, reports selection, or finds texture users through one read-only command.action.",
+      "description": "Lists the Outliner or Collections, searches elements, reports selection, or finds texture users through one read-only command.action.",
       "status": "stable",
       "category": "Elements",
       "annotations": {
@@ -2853,9 +2809,7 @@
                             "markdownDescription": "Maximum tree depth to traverse. Use a small value to summarize large projects."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for list_outline (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for list_outline (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2936,9 +2890,7 @@
                             "markdownDescription": "Maximum number of results to return."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for find_elements_by_criteria (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for find_elements_by_criteria (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2972,9 +2924,7 @@
                         "required": [
                           "texture"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for filter_by_material (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for filter_by_material (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -2993,9 +2943,31 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for get_selection (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for get_selection (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "list_collections"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "include_members": {
+                            "type": "boolean",
+                            "default": true
+                          }
+                        },
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3005,8 +2977,8 @@
                     "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: list_outline, find_elements_by_criteria, filter_by_material, get_selection.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: list_outline, find_elements_by_criteria, filter_by_material, get_selection."
+                "description": "Select one action and provide only that action's input object. Supported actions: list_outline, find_elements_by_criteria, filter_by_material, get_selection, list_collections.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: list_outline, find_elements_by_criteria, filter_by_material, get_selection, list_collections."
               }
             },
             "required": [
@@ -3021,7 +2993,7 @@
     {
       "name": "edit_elements",
       "title": "Edit Elements",
-      "description": "Creates groups, duplicates, renames, transforms, reparents, selects, or removes Outliner elements through one explicit command.action.",
+      "description": "Edits Outliner elements or editor-only Collections through one explicit command.action.",
       "status": "stable",
       "category": "Elements",
       "annotations": {
@@ -3054,9 +3026,7 @@
                         "required": [
                           "id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for remove_element (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for remove_element (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3142,9 +3112,7 @@
                           "name",
                           "parent"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for add_group (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for add_group (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3197,9 +3165,7 @@
                           "id",
                           "parent"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for duplicate_element (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for duplicate_element (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3233,9 +3199,7 @@
                           "id",
                           "new_name"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for rename_element (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for rename_element (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3279,9 +3243,7 @@
                         "required": [
                           "type"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for select_all_of_type (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for select_all_of_type (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3339,9 +3301,7 @@
                         "required": [
                           "id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for modify_group (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for modify_group (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3382,9 +3342,57 @@
                           "id",
                           "parent"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for reparent_element (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for reparent_element (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "edit_collection"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "create",
+                              "update",
+                              "remove"
+                            ]
+                          },
+                          "collection": {
+                            "type": "string",
+                            "description": "Collection UUID or unique name. Required for update and remove.",
+                            "markdownDescription": "Collection UUID or unique name. Required for update and remove."
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "members": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "description": "ID or name of the element.",
+                              "markdownDescription": "ID or name of the element."
+                            },
+                            "description": "Replacement member UUIDs or unique names. An empty array clears membership.",
+                            "markdownDescription": "Replacement member UUIDs or unique names. An empty array clears membership."
+                          }
+                        },
+                        "required": [
+                          "operation"
+                        ],
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3394,8 +3402,8 @@
                     "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group, reparent_element.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group, reparent_element."
+                "description": "Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group, reparent_element, edit_collection.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group, reparent_element, edit_collection."
               }
             },
             "required": [
@@ -3438,7 +3446,7 @@
     {
       "name": "export_model",
       "title": "Export Model",
-      "description": "Compiles the current project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.",
+      "description": "Compiles the MCP working project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.",
       "status": "experimental",
       "category": "Export",
       "annotations": {
@@ -3516,9 +3524,7 @@
                         "markdownDescription": "Maximum number of entries to return (most recent first)."
                       }
                     },
-                    "additionalProperties": false,
-                    "description": "Arguments for get_undo_stack (stable). Use an empty object when the action has no arguments.",
-                    "markdownDescription": "Arguments for get_undo_stack (stable). Use an empty object when the action has no arguments."
+                    "additionalProperties": false
                   }
                 },
                 "required": [
@@ -3575,9 +3581,7 @@
                             "markdownDescription": "Number of steps to undo."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for undo (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for undo (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3605,9 +3609,7 @@
                             "markdownDescription": "Number of steps to redo."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for redo (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for redo (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3637,9 +3639,7 @@
                         "required": [
                           "name"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for save_checkpoint (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for save_checkpoint (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3665,7 +3665,7 @@
     {
       "name": "import_bedrock_geometry",
       "title": "Import Bedrock Geometry",
-      "description": "Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the active project. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.",
+      "description": "Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the MCP working project without changing the foreground tab. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.",
       "status": "stable",
       "category": "Import/Export",
       "annotations": {
@@ -3741,9 +3741,7 @@
                             "markdownDescription": "Specific faces to get/clear material instances for. If not provided, returns/clears all faces."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for get_face_material_instances (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for get_face_material_instances (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3762,9 +3760,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for list_material_instances (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for list_material_instances (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3861,9 +3857,7 @@
                         "required": [
                           "assignments"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for bulk_set_material_instances (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for bulk_set_material_instances (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -3910,9 +3904,7 @@
                             "markdownDescription": "If true, clears material instances from all cubes in the project."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for clear_material_instances (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for clear_material_instances (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4057,9 +4049,7 @@
                           "elements",
                           "group"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for place_mesh (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for place_mesh (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4162,9 +4152,7 @@
                           "elements",
                           "group"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for create_sphere (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for create_sphere (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4207,9 +4195,7 @@
                         "required": [
                           "vertices"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for create_mesh_face (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for create_mesh_face (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4308,9 +4294,7 @@
                           "elements",
                           "group"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for create_cylinder (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for create_cylinder (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4406,9 +4390,7 @@
                           "elements",
                           "group"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for create_pyramid (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for create_pyramid (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4481,9 +4463,7 @@
                             "markdownDescription": "What to extrude: faces, edges, or vertices."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for extrude_mesh (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for extrude_mesh (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4516,9 +4496,7 @@
                             "markdownDescription": "Number of subdivision cuts to make."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for subdivide_mesh (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for subdivide_mesh (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4580,9 +4558,7 @@
                           "mesh_id",
                           "mode"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for select_mesh_elements (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for select_mesh_elements (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4628,9 +4604,7 @@
                         "required": [
                           "offset"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for move_mesh_vertices (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for move_mesh_vertices (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4672,9 +4646,7 @@
                             "markdownDescription": "When deleting faces/edges, whether to keep the vertices."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for delete_mesh_elements (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for delete_mesh_elements (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4716,9 +4688,7 @@
                         "required": [
                           "mesh_id"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for merge_mesh_vertices (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for merge_mesh_vertices (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4777,9 +4747,7 @@
                           "mesh_id",
                           "points"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for knife_tool (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for knife_tool (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -4898,9 +4866,7 @@
                           "x",
                           "y"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for paint_fill_tool (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for paint_fill_tool (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5016,9 +4982,7 @@
                           "start",
                           "end"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for draw_shape_tool (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for draw_shape_tool (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5122,9 +5086,7 @@
                           "start_color",
                           "end_color"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for gradient_tool (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for gradient_tool (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5175,9 +5137,7 @@
                           "x",
                           "y"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for color_picker_tool (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for color_picker_tool (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5271,9 +5231,7 @@
                           "source",
                           "target"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for copy_brush_tool (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for copy_brush_tool (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5362,9 +5320,7 @@
                         "required": [
                           "coordinates"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for eraser_tool (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for eraser_tool (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5482,9 +5438,7 @@
                         "required": [
                           "coordinates"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for paint_with_brush (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for paint_with_brush (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5646,9 +5600,7 @@
                             "markdownDescription": "Pick combined layer colors."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for paint_settings (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for paint_settings (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5732,9 +5684,7 @@
                         "required": [
                           "name"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for create_brush_preset (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for create_brush_preset (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5762,9 +5712,7 @@
                         "required": [
                           "preset_name"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for load_brush_preset (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for load_brush_preset (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5889,9 +5837,7 @@
                         "required": [
                           "action"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for texture_selection (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for texture_selection (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -5971,9 +5917,7 @@
                         "required": [
                           "action"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for texture_layer_management (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for texture_layer_management (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6065,7 +6009,7 @@
     {
       "name": "inspect_projects",
       "title": "Inspect Projects",
-      "description": "Lists open Blockbench projects or returns detailed information for the active project through a read-only command.action.",
+      "description": "Lists open tabs with separate foreground/MCP-working markers or returns details for the MCP working project.",
       "status": "stable",
       "category": "Project",
       "annotations": {
@@ -6089,9 +6033,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for get_project_info (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for get_project_info (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6110,9 +6052,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for list_projects (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for list_projects (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6138,7 +6078,7 @@
     {
       "name": "edit_projects",
       "title": "Edit Projects",
-      "description": "Creates, selects, configures, closes, opens, or duplicates Blockbench projects through one explicit command.action.",
+      "description": "Creates, binds, configures, closes, opens, duplicates, or explicitly shows projects. Bind with set_working_project for background work; show_project changes the user's visible tab.",
       "status": "stable",
       "category": "Project",
       "annotations": {
@@ -6172,14 +6112,18 @@
                             "default": "bedrock_block",
                             "description": "Project format ID from Blockbench's Formats registry.",
                             "markdownDescription": "Project format ID from Blockbench's Formats registry."
+                          },
+                          "show": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Also show the new tab in Blockbench. By default it becomes the MCP working project without taking the foreground.",
+                            "markdownDescription": "Also show the new tab in Blockbench. By default it becomes the MCP working project without taking the foreground."
                           }
                         },
                         "required": [
                           "name"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for create_project (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for create_project (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6193,7 +6137,7 @@
                     "properties": {
                       "action": {
                         "type": "string",
-                        "const": "select_project"
+                        "const": "set_working_project"
                       },
                       "input": {
                         "type": "object",
@@ -6207,9 +6151,68 @@
                         "required": [
                           "project"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for select_project (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for select_project (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "show_project"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "project": {
+                            "type": "string",
+                            "description": "Project UUID, exact name, or exact save path.",
+                            "markdownDescription": "Project UUID, exact name, or exact save path."
+                          }
+                        },
+                        "required": [
+                          "project"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "set_project_read_only"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "project": {
+                            "type": "string",
+                            "description": "Project UUID, exact name, or exact save path. Defaults to this session's MCP working project.",
+                            "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to this session's MCP working project."
+                          },
+                          "read_only": {
+                            "type": "boolean",
+                            "description": "true blocks model editing by both the user and MCP while view navigation remains available; false removes only the explicit read-only flag.",
+                            "markdownDescription": "true blocks model editing by both the user and MCP while view navigation remains available; false removes only the explicit read-only flag."
+                          }
+                        },
+                        "required": [
+                          "read_only"
+                        ],
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6249,9 +6252,7 @@
                           "width",
                           "height"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for set_project_texture_resolution (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for set_project_texture_resolution (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6265,7 +6266,7 @@
                     "properties": {
                       "action": {
                         "type": "string",
-                        "const": "close_project"
+                        "const": "close_projects_without_saving"
                       },
                       "input": {
                         "type": "object",
@@ -6275,7 +6276,8 @@
                               {
                                 "type": "string",
                                 "enum": [
-                                  "active",
+                                  "working",
+                                  "foreground",
                                   "all"
                                 ]
                               },
@@ -6288,22 +6290,14 @@
                                 "minItems": 1
                               }
                             ],
-                            "description": "Use \"active\", \"all\", or an explicit array of project UUIDs, unique names, or exact save paths.",
-                            "markdownDescription": "Use \"active\", \"all\", or an explicit array of project UUIDs, unique names, or exact save paths."
-                          },
-                          "discard_unsaved_changes": {
-                            "type": "boolean",
-                            "description": "Required safety switch. true explicitly authorizes discarding unsaved changes in every selected target.",
-                            "markdownDescription": "Required safety switch. true explicitly authorizes discarding unsaved changes in every selected target."
+                            "description": "Use \"working\", \"foreground\", \"all\", or an explicit array of project UUIDs, unique names, or exact save paths.",
+                            "markdownDescription": "Use \"working\", \"foreground\", \"all\", or an explicit array of project UUIDs, unique names, or exact save paths."
                           }
                         },
                         "required": [
-                          "targets",
-                          "discard_unsaved_changes"
+                          "targets"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for close_project (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for close_project (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6334,19 +6328,17 @@
                             "description": "Optional tab name override after the project opens.",
                             "markdownDescription": "Optional tab name override after the project opens."
                           },
-                          "select": {
+                          "show": {
                             "type": "boolean",
-                            "default": true,
-                            "description": "Whether to leave the newly opened project selected.",
-                            "markdownDescription": "Whether to leave the newly opened project selected."
+                            "default": false,
+                            "description": "Also show the newly opened tab in Blockbench. It always becomes this MCP session's working project.",
+                            "markdownDescription": "Also show the newly opened tab in Blockbench. It always becomes this MCP session's working project."
                           }
                         },
                         "required": [
                           "path"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for open_bbmodel (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for open_bbmodel (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6367,8 +6359,8 @@
                         "properties": {
                           "project": {
                             "type": "string",
-                            "description": "Open project UUID, unique name, or exact save path. Defaults to the active project.",
-                            "markdownDescription": "Open project UUID, unique name, or exact save path. Defaults to the active project."
+                            "description": "Open project UUID, unique name, or exact save path. Defaults to the MCP working project.",
+                            "markdownDescription": "Open project UUID, unique name, or exact save path. Defaults to the MCP working project."
                           },
                           "name": {
                             "type": "string",
@@ -6376,16 +6368,14 @@
                             "description": "Name for the unsaved duplicate tab. Defaults to '<source> copy'.",
                             "markdownDescription": "Name for the unsaved duplicate tab. Defaults to '<source> copy'."
                           },
-                          "select": {
+                          "show": {
                             "type": "boolean",
-                            "default": true,
-                            "description": "Whether to leave the duplicate selected.",
-                            "markdownDescription": "Whether to leave the duplicate selected."
+                            "default": false,
+                            "description": "Also show the duplicate in Blockbench. It always becomes this MCP session's working project.",
+                            "markdownDescription": "Also show the duplicate in Blockbench. It always becomes this MCP session's working project."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for duplicate_project (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for duplicate_project (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6395,8 +6385,8 @@
                     "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: create_project, select_project, set_project_texture_resolution, close_project, open_bbmodel, duplicate_project.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: create_project, select_project, set_project_texture_resolution, close_project, open_bbmodel, duplicate_project."
+                "description": "Select one action and provide only that action's input object. Supported actions: create_project, set_working_project, show_project, set_project_read_only, set_project_texture_resolution, close_projects_without_saving, open_bbmodel, duplicate_project.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: create_project, set_working_project, show_project, set_project_read_only, set_project_texture_resolution, close_projects_without_saving, open_bbmodel, duplicate_project."
               }
             },
             "required": [
@@ -6435,9 +6425,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for list_textures (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for list_textures (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6462,9 +6450,7 @@
                             "markdownDescription": "Texture ID or name. If not provided, uses selected texture."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for get_texture (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for get_texture (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6613,9 +6599,7 @@
                         "required": [
                           "name"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for create_texture (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for create_texture (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6660,9 +6644,7 @@
                           "id",
                           "texture"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for apply_texture (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for apply_texture (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6702,9 +6684,7 @@
                         "required": [
                           "name"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for add_texture_group (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for add_texture_group (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6743,9 +6723,7 @@
                         "required": [
                           "texture"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for remove_texture (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for remove_texture (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6795,9 +6773,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for list_materials (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for list_materials (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6825,9 +6801,7 @@
                         "required": [
                           "material"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for get_material_info (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for get_material_info (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -6938,9 +6912,7 @@
                         "required": [
                           "name"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for create_pbr_material (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for create_pbr_material (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7019,9 +6991,7 @@
                         "required": [
                           "material"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for configure_material (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for configure_material (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7049,9 +7019,7 @@
                         "required": [
                           "path"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for import_texture_set (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for import_texture_set (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7097,9 +7065,7 @@
                           "texture",
                           "channel"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for assign_texture_channel (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for assign_texture_channel (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7127,9 +7093,7 @@
                         "required": [
                           "material"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for save_material_config (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for save_material_config (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7236,9 +7200,7 @@
                             "markdownDescription": "Pairs whose axis gaps and projection/depth relationship should be compared."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for inspect_spatial_relationships (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for inspect_spatial_relationships (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7660,9 +7622,7 @@
                             "markdownDescription": "Touching tolerance for bounds gap/penetration analysis."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for measure_geometry (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for measure_geometry (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7742,9 +7702,7 @@
                         "required": [
                           "pairs"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for detect_coplanar_faces (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for detect_coplanar_faces (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7825,9 +7783,7 @@
                           "face_key",
                           "uv_mapping"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for set_mesh_uv (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for set_mesh_uv (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7872,9 +7828,7 @@
                             "markdownDescription": "Specific face keys to UV map. If not provided, maps all selected faces."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for auto_uv_mesh (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for auto_uv_mesh (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7918,9 +7872,7 @@
                             "markdownDescription": "Specific face keys to rotate UV for. If not provided, rotates all selected faces."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for rotate_mesh_uv (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for rotate_mesh_uv (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -7946,9 +7898,9 @@
     {
       "name": "edit_ysm_workspace",
       "title": "Edit YSM Workspace",
-      "description": "Configures the YSM workspace and binds, saves, or unbinds projects through one command.action.",
+      "description": "Configures the plugin workspace and binds, saves, or unbinds YSM projects through one command.action.",
       "status": "stable",
-      "category": "YSM Workspace",
+      "category": "YSM Workspace (optional)",
       "annotations": {
         "destructiveHint": true,
         "openWorldHint": true
@@ -7973,13 +7925,11 @@
                         "properties": {
                           "path": {
                             "type": "string",
-                            "description": "Absolute directory path. Omit to report the currently configured workspace.",
-                            "markdownDescription": "Absolute directory path. Omit to report the currently configured workspace."
+                            "description": "Absolute plugin workspace path. Omit to report the current path.",
+                            "markdownDescription": "Absolute plugin workspace path. Omit to report the current path."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for ysm_set_workspace (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for ysm_set_workspace (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8000,8 +7950,8 @@
                         "properties": {
                           "project": {
                             "type": "string",
-                            "description": "Project UUID, exact name, or exact save path. Defaults to the active tab.",
-                            "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the active tab."
+                            "description": "Project UUID, exact name, or exact save path. Defaults to this MCP session's working project.",
+                            "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to this MCP session's working project."
                           },
                           "geometry": {
                             "type": "string",
@@ -8029,9 +7979,7 @@
                         "required": [
                           "geometry"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for ysm_bind_project (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for ysm_bind_project (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8052,8 +8000,8 @@
                         "properties": {
                           "project": {
                             "type": "string",
-                            "description": "Project UUID, exact name, or exact save path. Defaults to the active tab.",
-                            "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the active tab."
+                            "description": "Project UUID, exact name, or exact save path. Defaults to this MCP session's working project.",
+                            "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to this MCP session's working project."
                           },
                           "expected_source_sha256": {
                             "type": "string",
@@ -8071,9 +8019,7 @@
                             "default": true
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for ysm_save_project (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for ysm_save_project (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8094,13 +8040,11 @@
                         "properties": {
                           "project": {
                             "type": "string",
-                            "description": "Project UUID, exact name, or exact save path. Defaults to the active tab.",
-                            "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to the active tab."
+                            "description": "Project UUID, exact name, or exact save path. Defaults to this MCP session's working project.",
+                            "markdownDescription": "Project UUID, exact name, or exact save path. Defaults to this MCP session's working project."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for ysm_unbind_project (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for ysm_unbind_project (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8126,9 +8070,9 @@
     {
       "name": "inspect_ysm",
       "title": "Inspect YSM",
-      "description": "Reports YSM workspace/binding state or the protected three-tab workflow through one read-only command.action.",
+      "description": "Reports plugin workspace bindings or the protected YSM three-tab workflow through one read-only command.action.",
       "status": "stable",
-      "category": "YSM Workflow",
+      "category": "YSM Workflow (optional)",
       "annotations": {
         "readOnlyHint": true
       },
@@ -8150,9 +8094,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for ysm_workspace_status (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for ysm_workspace_status (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8171,9 +8113,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for ysm_workflow_status (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for ysm_workflow_status (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8201,7 +8141,7 @@
       "title": "Edit YSM Workflow",
       "description": "Opens the protected YSM three-tab workflow or performs an explicitly confirmed baseline merge.",
       "status": "stable",
-      "category": "YSM Workflow",
+      "category": "YSM Workflow (optional)",
       "annotations": {
         "destructiveHint": true,
         "openWorldHint": true
@@ -8258,9 +8198,7 @@
                           "baseline_bbmodel",
                           "working_bbmodel"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for ysm_open_workflow_tabs (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for ysm_open_workflow_tabs (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8289,9 +8227,7 @@
                         "required": [
                           "confirmation"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for ysm_merge_working_into_baseline (stable). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for ysm_merge_working_into_baseline (stable). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8341,9 +8277,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_get_format_info (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_get_format_info (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8362,9 +8296,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_validate_model (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_validate_model (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8389,9 +8321,7 @@
                             "markdownDescription": "ID or name of the cube. If not provided, uses selected cube."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_get_cube_properties (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_get_cube_properties (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8410,9 +8340,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_list_attachments (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_list_attachments (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8431,9 +8359,7 @@
                       "input": {
                         "type": "object",
                         "properties": {},
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_list_attachment_pieces (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_list_attachment_pieces (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8458,9 +8384,7 @@
                             "markdownDescription": "ID or name of the cube. If not provided, uses selected cube."
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_get_cube_stretch (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_get_cube_stretch (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8532,9 +8456,7 @@
                             "markdownDescription": "Whether to render both sides of faces"
                           }
                         },
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_set_cube_properties (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_set_cube_properties (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8618,9 +8540,7 @@
                           "name",
                           "group"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_create_quad (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_create_quad (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8654,9 +8574,7 @@
                           "group_name",
                           "is_piece"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_set_attachment_piece (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_set_attachment_piece (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8701,9 +8619,7 @@
                           "time",
                           "visible"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_create_visibility_keyframe (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_create_visibility_keyframe (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8741,9 +8657,7 @@
                         "required": [
                           "loop_mode"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_set_animation_loop (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_set_animation_loop (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [
@@ -8781,9 +8695,7 @@
                         "required": [
                           "stretch"
                         ],
-                        "additionalProperties": false,
-                        "description": "Arguments for hytale_set_cube_stretch (experimental). Use an empty object when the action has no arguments.",
-                        "markdownDescription": "Arguments for hytale_set_cube_stretch (experimental). Use an empty object when the action has no arguments."
+                        "additionalProperties": false
                       }
                     },
                     "required": [

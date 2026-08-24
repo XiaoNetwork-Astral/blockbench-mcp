@@ -3,12 +3,13 @@
 import { z } from "zod";
 import { createInternalTool, type ToolSpec } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
+import { resolveOpenProject } from "@/lib/projectContext";
 
 export const setPreviewStateParameters = z.object({
   project: z
     .string()
     .optional()
-    .describe("Project UUID, exact name, or exact save path. Defaults to the active tab."),
+    .describe("Project UUID, exact name, or exact save path. Defaults to the MCP working project."),
   animation: z
     .string()
     .optional()
@@ -27,7 +28,7 @@ export const previewOperationDocs: ToolSpec[] = [
   {
     name: "set_preview_state",
     description:
-      "Selects a project and applies an animation/time plus temporary bone visibility for live inspection. It does not bake the pose into the model.",
+      "Applies an animation/time plus temporary bone visibility to the requested or MCP working project without selecting its tab. It does not bake the pose into the model.",
     annotations: {
       title: "Edit Preview",
       destructiveHint: false,
@@ -38,15 +39,6 @@ export const previewOperationDocs: ToolSpec[] = [
 ];
 
 type SetPreviewStateArgs = z.infer<typeof setPreviewStateParameters>;
-
-function findProject(reference: string): ModelProject | undefined {
-  return ModelProject.all.find(
-    (project) =>
-      project.uuid === reference ||
-      project.name === reference ||
-      Boolean(project.save_path && project.save_path === reference)
-  );
-}
 
 function isGroup(value: unknown): value is Group {
   return value instanceof Group;
@@ -78,74 +70,75 @@ function descendantsAndAncestors(selected: Group[]): Set<Group> {
 export function registerPreviewOperation() {
   createInternalTool(previewOperationDocs[0].name, {
     ...previewOperationDocs[0],
-    async execute(args: SetPreviewStateArgs) {
+    async execute(args: SetPreviewStateArgs, context) {
       const { project, animation, time, hide_bones, show_bones, only_bones } = args;
-      const target = project ? findProject(project) : Project;
+      const target = project
+        ? resolveOpenProject(project)
+        : context.project ?? Project;
       if (!target) {
         throw new Error(
           project
             ? `Project "${project}" not found. Use inspect_projects with command.action "list_projects" to inspect open tabs.`
-            : "No active project is open."
+            : "No MCP working project is open."
         );
       }
-      if (!target.selected && !target.select()) {
-        throw new Error(`Blockbench refused to select project "${target.name}".`);
-      }
-
-      Animator.showDefaultPose?.();
-      let selectedAnimation: _Animation | null = null;
-      if (animation) {
-        selectedAnimation = target.animations.find((item) => item.name === animation) ?? null;
-        if (!selectedAnimation) {
-          throw new Error(
-            `Animation "${animation}" was not found in project "${target.name}".`
-          );
+      const apply = () => {
+        Animator.showDefaultPose?.();
+        let selectedAnimation: _Animation | null = null;
+        if (animation) {
+          selectedAnimation = target.animations.find((item) => item.name === animation) ?? null;
+          if (!selectedAnimation) {
+            throw new Error(
+              `Animation "${animation}" was not found in project "${target.name}".`
+            );
+          }
+          selectedAnimation.select();
+          Timeline.setTime(time);
+          Animator.preview();
         }
-        selectedAnimation.select();
-        Timeline.setTime(time);
-        Animator.preview();
-      }
 
-      const hide = new Set(hide_bones);
-      const show = new Set(show_bones);
-      const only = new Set(only_bones);
-      const isolatedGroups = Group.all.filter((group) => only.has(group.name));
-      const hierarchy = descendantsAndAncestors(isolatedGroups);
-      const isolate = only.size > 0;
-      const changed: Group[] = [];
-      for (const group of Group.all) {
-        let visible = !isolate || hierarchy.has(group);
-        if (hide.has(group.name)) visible = false;
-        if (show.has(group.name)) visible = true;
-        if (group.visibility !== visible) {
-          group.visibility = visible;
-          changed.push(group);
+        const hide = new Set(hide_bones);
+        const show = new Set(show_bones);
+        const only = new Set(only_bones);
+        const isolatedGroups = Group.all.filter((group) => only.has(group.name));
+        const hierarchy = descendantsAndAncestors(isolatedGroups);
+        const isolate = only.size > 0;
+        const changed: Group[] = [];
+        for (const group of Group.all) {
+          let visible = !isolate || hierarchy.has(group);
+          if (hide.has(group.name)) visible = false;
+          if (show.has(group.name)) visible = true;
+          if (group.visibility !== visible) {
+            group.visibility = visible;
+            changed.push(group);
+          }
+          if (group.mesh) group.mesh.visible = visible;
         }
-        if (group.mesh) group.mesh.visible = visible;
-      }
-      if (changed.length) {
-        Canvas.updateView({ groups: changed, group_aspects: { visibility: true } });
-      }
-      Canvas.updateAll();
+        if (changed.length) {
+          Canvas.updateView({ groups: changed, group_aspects: { visibility: true } });
+        }
+        Canvas.updateAll();
 
-      const knownNames = new Set(Group.all.map((group) => group.name));
-      return JSON.stringify(
-        {
-          project: { uuid: target.uuid, name: target.name },
-          animation: selectedAnimation?.name ?? null,
-          time: animation ? time : null,
-          visibility: {
-            hidden_bones: [...hide],
-            shown_bones: [...show],
-            isolated_bones: [...only],
-            unknown_hidden_bones: [...hide].filter((name) => !knownNames.has(name)),
-            unknown_shown_bones: [...show].filter((name) => !knownNames.has(name)),
-            unknown_isolated_bones: [...only].filter((name) => !knownNames.has(name)),
+        const knownNames = new Set(Group.all.map((group) => group.name));
+        return JSON.stringify(
+          {
+            project: { uuid: target.uuid, name: target.name },
+            animation: selectedAnimation?.name ?? null,
+            time: animation ? time : null,
+            visibility: {
+              hidden_bones: [...hide],
+              shown_bones: [...show],
+              isolated_bones: [...only],
+              unknown_hidden_bones: [...hide].filter((name) => !knownNames.has(name)),
+              unknown_shown_bones: [...show].filter((name) => !knownNames.has(name)),
+              unknown_isolated_bones: [...only].filter((name) => !knownNames.has(name)),
+            },
           },
-        },
-        null,
-        2
-      );
+          null,
+          2
+        );
+      };
+      return context.runInProject(apply, target);
     },
   }, previewOperationDocs[0].status);
 }

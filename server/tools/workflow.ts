@@ -67,7 +67,7 @@ export const workflowPublicToolDocs: ToolSpec[] = [
   {
     name: "inspect_ysm",
     description:
-      "Reports YSM workspace/binding state or the protected three-tab workflow through one read-only command.action.",
+      "Reports plugin workspace bindings or the protected YSM three-tab workflow through one read-only command.action.",
     annotations: { title: "Inspect YSM", readOnlyHint: true },
     parameters: createToolGroupParameters(ysmReadOperations),
     status: STATUS_STABLE,

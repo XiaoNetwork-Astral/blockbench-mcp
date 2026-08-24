@@ -1,3 +1,12 @@
+import {
+  getForegroundProject,
+  getSessionCameraState,
+  peekSessionWorkingProject,
+  resolveOpenProject,
+  runInProjectContext,
+  type McpCameraState,
+} from "@/lib/projectContext";
+
 /**
  * Helper function to create properly formatted image content for MCP responses.
  * Handles data URLs, base64 strings, and objects with url property.
@@ -80,7 +89,7 @@ export function fixCircularReferences<
 }
 
 /**
- * Return the active project's textures without assuming that Blockbench has
+ * Return the routed project's textures without assuming that Blockbench has
  * already synchronized both texture registries. This matters immediately
  * after creating or reopening a texture, when either registry can briefly
  * lag behind the other.
@@ -361,7 +370,8 @@ export function getMeshOrSelected(meshId?: string): Mesh {
 
 /**
  * Captures a screenshot of the 3D preview canvas.
- * Uses Blockbench's native rendering pipeline for accurate capture.
+ * Renders the requested project's own scene graph into Blockbench's offscreen
+ * renderer, so neither project selection nor the visible viewport is changed.
  */
 async function waitForRenderFrames(frameCount: number): Promise<void> {
   for (let frame = 0; frame < frameCount; frame++) {
@@ -386,47 +396,164 @@ async function waitForRenderFrames(frameCount: number): Promise<void> {
   }
 }
 
-export async function captureScreenshot(project?: string, settleFrames = 2) {
-  let selectedProject = Project;
-
-  if (!selectedProject || project !== undefined) {
-    selectedProject = ModelProject.all.find(
-      (p) => p.name === project || p.uuid === project || p.selected
-    );
-  }
-
-  if (!selectedProject) {
+function resolveScreenshotProject(
+  reference: string | undefined,
+  sessionId: string | undefined,
+  workingProject?: ModelProject | null
+): ModelProject {
+  if (reference) return resolveOpenProject(reference);
+  const target = workingProject ?? peekSessionWorkingProject(sessionId) ?? getForegroundProject();
+  if (!target) {
     throw new Error("No project found in the Blockbench editor.");
   }
+  return target;
+}
 
-  // Select the project if needed
-  if (!selectedProject.selected) {
-    selectedProject.select();
+interface StoredPreviewState {
+  position?: number[];
+  target?: number[];
+  orthographic?: boolean;
+  zoom?: number;
+}
+
+function tuple3(value: number[] | undefined): [number, number, number] | undefined {
+  if (!value || value.length < 3) return undefined;
+  return [Number(value[0]), Number(value[1]), Number(value[2])];
+}
+
+function fittedCameraState(project: ModelProject): McpCameraState {
+  const box = new THREE.Box3().setFromObject(project.model_3d);
+  const center = new THREE.Vector3(0, project.format?.block_size ? project.format.block_size * 0.75 : 12, 0);
+  let extent = project.format?.block_size || 16;
+  if (!box.isEmpty()) {
+    box.getCenter(center);
+    const size = box.getSize(new THREE.Vector3());
+    extent = Math.max(size.x, size.y, size.z, 1);
+  }
+  return {
+    position: [
+      center.x - extent * 2.2,
+      center.y + extent * 1.6,
+      center.z - extent * 2.2,
+    ],
+    target: [center.x, center.y, center.z],
+    projection: "perspective",
+  };
+}
+
+function cameraStateForProject(
+  project: ModelProject,
+  sessionId?: string
+): McpCameraState {
+  const sessionState = getSessionCameraState(sessionId, project.uuid);
+  if (sessionState) return sessionState;
+
+  if (project === getForegroundProject() && Preview.selected) {
+    const preview = Preview.selected;
+    return {
+      position: preview.camera.position.toArray() as [number, number, number],
+      target: preview.controls.target.toArray() as [number, number, number],
+      projection: preview.isOrtho ? "orthographic" : "perspective",
+      zoom: preview.isOrtho ? preview.camOrtho.zoom : undefined,
+    };
   }
 
-  // @ts-ignore - Preview is globally available in Blockbench
-  const preview = Preview.selected;
-  if (!preview) {
-    throw new Error("No preview available for the selected project.");
+  const stored = (project.previews?.main ?? Object.values(project.previews ?? {})[0]) as
+    | StoredPreviewState
+    | undefined;
+  const position = tuple3(stored?.position);
+  if (position) {
+    return {
+      position,
+      target: tuple3(stored?.target),
+      projection: stored?.orthographic ? "orthographic" : "perspective",
+      zoom: stored?.zoom,
+    };
+  }
+  return fittedCameraState(project);
+}
+
+function targetFromCameraState(state: McpCameraState): THREE.Vector3 {
+  if (state.target) return new THREE.Vector3().fromArray(state.target);
+  const position = new THREE.Vector3().fromArray(state.position);
+  if (!state.rotation) return new THREE.Vector3(0, 0, 0);
+  const radians = state.rotation.map((degrees) => (degrees * Math.PI) / 180);
+  return new THREE.Vector3(0, 0, 16)
+    .applyEuler(new THREE.Euler(radians[0], radians[1], radians[2], "ZYX"))
+    .add(position);
+}
+
+function renderProjectOffscreen(
+  project: ModelProject,
+  state: McpCameraState,
+  width: number,
+  height: number
+): string {
+  const preview = Screencam.NoAAPreview;
+  if (!preview?.renderer) {
+    throw new Error("Blockbench's offscreen viewport renderer is unavailable.");
   }
 
-  Canvas.updateAll();
+  preview.isOrtho = state.projection === "orthographic";
+  preview.resize(width, height);
+  const camera = preview.camera;
+  camera.position.fromArray(state.position);
+  const target = targetFromCameraState(state);
+  preview.controls.target.copy(target);
+  preview.controls.object = camera;
+  camera.lookAt(target);
+  if (preview.isOrtho) {
+    preview.camOrtho.zoom = state.zoom ?? 0.5;
+    preview.camOrtho.updateProjectionMatrix();
+  } else {
+    preview.camPers.aspect = width / height;
+    preview.camPers.updateProjectionMatrix();
+  }
+  camera.updateMatrixWorld(true);
+
+  const renderScene = new THREE.Scene();
+  renderScene.add(project.model_3d.clone(true));
+  let lightCount = 0;
+  const canvasScene = (Canvas as typeof Canvas & { scene?: THREE.Scene }).scene;
+  canvasScene?.traverse((node) => {
+    if ((node as THREE.Light).isLight) {
+      renderScene.add(node.clone());
+      lightCount += 1;
+    }
+  });
+  if (lightCount === 0) {
+    renderScene.add(new THREE.AmbientLight(0xffffff, 1.5));
+    const key = new THREE.DirectionalLight(0xffffff, 2);
+    key.position.set(-1, 2, -1);
+    renderScene.add(key);
+  }
+  renderScene.updateMatrixWorld(true);
+  preview.renderer.render(renderScene, camera);
+  return preview.canvas.toDataURL("image/png");
+}
+
+export async function captureScreenshot(
+  project?: string,
+  settleFrames = 2,
+  sessionId?: string,
+  workingProject?: ModelProject | null,
+  width = 800,
+  height = 600
+) {
+  const target = resolveScreenshotProject(project, sessionId, workingProject);
+
+  runInProjectContext(target, () => Canvas.updateAll());
   await waitForRenderFrames(settleFrames);
 
-  // Capture the preview canvas using Blockbench's native approach
-  // Canvas.withoutGizmos temporarily hides gizmos, executes the callback, then restores them
-  let dataUrl: string | undefined;
-  // @ts-ignore - Canvas is globally available in Blockbench
-  Canvas.withoutGizmos(() => {
-    preview.render();
-    dataUrl = preview.canvas.toDataURL();
-  });
-
-  if (!dataUrl) {
-    throw new Error("Failed to capture preview screenshot.");
-  }
-
-  return imageContent(dataUrl, "image/png");
+  return imageContent(
+    renderProjectOffscreen(
+      target,
+      cameraStateForProject(target, sessionId),
+      width,
+      height
+    ),
+    "image/png"
+  );
 }
 
 /**

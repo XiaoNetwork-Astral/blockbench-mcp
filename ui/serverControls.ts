@@ -1,6 +1,5 @@
 import { clientManagerTeardown, showClientManager } from "@/ui/clientManager";
-
-export type McpServerRuntimeState = "stopped" | "starting" | "running" | "stopping";
+import type { McpServerRuntimeState } from "@/lib/serverRuntime";
 
 export type McpServerStatus = {
   state: McpServerRuntimeState;

@@ -8,6 +8,9 @@ const MCP_INSTRUCTIONS =
   "Public tools use predictable intent_domain names: inspect_* reads, edit_* changes model or " +
   "editor state, create_* creates focused geometry, and import_*/export_* cross file boundaries. " +
   "Grouped tools expose exact operations through command.action. " +
+  "Each MCP session owns a working project independently from the Blockbench tab the user is viewing. " +
+  "Use inspect_projects/list_projects and edit_projects/set_working_project to orient once; do not " +
+  "show or select that tab merely to edit it or capture_viewport, because the user may switch tabs freely. " +
   "Work incrementally and preserve existing content unless the user explicitly authorizes a " +
   "replacement or deletion. Every Outliner create, duplicate, parent, or mirror operation must " +
   "name an explicit parent; use the literal root only when root placement is intentional. Build " +
@@ -17,7 +20,7 @@ const MCP_INSTRUCTIONS =
   "ambiguous after those checks, stop before further " +
   "mutation and ask the user to inspect the model and state the intended structure or position. " +
   "Do not use import_bedrock_geometry as a shortcut unless the user explicitly asks to import existing " +
-  "geometry. Use YSM workspace tools only for an explicitly selected YSM workflow.";
+  "geometry. Use optional YSM tools only for an explicitly selected YSM workflow.";
 
 /**
  * Creates a new MCP server instance using the official SDK

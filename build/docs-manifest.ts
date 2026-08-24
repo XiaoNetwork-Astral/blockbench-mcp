@@ -46,8 +46,8 @@ export const toolManifest: CategoryGroup[] = [
   { category: "Textures", tools: textureToolDocs },
   { category: "Spatial Inspection", tools: spatialToolDocs },
   { category: "UV Mapping", tools: uvToolDocs },
-  { category: "YSM Workspace", tools: ysmToolDocs },
-  { category: "YSM Workflow", tools: workflowToolDocs },
+  { category: "YSM Workspace (optional)", tools: ysmToolDocs },
+  { category: "YSM Workflow (optional)", tools: workflowToolDocs },
   { category: "Hytale Integration (optional)", tools: hytaleToolDocs },
 ];
 

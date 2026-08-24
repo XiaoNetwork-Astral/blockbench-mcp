@@ -11,7 +11,7 @@
     <nav class="sidebar">
       <div class="sidebar-brand">
         <h1>Blockbench MCP</h1>
-        <p>v1.7.0-codex.30 — API Reference</p>
+        <p>v1.7.0-codex.35 — API Reference</p>
       </div>
 
       <input id="search" type="text" placeholder="Search tools..." class="search-input" />
@@ -42,8 +42,8 @@
         <a href="#cat-textures" class="nav-link">Textures <span class="count">(4)</span></a>
         <a href="#cat-spatial-inspection" class="nav-link">Spatial Inspection <span class="count">(1)</span></a>
         <a href="#cat-uv-mapping" class="nav-link">UV Mapping <span class="count">(1)</span></a>
-        <a href="#cat-ysm-workspace" class="nav-link">YSM Workspace <span class="count">(1)</span></a>
-        <a href="#cat-ysm-workflow" class="nav-link">YSM Workflow <span class="count">(2)</span></a>
+        <a href="#cat-ysm-workspace-optional" class="nav-link">YSM Workspace (optional) <span class="count">(1)</span></a>
+        <a href="#cat-ysm-workflow-optional" class="nav-link">YSM Workflow (optional) <span class="count">(2)</span></a>
         <a href="#cat-hytale-integration-optional" class="nav-link">Hytale Integration (optional) <span class="count">(2)</span></a>
       </div>
     </nav>
@@ -51,7 +51,7 @@
     <main class="main">
       <header class="page-header">
         <h1>Blockbench MCP Plugin</h1>
-        <p class="subtitle">API Reference — v1.7.0-codex.30</p>
+        <p class="subtitle">API Reference — v1.7.0-codex.35</p>
         <nav class="stats">
           <a href="#tools"><strong>41</strong> tools (31 stable, 10 experimental)</a>
           <a href="#prompts"><strong>5</strong> prompts</a>
@@ -335,7 +335,7 @@
         </div>
       </div>
       <p class="card-title">Edit Camera</p>
-      <p class="card-desc">Sets the camera angle to the specified value.</p>
+      <p class="card-desc">Sets this MCP session's offscreen camera for its working project without changing the user's visible viewport.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -363,9 +363,14 @@
       <td class="col-desc">Camera rotation. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
     </tr><tr>
       <td class="col-name">projection</td>
-      <td class="col-type">&quot;unset&quot; | &quot;orthographic&quot; | &quot;perspective&quot;</td>
+      <td class="col-type">&quot;orthographic&quot; | &quot;perspective&quot;</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Camera projection type.</td>
+      <td class="col-desc">MCP camera projection type.</td>
+    </tr><tr>
+      <td class="col-name">zoom</td>
+      <td class="col-type">number</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Orthographic zoom. Defaults to 0.5. <span class="param-meta">[max: 100]</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -562,7 +567,7 @@
         </div>
       </div>
       <p class="card-title">Inspect Elements</p>
-      <p class="card-desc">Lists the Outliner, searches elements, reports selection, or finds texture users through one read-only command.action.</p>
+      <p class="card-desc">Lists the Outliner or Collections, searches elements, reports selection, or finds texture users through one read-only command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -575,9 +580,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object | object | object</td>
+      <td class="col-type">object | object | object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: list_outline, find_elements_by_criteria, filter_by_material, get_selection.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: list_outline, find_elements_by_criteria, filter_by_material, get_selection, list_collections.</td>
     </tr></tbody>
     </table>
       </div>
@@ -591,7 +596,7 @@
         </div>
       </div>
       <p class="card-title">Edit Elements</p>
-      <p class="card-desc">Creates groups, duplicates, renames, transforms, reparents, selects, or removes Outliner elements through one explicit command.action.</p>
+      <p class="card-desc">Edits Outliner elements or editor-only Collections through one explicit command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -604,9 +609,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object | object | object | object | object | object</td>
+      <td class="col-type">object | object | object | object | object | object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group, reparent_element.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: remove_element, add_group, duplicate_element, rename_element, select_all_of_type, modify_group, reparent_element, edit_collection.</td>
     </tr></tbody>
     </table>
       </div>
@@ -652,7 +657,7 @@
         </div>
       </div>
       <p class="card-title">Export Model</p>
-      <p class="card-desc">Compiles the current project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.</p>
+      <p class="card-desc">Compiles the MCP working project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -760,7 +765,7 @@
         </div>
       </div>
       <p class="card-title">Import Bedrock Geometry</p>
-      <p class="card-desc">Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the active project. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.</p>
+      <p class="card-desc">Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the MCP working project without changing the foreground tab. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1041,7 +1046,7 @@
         </div>
       </div>
       <p class="card-title">Inspect Projects</p>
-      <p class="card-desc">Lists open Blockbench projects or returns detailed information for the active project through a read-only command.action.</p>
+      <p class="card-desc">Lists open tabs with separate foreground/MCP-working markers or returns details for the MCP working project.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1070,7 +1075,7 @@
         </div>
       </div>
       <p class="card-title">Edit Projects</p>
-      <p class="card-desc">Creates, selects, configures, closes, opens, or duplicates Blockbench projects through one explicit command.action.</p>
+      <p class="card-desc">Creates, binds, configures, closes, opens, duplicates, or explicitly shows projects. Bind with set_working_project for background work; show_project changes the user's visible tab.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1083,9 +1088,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object | object | object | object | object</td>
+      <td class="col-type">object | object | object | object | object | object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: create_project, select_project, set_project_texture_resolution, close_project, open_bbmodel, duplicate_project.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: create_project, set_working_project, show_project, set_project_read_only, set_project_texture_resolution, close_projects_without_saving, open_bbmodel, duplicate_project.</td>
     </tr></tbody>
     </table>
       </div>
@@ -1274,8 +1279,8 @@
       </div>
     </div>
         </section>
-<section id="cat-ysm-workspace" class="category-section">
-          <h3 class="category-title">YSM Workspace</h3>
+<section id="cat-ysm-workspace-optional" class="category-section">
+          <h3 class="category-title">YSM Workspace (optional)</h3>
           <div id="tool-edit_ysm_workspace" class="card tool-card">
       <div class="card-header">
         <h3 class="card-name">edit_ysm_workspace</h3>
@@ -1285,7 +1290,7 @@
         </div>
       </div>
       <p class="card-title">Edit YSM Workspace</p>
-      <p class="card-desc">Configures the YSM workspace and binds, saves, or unbinds projects through one command.action.</p>
+      <p class="card-desc">Configures the plugin workspace and binds, saves, or unbinds YSM projects through one command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1306,8 +1311,8 @@
       </div>
     </div>
         </section>
-<section id="cat-ysm-workflow" class="category-section">
-          <h3 class="category-title">YSM Workflow</h3>
+<section id="cat-ysm-workflow-optional" class="category-section">
+          <h3 class="category-title">YSM Workflow (optional)</h3>
           <div id="tool-inspect_ysm" class="card tool-card">
       <div class="card-header">
         <h3 class="card-name">inspect_ysm</h3>
@@ -1317,7 +1322,7 @@
         </div>
       </div>
       <p class="card-title">Inspect YSM</p>
-      <p class="card-desc">Reports YSM workspace/binding state or the protected three-tab workflow through one read-only command.action.</p>
+      <p class="card-desc">Reports plugin workspace bindings or the protected YSM three-tab workflow through one read-only command.action.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1630,7 +1635,7 @@
       </section>
 
       <footer class="page-footer">
-        Generated 2026-08-24T02:21:16.328Z from Zod schemas
+        Generated 2026-08-24T10:34:24.715Z from Zod schemas
       </footer>
     </main>
   </div>

@@ -203,6 +203,23 @@ export const reparentElementParameters = z.object({
     .describe("Keep the node and its descendants in the same rendered world-space pose."),
 });
 
+export const listCollectionsParameters = z.object({
+  include_members: z.boolean().optional().default(true),
+});
+
+export const editCollectionParameters = z.object({
+  operation: z.enum(["create", "update", "remove"]),
+  collection: z
+    .string()
+    .optional()
+    .describe("Collection UUID or unique name. Required for update and remove."),
+  name: z.string().min(1).optional(),
+  members: z
+    .array(elementIdSchema)
+    .optional()
+    .describe("Replacement member UUIDs or unique names. An empty array clears membership."),
+});
+
 export const elementToolDocs: ToolSpec[] = [
   {
     name: "remove_element",
@@ -314,6 +331,22 @@ export const elementToolDocs: ToolSpec[] = [
     parameters: reparentElementParameters,
     status: STATUS_STABLE,
   },
+  {
+    name: "list_collections",
+    description:
+      "Lists Blockbench Collections, which organize elements independently from the Outliner and bone hierarchy.",
+    annotations: { title: "List Collections", readOnlyHint: true },
+    parameters: listCollectionsParameters,
+    status: STATUS_STABLE,
+  },
+  {
+    name: "edit_collection",
+    description:
+      "Creates, renames, replaces the members of, or removes one editor-only Collection without changing Outliner parents or bones.",
+    annotations: { title: "Edit Collection", destructiveHint: true },
+    parameters: editCollectionParameters,
+    status: STATUS_STABLE,
+  },
 ];
 
 const elementReadOperations = [
@@ -321,6 +354,7 @@ const elementReadOperations = [
   elementToolDocs[5],
   elementToolDocs[7],
   elementToolDocs[8],
+  elementToolDocs[11],
 ];
 const elementEditOperations = [
   elementToolDocs[0],
@@ -330,13 +364,14 @@ const elementEditOperations = [
   elementToolDocs[6],
   elementToolDocs[9],
   elementToolDocs[10],
+  elementToolDocs[12],
 ];
 
 export const elementPublicToolDocs: ToolSpec[] = [
   {
     name: "inspect_elements",
     description:
-      "Lists the Outliner, searches elements, reports selection, or finds texture users through one read-only command.action.",
+      "Lists the Outliner or Collections, searches elements, reports selection, or finds texture users through one read-only command.action.",
     annotations: { title: "Inspect Elements", readOnlyHint: true },
     parameters: createToolGroupParameters(elementReadOperations),
     status: STATUS_STABLE,
@@ -344,7 +379,7 @@ export const elementPublicToolDocs: ToolSpec[] = [
   {
     name: "edit_elements",
     description:
-      "Creates groups, duplicates, renames, transforms, reparents, selects, or removes Outliner elements through one explicit command.action.",
+      "Edits Outliner elements or editor-only Collections through one explicit command.action.",
     annotations: { title: "Edit Elements", destructiveHint: true },
     parameters: createToolGroupParameters(elementEditOperations),
     status: STATUS_STABLE,
@@ -385,6 +420,41 @@ function isDescendantOf(el: { parent?: unknown }, targetGroup: Group): boolean {
     current = current.parent as { parent?: unknown };
   }
   return false;
+}
+
+function findCollectionOrThrow(reference: string): Collection {
+  const byUuid = Collection.all.find((collection) => collection.uuid === reference);
+  if (byUuid) return byUuid;
+  const byName = Collection.all.filter((collection) => collection.name === reference);
+  if (byName.length === 1) return byName[0];
+  if (byName.length > 1) {
+    throw new Error(
+      `Collection name "${reference}" is ambiguous. Use an exact UUID from list_collections.`
+    );
+  }
+  throw new Error(`Collection "${reference}" not found. Use list_collections first.`);
+}
+
+function collectionMembers(references: string[]): OutlinerNode[] {
+  return Array.from(new Set(references.map((reference) => findElementOrThrow(reference))));
+}
+
+function describeCollection(collection: Collection, includeMembers = true) {
+  const members = collection.getChildren();
+  return {
+    uuid: collection.uuid,
+    name: collection.name,
+    member_count: members.length,
+    ...(includeMembers
+      ? {
+          members: members.map((member) => ({
+            uuid: member.uuid,
+            name: member.name,
+            type: getElementType(member) ?? member.type,
+          })),
+        }
+      : {}),
+  };
 }
 
 function cubeSize(cube: Cube): [number, number, number] {
@@ -889,37 +959,20 @@ export function registerElementTools() {
         collections: [],
       };
       Undo.initEdit(undoAspects);
-      try {
-        if (position) {
-          const offset: [number, number, number] = [
-            position[0] - element.origin[0],
-            position[1] - element.origin[1],
-            position[2] - element.origin[2],
-          ];
-          translateOutlinerSubtree(element, offset);
-        } else if (origin) {
-          element.extend({ origin: origin as [number, number, number] });
-        }
-        if (rotation) {
-          element.extend({ rotation: rotation as [number, number, number] });
-        }
-        element.preview_controller?.updateAll(element);
-
-        const expectedOrigin = position ?? origin;
-        if (expectedOrigin && !vectorsNearlyEqual(element.origin, expectedOrigin)) {
-          throw new Error(
-            `Group origin readback mismatch: expected [${expectedOrigin}], got [${element.origin}].`
-          );
-        }
-        if (rotation && !vectorsNearlyEqual(element.rotation, rotation)) {
-          throw new Error(
-            `Group rotation readback mismatch: expected [${rotation}], got [${element.rotation}].`
-          );
-        }
-      } catch (error) {
-        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
-        throw error;
+      if (position) {
+        const offset: [number, number, number] = [
+          position[0] - element.origin[0],
+          position[1] - element.origin[1],
+          position[2] - element.origin[2],
+        ];
+        translateOutlinerSubtree(element, offset);
+      } else if (origin) {
+        element.extend({ origin: origin as [number, number, number] });
       }
+      if (rotation) {
+        element.extend({ rotation: rotation as [number, number, number] });
+      }
+      element.preview_controller?.updateAll(element);
 
       Undo.finishEdit("Agent modified group", undoAspects);
       Canvas.updateAll();
@@ -939,7 +992,6 @@ export function registerElementTools() {
           groups: affected.groups.length,
           elements: affected.elements.length,
         },
-        verified: true,
       }, null, 2);
     },
   }, elementToolDocs[9].status);
@@ -958,7 +1010,7 @@ export function registerElementTools() {
       const target = resolveOutlinerParentOrThrow(parent, childType);
       if (
         target !== "root" &&
-        (target === element || target.isChildOf?.(element))
+        (target === element || target.isChildOf(element, Number.POSITIVE_INFINITY))
       ) {
         throw new Error("An element cannot be parented to itself or one of its descendants.");
       }
@@ -985,10 +1037,13 @@ export function registerElementTools() {
         element.preview_controller?.updateGeometry?.(element);
 
         if (preserve_world_transform) {
+          const Three = (globalThis as typeof globalThis & {
+            THREE: typeof import("three");
+          }).THREE;
           const newSceneParent = sceneObject.parent;
           if (!newSceneParent) throw new Error("The new parent has no scene transform.");
           newSceneParent.updateMatrixWorld(true);
-          const parentChange = new THREE.Matrix4()
+          const parentChange = new Three.Matrix4()
             .copy(newSceneParent.matrixWorld)
             .invert();
           if (oldParent instanceof OutlinerNode) {
@@ -996,9 +1051,9 @@ export function registerElementTools() {
             parentChange.multiply(oldParent.scene_object.matrixWorld);
           }
           const nextLocal = oldLocal.clone().premultiply(parentChange);
-          const position = new THREE.Vector3();
-          const quaternion = new THREE.Quaternion();
-          const scale = new THREE.Vector3();
+          const position = new Three.Vector3();
+          const quaternion = new Three.Quaternion();
+          const scale = new Three.Vector3();
           nextLocal.decompose(position, quaternion, scale);
           if (!vectorsNearlyEqual(scale.toArray(), [1, 1, 1], 1e-5)) {
             throw new Error(
@@ -1013,7 +1068,7 @@ export function registerElementTools() {
             element.parent.getTypeBehavior?.("use_absolute_position")
           );
           if (absolutePosition && element.parent instanceof Group) {
-            position.add(new THREE.Vector3(...element.parent.origin));
+            position.add(new Three.Vector3(...element.parent.origin));
           }
           const nextPosition = position.toArray() as [number, number, number];
 
@@ -1051,14 +1106,15 @@ export function registerElementTools() {
           }
 
           if (element.getTypeBehavior?.("rotatable")) {
-            const euler = new THREE.Euler().setFromQuaternion(
+            const euler = new Three.Euler().setFromQuaternion(
               quaternion,
               sceneObject.rotation.order
             );
-            element.rotation.V3_set([
-              THREE.MathUtils.radToDeg(euler.x),
-              THREE.MathUtils.radToDeg(euler.y),
-              THREE.MathUtils.radToDeg(euler.z),
+            const rotatable = element as typeof element & { rotation: number[] };
+            rotatable.rotation.V3_set([
+              Three.MathUtils.radToDeg(euler.x),
+              Three.MathUtils.radToDeg(euler.y),
+              Three.MathUtils.radToDeg(euler.z),
             ]);
           }
           element.preview_controller?.updateAll?.(element);
@@ -1089,6 +1145,65 @@ export function registerElementTools() {
       }, null, 2);
     },
   }, elementToolDocs[10].status);
+
+  createInternalTool(elementToolDocs[11].name, {
+    ...elementToolDocs[11],
+    async execute({ include_members }) {
+      return JSON.stringify(
+        {
+          count: Collection.all.length,
+          collections: Collection.all.map((collection) =>
+            describeCollection(collection, include_members)
+          ),
+        },
+        null,
+        2
+      );
+    },
+  }, elementToolDocs[11].status);
+
+  createInternalTool(elementToolDocs[12].name, {
+    ...elementToolDocs[12],
+    async execute({ operation, collection: reference, name, members }) {
+      if (operation === "create") {
+        if (!name) throw new Error("Creating a Collection requires name.");
+        const resolvedMembers = collectionMembers(members ?? []);
+        Undo.initEdit({ collections: [] });
+        const collection = new Collection({
+          name,
+          children: resolvedMembers.map((member) => member.uuid),
+        }).add();
+        Undo.finishEdit("Agent created collection", { collections: [collection] });
+        return JSON.stringify(describeCollection(collection), null, 2);
+      }
+
+      if (!reference) {
+        throw new Error(`${operation} requires a Collection UUID or unique name.`);
+      }
+      const collection = findCollectionOrThrow(reference);
+      if (operation === "remove") {
+        Undo.initEdit({ collections: [collection] });
+        Collection.all.splice(Collection.all.indexOf(collection), 1);
+        Undo.finishEdit("Agent removed collection");
+        return JSON.stringify({
+          removed: { uuid: collection.uuid, name: collection.name },
+        }, null, 2);
+      }
+
+      Undo.initEdit({ collections: [collection] });
+      if (name !== undefined) collection.name = name;
+      if (members !== undefined) {
+        collection.children.splice(
+          0,
+          collection.children.length,
+          ...collectionMembers(members).map((member) => member.uuid)
+        );
+      }
+      (collection as Collection & { saved: boolean }).saved = false;
+      Undo.finishEdit("Agent edited collection", { collections: [collection] });
+      return JSON.stringify(describeCollection(collection), null, 2);
+    },
+  }, elementToolDocs[12].status);
 
   createToolGroup(elementPublicToolDocs[0], elementReadOperations);
   createToolGroup(elementPublicToolDocs[1], elementEditOperations);
