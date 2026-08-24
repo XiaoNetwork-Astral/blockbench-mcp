@@ -21,7 +21,7 @@ export const importToolDocs: ToolSpec[] = [
   {
     name: "import_bedrock_geometry",
     description:
-      "Imports existing Bedrock geometry from serialized JSON. Accepts inline JSON, JSON data URLs, and local files only; this is not geographic GeoJSON and remote HTTP(S) fetching is disabled. For new models, use edit_elements actions add_group/modify_group and create_cube instead of this import shortcut.",
+      "Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the active project. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.",
     annotations: {
       title: "Import Bedrock Geometry",
       destructiveHint: true,
@@ -30,6 +30,50 @@ export const importToolDocs: ToolSpec[] = [
     status: STATUS_STABLE,
   },
 ];
+
+interface BedrockGeometryCodec {
+  load?: (
+    model: unknown,
+    file: { path: string; no_file: boolean },
+    args?: Record<string, unknown>
+  ) => void;
+  parse?: (
+    model: unknown,
+    path: string,
+    args?: Record<string, unknown>
+  ) => void;
+}
+
+/**
+ * Blockbench represents its start screen with Project === 0. Codec.parse()
+ * assumes a real project already exists, while Codec.load() creates one first.
+ */
+export function loadBedrockGeometryDocument(
+  codec: BedrockGeometryCodec,
+  document: unknown,
+  path: string,
+  activeProject: unknown
+): "created_project" | "current_project" {
+  if (typeof codec.parse !== "function") {
+    throw new Error(
+      "The Bedrock geometry codec is unavailable in the current Blockbench session."
+    );
+  }
+  const hasActiveProject =
+    activeProject !== null &&
+    typeof activeProject === "object";
+  if (!hasActiveProject) {
+    if (typeof codec.load !== "function") {
+      throw new Error(
+        "The Bedrock geometry codec cannot create a project in this Blockbench session."
+      );
+    }
+    codec.load(document, { path, no_file: path.length === 0 }, {});
+    return "created_project";
+  }
+  codec.parse(document, path, {});
+  return "current_project";
+}
 
 function readLocalGeometryJson(path: string): Promise<string> {
   if (!/\.json$/i.test(path)) {
@@ -86,17 +130,41 @@ export function registerImportTools() {
       if (!document || typeof document !== "object") {
         throw new Error("Bedrock geometry JSON must contain an object or array document.");
       }
-      if (!Codecs.bedrock?.parse) {
-        throw new Error("The Bedrock geometry codec is unavailable in the current Blockbench session.");
+      const path = source.kind === "local_file" ? source.path : "";
+      const destination = loadBedrockGeometryDocument(
+        Codecs.bedrock,
+        document,
+        path,
+        Project
+      );
+      const importedProject =
+        Project && typeof Project === "object"
+          ? Project
+          : null;
+      if (!importedProject) {
+        throw new Error("Blockbench did not create or select an imported project.");
       }
 
-      Codecs.bedrock.parse(document, source.kind === "local_file" ? source.path : "");
-
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          captureAppScreenshot().then(resolve).catch(reject);
-        }, 3000);
-      });
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const screenshot = await captureAppScreenshot();
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              destination,
+              project: {
+                name: importedProject.name,
+                uuid: importedProject.uuid,
+                format: importedProject.format?.id ?? Format.id,
+              },
+              source: source.kind,
+              path: path || null,
+            }, null, 2),
+          },
+          ...screenshot.content,
+        ],
+      };
     },
   }, importToolDocs[0].status);
 }
