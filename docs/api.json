@@ -1,6 +1,6 @@
 {
-  "version": "1.7.0-codex.29",
-  "generatedAt": "2026-08-23T12:18:05.377Z",
+  "version": "1.7.0-codex.30",
+  "generatedAt": "2026-08-24T02:21:16.328Z",
   "tools": [
     {
       "name": "create_cube",
@@ -3665,7 +3665,7 @@
     {
       "name": "import_bedrock_geometry",
       "title": "Import Bedrock Geometry",
-      "description": "Imports existing Bedrock geometry from serialized JSON. Accepts inline JSON, JSON data URLs, and local files only; this is not geographic GeoJSON and remote HTTP(S) fetching is disabled. For new models, use edit_elements actions add_group/modify_group and create_cube instead of this import shortcut.",
+      "description": "Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the active project. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.",
       "status": "stable",
       "category": "Import/Export",
       "annotations": {
