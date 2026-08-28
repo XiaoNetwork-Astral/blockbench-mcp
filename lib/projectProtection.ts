@@ -2,6 +2,7 @@ import {
   isProjectProtected,
   subscribeProjectProtection,
 } from "@/lib/projectRoles";
+import { isolateProjectTextures } from "@/lib/textureSafety";
 
 type LockableNode = OutlinerElement | Group;
 type PrototypeMethod = (this: any, ...args: any[]) => any;
@@ -191,6 +192,12 @@ export function refreshProjectProtection(project: ModelProject): void {
   if (!isProjectProtected(project)) {
     restoreLocks(project);
     return;
+  }
+
+  try {
+    isolateProjectTextures(project);
+  } catch (error) {
+    console.error("[MCP] Could not isolate read-only project texture dependencies:", error);
   }
 
   let snapshot = originalLocks.get(project);

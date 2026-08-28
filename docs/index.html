@@ -11,7 +11,7 @@
     <nav class="sidebar">
       <div class="sidebar-brand">
         <h1>Blockbench MCP</h1>
-        <p>v1.7.0-codex.35 — API Reference</p>
+        <p>v1.7.0-blockbench.37 — API Reference</p>
       </div>
 
       <input id="search" type="text" placeholder="Search tools..." class="search-input" />
@@ -51,7 +51,7 @@
     <main class="main">
       <header class="page-header">
         <h1>Blockbench MCP Plugin</h1>
-        <p class="subtitle">API Reference — v1.7.0-codex.35</p>
+        <p class="subtitle">API Reference — v1.7.0-blockbench.37</p>
         <nav class="stats">
           <a href="#tools"><strong>41</strong> tools (31 stable, 10 experimental)</a>
           <a href="#prompts"><strong>5</strong> prompts</a>
@@ -60,10 +60,10 @@
       </header>
 
       <section id="install" class="doc-section">
-        <h2>本地安装与连接</h2>
-<p>运行 <code>bun install</code> 和 <code>bun run build</code>，然后在 Blockbench 中从文件加载 <code>dist/codex_blockbench_mcp.js</code>。文件名不能修改。</p>
-<p>默认 MCP 地址是 <code>http://127.0.0.1:3000/bb-mcp</code>，Bearer 认证默认开启。令牌在 Blockbench 的“Codex Blockbench MCP”设置中查看；客户端发送 <code>Authorization: Bearer &lt;令牌&gt;</code>。</p>
-<p>Codex、VS Code 和其他客户端的配置示例见根目录 <code>llms-install.md</code>。</p>
+        <h2>Local Installation and Connection</h2>
+<p>Run <code>bun install</code> and <code>bun run build</code>, then load <code>dist/blockbench_mcp.js</code> from a file in Blockbench. Do not rename the file.</p>
+<p>The default MCP address is <code>http://127.0.0.1:3000/bb-mcp</code>, and Bearer authentication is enabled by default. View the token in Blockbench's “Blockbench MCP” settings; the client sends <code>Authorization: Bearer &lt;token&gt;</code>.</p>
+<p>See the root <code>llms-install.md</code> for Codex, VS Code, and other client configuration examples.</p>
 
       </section>
 
@@ -653,7 +653,7 @@
         <h3 class="card-name">export_model</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
-          <span class="badge badge-openworld">open-world</span>
+          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
         </div>
       </div>
       <p class="card-title">Export Model</p>
@@ -1635,7 +1635,7 @@
       </section>
 
       <footer class="page-footer">
-        Generated 2026-08-24T10:34:24.715Z from Zod schemas
+        Generated 2026-08-28T02:53:24.770Z from Zod schemas
       </footer>
     </main>
   </div>

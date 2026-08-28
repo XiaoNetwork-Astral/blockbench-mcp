@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import {
   buildAuditTimelineStates,
   buildAuditRawData,
+  hasRecoverableAuditPanelSlack,
   showAuditPanel,
 } from "@/ui/auditPanel";
 import type {
@@ -53,37 +54,39 @@ describe("operations panel presentation", () => {
     const source = readFileSync(new URL("../ui/auditPanel.ts", import.meta.url), "utf8");
     const uiSetup = readFileSync(new URL("../ui/index.ts", import.meta.url), "utf8");
 
-    expect(template).not.toContain("codex-audit-inline-summary");
-    expect(template).not.toContain("codex-audit-error-summary");
+    expect(template).not.toContain("blockbench-audit-inline-summary");
+    expect(template).not.toContain("blockbench-audit-error-summary");
     expect(template).not.toContain("item.errorSummary");
     expect(template).not.toContain("mcp.audit.saved_locally");
     expect(template).not.toContain("filters.source");
     expect(template).not.toContain("filters.status");
-    expect(template).toContain("codex-audit-filter-select");
-    expect(template).toContain("codex-audit-entry-actions");
+    expect(template).toContain("blockbench-audit-filter-select");
+    expect(template).toContain("blockbench-audit-entry-actions");
     expect(template).toContain('v-else-if="items.length === 0"');
     expect(template).toContain("inbox");
     expect(template).toContain("mcp.audit.show_raw_data");
-    expect(template).toContain("codex-audit-page-controls");
-    expect(template).toContain("codex-audit-page-size");
+    expect(template).toContain("blockbench-audit-page-controls");
+    expect(template).toContain("blockbench-audit-page-size");
     expect(template.indexOf("mcp.audit.restore_before")).toBeLessThan(template.indexOf("mcp.audit.restore_after"));
     expect(template.indexOf("mcp.audit.restore_after")).toBeLessThan(template.indexOf("mcp.audit.show_raw_data"));
     expect(template.match(/:disabled="!canRestore\(item\)"/g)).toHaveLength(2);
-    expect(styles).toContain("#panel_codex_mcp_audit_panel");
+    expect(styles).toContain("#panel_blockbench_mcp_audit_panel");
     expect(styles).toContain("justify-content: center !important");
     expect(styles).toContain("grid-template-columns: 32px minmax(56px, auto) 32px");
     expect(styles).toContain("grid-template-columns: 42px minmax(0, 1fr)");
-    expect(styles).toContain(".codex-audit-filter-select:has(select:open) > i");
+    expect(styles).toContain(".blockbench-audit-filter-select:has(select:open) > i");
     expect(styles).toContain("color: var(--color-text) !important");
-    expect(styles).toContain('.panel_handle[panel_id="codex_mcp_audit_panel"] > span');
+    expect(styles).toContain('.panel_handle[panel_id="blockbench_mcp_audit_panel"] > span');
     expect(styles).toContain("white-space: nowrap");
     expect(styles).toContain("display: flex !important");
     expect(styles).toContain("flex: 1 1 0 !important");
     expect(styles).toContain("opacity: 1 !important");
-    expect(source).toContain("growable: false");
+    expect(source).toContain("growable: true");
     expect(source).toContain("resizable: true");
-    expect(source).toContain('panel.on("moved_to", scheduleAuditPanelLayout)');
-    expect(source).toContain("fixed_height: true");
+    expect(source).toContain('panel.on("moved_to", handleAuditPanelMoved)');
+    expect(source).toContain("new ResizeObserver(scheduleAuditPanelLayout)");
+    expect(source).toContain("new MutationObserver");
+    expect(source).toContain("fixed_height: false");
     expect(source).not.toContain("storagePersistent");
     expect(translations).not.toContain("No live native Undo state");
     expect(translations).not.toContain("Sanitized result");
@@ -96,13 +99,19 @@ describe("operations panel presentation", () => {
     expect(translations).toContain('"mcp.audit.restore_before": "Undo to here"');
     expect(translations).toContain('"mcp.audit.restore_after": "Redo to here"');
     expect(template).toContain("'timeline-' + timelineState(item)");
-    expect(styles).toContain(".codex-audit-entry.timeline-undone .codex-audit-status-dot");
-    expect(styles).toContain(".codex-audit-entry.timeline-current .codex-audit-status-dot");
-    expect(styles).toContain(".codex-audit-entry.timeline-applied .codex-audit-status-dot");
+    expect(styles).toContain(".blockbench-audit-entry.timeline-undone .blockbench-audit-status-dot");
+    expect(styles).toContain(".blockbench-audit-entry.timeline-current .blockbench-audit-status-dot");
+    expect(styles).toContain(".blockbench-audit-entry.timeline-applied .blockbench-audit-status-dot");
     expect(styles).toContain("background-color 180ms ease");
     expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
     expect(uiSetup).not.toContain("mcp_panel");
     expect(uiSetup).not.toContain("new Panel");
+  });
+
+  test("releases a constrained docked height only when sidebar space is unused", () => {
+    expect(hasRecoverableAuditPanelSlack(900, [260, 180], true)).toBe(true);
+    expect(hasRecoverableAuditPanelSlack(440, [260, 180], true)).toBe(false);
+    expect(hasRecoverableAuditPanelSlack(900, [260, 180], false)).toBe(false);
   });
 
   test("colors non-reversible records as part of the Undo timeline", () => {
@@ -186,7 +195,7 @@ describe("operations panel presentation", () => {
       finishedAt: Date.parse("2026-08-21T10:00:00.025Z"),
       durationMs: 25,
       sessionId: "session",
-      clientName: "codex-mcp-client",
+      clientName: "blockbench-mcp-client",
       readOnly: false,
       projectId: "project",
       projectName: "Model",

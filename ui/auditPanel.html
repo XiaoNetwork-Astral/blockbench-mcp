@@ -1,29 +1,29 @@
-<div class="codex-audit-panel">
-    <div class="codex-audit-toolbar">
-        <div class="codex-audit-search-row">
-            <div class="codex-audit-search-wrap">
+<div class="blockbench-audit-panel">
+    <div class="blockbench-audit-toolbar">
+        <div class="blockbench-audit-search-row">
+            <div class="blockbench-audit-search-wrap">
                 <i class="material-icons">search</i>
-                <input class="codex-audit-search" type="search" v-model="filters.search"
+                <input class="blockbench-audit-search" type="search" v-model="filters.search"
                     :placeholder="tl('mcp.audit.search_placeholder')" @input="onSearchInput">
             </div>
-            <button type="button" class="tool codex-audit-icon-button" :title="tl('mcp.audit.refresh')" @click="loadPage">
+            <button type="button" class="tool blockbench-audit-icon-button" :title="tl('mcp.audit.refresh')" @click="loadPage">
                 <i class="material-icons">refresh</i>
             </button>
-            <button type="button" class="tool codex-audit-icon-button" :title="tl('mcp.audit.clear_title')" @click="clearHistory">
+            <button type="button" class="tool blockbench-audit-icon-button" :title="tl('mcp.audit.clear_title')" @click="clearHistory">
                 <i class="material-icons">delete_sweep</i>
             </button>
-            <button type="button" class="tool codex-audit-icon-button" :title="tl('mcp.audit.settings')" @click="openSettings">
+            <button type="button" class="tool blockbench-audit-icon-button" :title="tl('mcp.audit.settings')" @click="openSettings">
                 <i class="material-icons">settings</i>
             </button>
-            <button type="button" class="tool codex-audit-icon-button" :title="tl('mcp.audit.hide')" @click="hidePanel">
+            <button type="button" class="tool blockbench-audit-icon-button" :title="tl('mcp.audit.hide')" @click="hidePanel">
                 <i class="material-icons">visibility_off</i>
             </button>
         </div>
 
-        <div class="codex-audit-filter-grid">
+        <div class="blockbench-audit-filter-grid">
             <label>
-                <span class="codex-audit-filter-label">{{tl('mcp.audit.model')}}</span>
-                <span class="codex-audit-filter-select">
+                <span class="blockbench-audit-filter-label">{{tl('mcp.audit.model')}}</span>
+                <span class="blockbench-audit-filter-select">
                     <select v-model="projectScope" @change="onFilterChanged">
                         <option value="current">{{currentProjectLabel}}</option>
                         <option value="all">{{tl('mcp.audit.all_models_search')}}</option>
@@ -35,8 +35,8 @@
                 </span>
             </label>
             <label>
-                <span class="codex-audit-filter-label">{{tl('mcp.audit.tool')}}</span>
-                <span class="codex-audit-filter-select">
+                <span class="blockbench-audit-filter-label">{{tl('mcp.audit.tool')}}</span>
+                <span class="blockbench-audit-filter-select">
                     <select v-model="filters.toolName" @change="onFilterChanged">
                         <option value="all">{{tl('mcp.audit.all_tools')}}</option>
                         <option v-for="tool in toolOptions" :key="tool.name" :value="tool.name" :title="tool.title">
@@ -48,33 +48,33 @@
             </label>
         </div>
 
-        <div v-if="viewingAllProjects" class="codex-audit-notice">
+        <div v-if="viewingAllProjects" class="blockbench-audit-notice">
             <i class="material-icons">info</i>
             <span>{{tl('mcp.audit.all_models_readonly')}}</span>
         </div>
     </div>
 
-    <div class="codex-audit-list" :aria-busy="loading ? 'true' : 'false'">
-        <div v-if="error" class="codex-audit-empty error">
+    <div class="blockbench-audit-list" :aria-busy="loading ? 'true' : 'false'">
+        <div v-if="error" class="blockbench-audit-empty error">
             <i class="material-icons">error</i>
             <span>{{error}}</span>
         </div>
-        <div v-else-if="loading && items.length === 0" class="codex-audit-empty">
-            <i class="material-icons codex-audit-spin">progress_activity</i>
+        <div v-else-if="loading && items.length === 0" class="blockbench-audit-empty">
+            <i class="material-icons blockbench-audit-spin">progress_activity</i>
             <span>{{tl('mcp.audit.loading')}}</span>
         </div>
-        <div v-else-if="items.length === 0" class="codex-audit-empty">
+        <div v-else-if="items.length === 0" class="blockbench-audit-empty">
             <i class="material-icons">inbox</i>
             <span>{{tl('mcp.audit.no_operations')}}</span>
         </div>
 
-        <article v-for="item in items" :key="item.id" class="codex-audit-entry"
+        <article v-for="item in items" :key="item.id" class="blockbench-audit-entry"
             :class="['status-' + item.status, 'timeline-' + timelineState(item)]">
-            <button type="button" class="codex-audit-entry-summary" @click="toggleDetails(item)">
-                <span class="codex-audit-status-dot" :title="timelineLabel(item)"></span>
-                <span class="codex-audit-entry-main">
-                    <span class="codex-audit-entry-title">{{item.title}}</span>
-                    <span class="codex-audit-entry-subtitle">
+            <button type="button" class="blockbench-audit-entry-summary" @click="toggleDetails(item)">
+                <span class="blockbench-audit-status-dot" :title="timelineLabel(item)"></span>
+                <span class="blockbench-audit-entry-main">
+                    <span class="blockbench-audit-entry-title">{{item.title}}</span>
+                    <span class="blockbench-audit-entry-subtitle">
                         <code>{{item.toolName}}</code>
                         <template v-if="item.projectName">
                             <span aria-hidden="true">·</span>
@@ -82,14 +82,14 @@
                         </template>
                     </span>
                 </span>
-                <span class="codex-audit-time" :title="formatTime(item.startedAt)">
+                <span class="blockbench-audit-time" :title="formatTime(item.startedAt)">
                     {{formatDuration(item.durationMs)}}
                 </span>
-                <i class="material-icons codex-audit-chevron">{{expanded[item.id] ? 'expand_less' : 'expand_more'}}</i>
+                <i class="material-icons blockbench-audit-chevron">{{expanded[item.id] ? 'expand_less' : 'expand_more'}}</i>
             </button>
 
-            <div v-if="expanded[item.id]" class="codex-audit-details">
-                <div class="codex-audit-metadata">
+            <div v-if="expanded[item.id]" class="blockbench-audit-details">
+                <div class="blockbench-audit-metadata">
                     <div>
                         <span>{{tl('mcp.audit.started')}}</span>
                         <strong>{{formatTime(item.startedAt)}}</strong>
@@ -100,7 +100,7 @@
                     </div>
                 </div>
 
-                <div class="codex-audit-entry-actions">
+                <div class="blockbench-audit-entry-actions">
                     <button type="button" class="tool" :disabled="!canRestore(item)"
                         @click.stop="restore(item, 'before')" :title="tl('mcp.audit.restore_before_help')">
                         <i class="material-icons">undo</i>
@@ -113,7 +113,7 @@
                     </button>
                     <button type="button" class="tool" :disabled="rawDataLoading[item.id]"
                         @click.stop="showRawData(item)" :title="tl('mcp.audit.show_raw_data')">
-                        <i class="material-icons" :class="{'codex-audit-spin': rawDataLoading[item.id]}">
+                        <i class="material-icons" :class="{'blockbench-audit-spin': rawDataLoading[item.id]}">
                             {{rawDataLoading[item.id] ? 'progress_activity' : 'data_object'}}
                         </i>
                         <span>{{rawDataLoading[item.id] ? tl('mcp.audit.loading_raw_data') : tl('mcp.audit.show_raw_data')}}</span>
@@ -123,19 +123,19 @@
         </article>
     </div>
 
-    <div class="codex-audit-pagination">
-        <div class="codex-audit-page-controls">
+    <div class="blockbench-audit-pagination">
+        <div class="blockbench-audit-page-controls">
             <button type="button" class="tool" :disabled="!hasPrevious || loading" @click="previousPage"
                 :title="tl('mcp.audit.previous_page')">
                 <i class="material-icons">chevron_left</i>
             </button>
-            <span class="codex-audit-page-label">{{tl('mcp.audit.page', [page + 1])}}</span>
+            <span class="blockbench-audit-page-label">{{tl('mcp.audit.page', [page + 1])}}</span>
             <button type="button" class="tool" :disabled="!hasNext || loading" @click="nextPage"
                 :title="tl('mcp.audit.next_page')">
                 <i class="material-icons">chevron_right</i>
             </button>
         </div>
-        <label class="codex-audit-page-size">
+        <label class="blockbench-audit-page-size">
             <span>{{tl('mcp.audit.per_page')}}</span>
             <select v-model.number="pageSize" @change="onFilterChanged">
                 <option :value="25">25</option>
@@ -143,8 +143,8 @@
                 <option :value="100">100</option>
             </select>
         </label>
-        <span v-if="loading" class="codex-audit-page-loading">
-            <i class="material-icons codex-audit-spin">progress_activity</i>
+        <span v-if="loading" class="blockbench-audit-page-loading">
+            <i class="material-icons blockbench-audit-spin">progress_activity</i>
         </span>
     </div>
 </div>

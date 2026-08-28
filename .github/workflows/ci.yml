@@ -40,9 +40,9 @@ jobs:
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
         with:
-          name: codex-blockbench-mcp
+          name: blockbench-mcp
           path: |
-            dist/codex_blockbench_mcp.js
+            dist/blockbench_mcp.js
             dist/about.md
             dist/icon.svg
           if-no-files-found: error

@@ -13,7 +13,8 @@ import {
   type CubeFaceUV,
 } from "@/lib/toolFixes";
 import { vec3 } from "@/lib/zodObjects";
-import { applyTexturePixelsParameters } from "@/server/tools/codex-texture";
+import { applyTexturePixelsParameters } from "@/server/tools/exact-texture";
+import { createTextureParameters } from "@/server/tools/texture";
 import {
   displayToolDocs,
   hasDisplayTransformChange,
@@ -183,6 +184,24 @@ describe("upstream issue regressions", () => {
     expect(materialUpdates).toBe(1);
   });
 
+  test("texture creation preserves source dimensions unless both overrides are explicit", () => {
+    const natural = (createTextureParameters as any).parse({
+      name: "natural.png",
+      data: "D:\\textures\\natural.png",
+    });
+    expect(natural.width).toBeUndefined();
+    expect(natural.height).toBeUndefined();
+
+    expect((createTextureParameters as any).parse({ name: "blank.png" })).toMatchObject({
+      name: "blank.png",
+    });
+    expect(() => (createTextureParameters as any).parse({
+      name: "broken.png",
+      data: "D:\\textures\\natural.png",
+      width: 80,
+    })).toThrow(/width.*height|height.*width/i);
+  });
+
   test("deterministic shape geometry handles reverse rectangles and centered ellipses", () => {
     expect(getDeterministicShapeGeometry(
       "rectangle_h",
@@ -239,7 +258,7 @@ describe("upstream issue regressions", () => {
       minItems?: number;
       maxItems?: number;
     };
-    const pixelSchema = zodToJsonSchema(applyTexturePixelsParameters, {
+    const pixelSchema = (zodToJsonSchema as any)(applyTexturePixelsParameters, {
       $refStrategy: "root",
     }) as any;
     const rgbaItems = pixelSchema.properties.pixels.items.properties.rgba.items;

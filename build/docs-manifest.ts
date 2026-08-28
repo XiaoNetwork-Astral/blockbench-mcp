@@ -3,7 +3,7 @@ import type { ToolSpec, PromptSpec, ResourceSpec } from "../lib/factories";
 
 // Tool docs imports — each file exports schemas at module level with zero Blockbench deps
 import { cameraPublicToolDocs as cameraToolDocs } from "../server/tools/camera";
-import { codexTextureToolDocs } from "../server/tools/codex-texture";
+import { exactTextureToolDocs } from "../server/tools/exact-texture";
 import { cubeToolDocs } from "../server/tools/cubes";
 import { displayPublicToolDocs as displayToolDocs } from "../server/tools/display";
 import { elementPublicToolDocs as elementToolDocs } from "../server/tools/element";
@@ -41,7 +41,7 @@ export const toolManifest: CategoryGroup[] = [
   { category: "Material Instances", tools: materialInstanceToolDocs },
   { category: "Mesh Editing", tools: meshToolDocs },
   { category: "Paint Tools", tools: paintToolDocs },
-  { category: "Exact Texture Editing", tools: codexTextureToolDocs },
+  { category: "Exact Texture Editing", tools: exactTextureToolDocs },
   { category: "Project", tools: projectToolDocs },
   { category: "Textures", tools: textureToolDocs },
   { category: "Spatial Inspection", tools: spatialToolDocs },

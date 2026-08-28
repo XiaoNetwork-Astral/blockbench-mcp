@@ -1,57 +1,57 @@
-dialog#settings #settingslist > li.codex-mcp-stacked-setting {
+dialog#settings #settingslist > li.blockbench-mcp-stacked-setting {
   align-items: stretch;
 }
 
-dialog#settings #settingslist > li.codex-mcp-stacked-setting > .setting_label {
+dialog#settings #settingslist > li.blockbench-mcp-stacked-setting > .setting_label {
   margin-bottom: 10px;
 }
 
-dialog#settings #settingslist > li.codex-mcp-stacked-setting .setting_description {
+dialog#settings #settingslist > li.blockbench-mcp-stacked-setting .setting_description {
   line-height: 1.35;
 }
 
-dialog#settings .codex-mcp-auth-inline-warning {
+dialog#settings .blockbench-mcp-auth-inline-warning {
   margin-top: 6px;
   color: var(--color-error, #e57373);
   font-size: 0.85em;
   line-height: 1.35;
 }
 
-dialog#settings .codex-mcp-auth-inline-warning[hidden] {
+dialog#settings .blockbench-mcp-auth-inline-warning[hidden] {
   display: none;
 }
 
-dialog#settings #settingslist > li.codex-mcp-number-setting {
+dialog#settings #settingslist > li.blockbench-mcp-number-setting {
   flex-wrap: wrap;
 }
 
-dialog#settings #settingslist > li.codex-mcp-number-setting > .setting_label {
+dialog#settings #settingslist > li.blockbench-mcp-number-setting > .setting_label {
   order: 1;
   width: 100%;
 }
 
-dialog#settings #settingslist > li.codex-mcp-number-setting > .setting_element {
+dialog#settings #settingslist > li.blockbench-mcp-number-setting > .setting_element {
   order: 2;
   width: 180px;
   margin: 0 0 0 5px;
   text-align: left;
 }
 
-dialog#settings #settingslist > li.codex-mcp-number-setting input[type="number"] {
+dialog#settings #settingslist > li.blockbench-mcp-number-setting input[type="number"] {
   height: 36px;
   padding: 8px 10px;
   text-align: left;
 }
 
-dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_plugin_workspace"] > input.dark_bordered,
-dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"] > input.dark_bordered {
+dialog#settings #settingslist > li[data-blockbench-mcp-setting="blockbench_mcp_plugin_workspace"] > input.dark_bordered,
+dialog#settings #settingslist > li[data-blockbench-mcp-setting="blockbench_mcp_auth_token"] > input.dark_bordered {
   flex: 1 1 240px;
   width: auto !important;
   min-width: 0;
 }
 
-dialog#settings .codex-mcp-token-regenerate,
-dialog#settings .codex-mcp-workspace-browse {
+dialog#settings .blockbench-mcp-token-regenerate,
+dialog#settings .blockbench-mcp-workspace-browse {
   display: inline-flex;
   flex: 0 0 34px;
   width: 34px;
@@ -65,11 +65,11 @@ dialog#settings .codex-mcp-workspace-browse {
   cursor: pointer;
 }
 
-dialog#settings .codex-mcp-workspace-browse {
+dialog#settings .blockbench-mcp-workspace-browse {
   margin-right: 4%;
 }
 
-dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"] > .password_toggle {
+dialog#settings #settingslist > li[data-blockbench-mcp-setting="blockbench_mcp_auth_token"] > .password_toggle {
   display: inline-flex;
   flex: 0 0 34px;
   width: 34px;
@@ -83,32 +83,32 @@ dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"
   cursor: pointer;
 }
 
-dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"] > .password_toggle:hover {
+dialog#settings #settingslist > li[data-blockbench-mcp-setting="blockbench_mcp_auth_token"] > .password_toggle:hover {
   color: var(--color-light);
   background-color: var(--color-button);
 }
 
-dialog#settings .codex-mcp-token-regenerate:hover,
-dialog#settings .codex-mcp-token-regenerate:focus-visible,
-dialog#settings .codex-mcp-workspace-browse:hover,
-dialog#settings .codex-mcp-workspace-browse:focus-visible {
+dialog#settings .blockbench-mcp-token-regenerate:hover,
+dialog#settings .blockbench-mcp-token-regenerate:focus-visible,
+dialog#settings .blockbench-mcp-workspace-browse:hover,
+dialog#settings .blockbench-mcp-workspace-browse:focus-visible {
   color: var(--color-light);
   background-color: var(--color-button);
   outline: none;
 }
 
-dialog#settings .codex-mcp-token-regenerate > i,
-dialog#settings .codex-mcp-workspace-browse > i {
+dialog#settings .blockbench-mcp-token-regenerate > i,
+dialog#settings .blockbench-mcp-workspace-browse > i {
   font-size: 20px;
   pointer-events: none;
 }
 
-dialog#settings #settingslist > li[data-codex-mcp-setting="codex_mcp_auth_token"] > .password_toggle > i {
+dialog#settings #settingslist > li[data-blockbench-mcp-setting="blockbench_mcp_auth_token"] > .password_toggle > i {
   font-size: 20px;
   pointer-events: none;
 }
 
-dialog#settings #settingslist > li.codex-mcp-setting-disabled {
+dialog#settings #settingslist > li.blockbench-mcp-setting-disabled {
   opacity: 0.48;
   pointer-events: none;
 }

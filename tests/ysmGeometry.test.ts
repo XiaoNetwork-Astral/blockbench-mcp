@@ -2,6 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { geometryCounts, mergeCompiledGeometry, selectGeometry } from "../lib/ysmGeometry";
 
 describe("YSM geometry merge", () => {
+  test("rejects duplicate geometry identifiers instead of selecting the first entry", () => {
+    const duplicated = {
+      "minecraft:geometry": [
+        { description: { identifier: "geometry.duplicate" }, bones: [] },
+        { description: { identifier: "geometry.duplicate" }, bones: [] },
+      ],
+    };
+    expect(() => selectGeometry(duplicated, "geometry.duplicate")).toThrow(/ambiguous/i);
+  });
+
   test("preserves private fields and visible bounds while accepting live cubes", () => {
     const source = {
       format_version: "1.12.0",

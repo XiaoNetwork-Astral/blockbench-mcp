@@ -100,9 +100,20 @@ export function findAttachmentCollection(
   id: string
 ): HytaleAttachmentCollection | null {
   const collections = getAttachmentCollections();
-  return (
-    collections.find((c) => c.uuid === id || c.name === id) ?? null
-  );
+  const uuidMatches = collections.filter((collection) => collection.uuid === id);
+  if (uuidMatches.length === 1) return uuidMatches[0];
+  if (uuidMatches.length > 1) {
+    throw new Error(`Attachment collection UUID "${id}" is duplicated.`);
+  }
+  const nameMatches = collections.filter((collection) => collection.name === id);
+  if (nameMatches.length === 1) return nameMatches[0];
+  if (nameMatches.length > 1) {
+    throw new Error(
+      `Attachment collection name "${id}" is ambiguous (${nameMatches.length} matches: ` +
+        `${nameMatches.map((collection) => collection.uuid).join(", ")}). Use an exact UUID.`
+    );
+  }
+  return null;
 }
 
 /**
@@ -178,7 +189,7 @@ export function countProjectNodes(): number {
     // and counted as part of the group. Otherwise count separately.
     const parent = cube.parent;
     if (parent instanceof Group) {
-      const siblings = parent.children.filter((c: OutlinerElement) => c instanceof Cube);
+      const siblings = parent.children.filter((candidate) => candidate instanceof Cube);
       if (siblings.length > 1) {
         count += 1;
       }

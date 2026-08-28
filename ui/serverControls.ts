@@ -77,7 +77,7 @@ function showStatus(status: McpServerStatus): void {
   );
   statusDialog?.delete();
   statusDialog = new Dialog({
-    id: "codex_blockbench_mcp_server_status",
+    id: "blockbench_mcp_server_status",
     title: tl("mcp.server_controls.status_title"),
     icon: status.state === "running" ? "check_circle" : "info",
     width: 540,
@@ -101,25 +101,25 @@ function showStatus(status: McpServerStatus): void {
 export function serverControlsSetup(handlers: McpServerControlHandlers): void {
   if (actions.length > 0) return;
 
-  addToolsAction("codex_blockbench_mcp_start_server", {
+  addToolsAction("blockbench_mcp_start_server", {
     name: tl("mcp.server_controls.start"),
     description: tl("mcp.server_controls.start_desc"),
     icon: "play_arrow",
     click: () => runControl(handlers.start),
   });
-  addToolsAction("codex_blockbench_mcp_stop_server", {
+  addToolsAction("blockbench_mcp_stop_server", {
     name: tl("mcp.server_controls.stop"),
     description: tl("mcp.server_controls.stop_desc"),
     icon: "stop",
     click: () => runControl(handlers.stop),
   });
-  addToolsAction("codex_blockbench_mcp_show_server_status", {
+  addToolsAction("blockbench_mcp_show_server_status", {
     name: tl("mcp.server_controls.show_status"),
     description: tl("mcp.server_controls.show_status_desc"),
     icon: "info",
     click: () => showStatus(handlers.getStatus()),
   });
-  addToolsAction("codex_blockbench_mcp_manage_clients", {
+  addToolsAction("blockbench_mcp_manage_clients", {
     name: tl("mcp.server_controls.manage_clients"),
     description: tl("mcp.server_controls.manage_clients_desc"),
     icon: "devices",

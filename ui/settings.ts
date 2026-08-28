@@ -1,5 +1,9 @@
 import { auditManager } from "@/lib/audit";
-import { PLUGIN_ID } from "@/lib/constants";
+import { SETTINGS_CATEGORY_ID } from "@/lib/constants";
+import {
+  LEGACY_PLUGIN_ID,
+  migrateRecordKeys,
+} from "@/lib/brandingMigration";
 import {
   DEFAULT_AUDIT_RETENTION,
   DEFAULT_MCP_BIND_HOST,
@@ -11,9 +15,16 @@ import {
   MAX_MCP_PORT,
   MAX_SESSION_TIMEOUT_MINUTES,
   MAX_SSE_HEARTBEAT_SECONDS,
+  MCP_AUDIT_DEFAULT_SCOPE_SETTING,
+  MCP_AUDIT_PAGE_SIZE_SETTING,
+  MCP_AUDIT_RETENTION_SETTING,
   MCP_AUTH_ENABLED_SETTING,
   MCP_AUTH_TOKEN_SETTING,
   MCP_BIND_HOST_SETTING,
+  MCP_ENDPOINT_SETTING,
+  MCP_PORT_SETTING,
+  MCP_SESSION_TIMEOUT_SETTING,
+  MCP_SSE_HEARTBEAT_SETTING,
   MIN_AUDIT_RETENTION,
   MIN_MCP_PORT,
   PLUGIN_WORKSPACE_SETTING,
@@ -30,15 +41,15 @@ import {
 } from "@/lib/pluginWorkspace";
 import settingsCSS from "@/ui/settings.css";
 
-const CATEGORY_ID = PLUGIN_ID;
-const TOKEN_ACTION_CLASS = "codex-mcp-token-regenerate";
-const WORKSPACE_ACTION_CLASS = "codex-mcp-workspace-browse";
-const AUTH_WARNING_CLASS = "codex-mcp-auth-inline-warning";
-const SETTING_ROW_CLASS = "codex-mcp-setting-row";
-const STACKED_SETTING_ROW_CLASS = "codex-mcp-stacked-setting";
-const NUMBER_SETTING_ROW_CLASS = "codex-mcp-number-setting";
-const DISABLED_SETTING_ROW_CLASS = "codex-mcp-setting-disabled";
-const PLUGIN_SETTING_PREFIX = "codex_mcp_";
+const CATEGORY_ID = SETTINGS_CATEGORY_ID;
+const TOKEN_ACTION_CLASS = "blockbench-mcp-token-regenerate";
+const WORKSPACE_ACTION_CLASS = "blockbench-mcp-workspace-browse";
+const AUTH_WARNING_CLASS = "blockbench-mcp-auth-inline-warning";
+const SETTING_ROW_CLASS = "blockbench-mcp-setting-row";
+const STACKED_SETTING_ROW_CLASS = "blockbench-mcp-stacked-setting";
+const NUMBER_SETTING_ROW_CLASS = "blockbench-mcp-number-setting";
+const DISABLED_SETTING_ROW_CLASS = "blockbench-mcp-setting-disabled";
+const PLUGIN_SETTING_PREFIX = "blockbench_mcp_";
 const settings: Setting[] = [];
 let settingsStyle: Deletable | undefined;
 let settingsObserver: MutationObserver | undefined;
@@ -136,14 +147,21 @@ function ensureSettingsCategory(): void {
   const name = tl("mcp.settings.category_name");
   const sidebar = getSettingsSidebar();
   const existing = Settings.structure[CATEGORY_ID];
+  const legacy = Settings.structure[LEGACY_PLUGIN_ID];
   const category = {
     name,
-    open: existing?.open ?? false,
+    open: existing?.open ?? legacy?.open ?? false,
     // Rebuild from the plugin's current schema. Reusing stale item objects
     // would keep settings that were removed in a newer plugin version.
     items: {},
   };
 
+  if (legacy && LEGACY_PLUGIN_ID !== CATEGORY_ID) {
+    reactiveDelete(Settings.structure, LEGACY_PLUGIN_ID);
+    if (sidebar?.pages[LEGACY_PLUGIN_ID]) {
+      reactiveDelete(sidebar.pages, LEGACY_PLUGIN_ID);
+    }
+  }
   if (sidebar && existing) reactiveDelete(Settings.structure, CATEGORY_ID);
   if (sidebar) reactiveSet(Settings.structure, CATEGORY_ID, category);
   else Settings.structure[CATEGORY_ID] = category;
@@ -195,7 +213,7 @@ function hookSettingsSidebar(sidebar: SettingsSidebar): void {
 
   hookedSidebar = sidebar;
   originalPageSwitch = sidebar.onPageSwitch;
-  sidebar.onPageSwitch = function onCodexSettingsPageSwitch(page: string): unknown {
+  sidebar.onPageSwitch = function onBlockbenchSettingsPageSwitch(page: string): unknown {
     const result = originalPageSwitch?.call(this, page);
     if (page === CATEGORY_ID && result !== false) {
       refreshSettingsCategory();
@@ -279,18 +297,23 @@ function addSetting(id: string, options: SettingOptions): Setting {
  * only this plugin's records from the authoritative persisted copy first.
  */
 function refreshPersistedPluginSettings(): void {
+  const settingsApi = Settings as unknown as {
+    stored?: Record<string, unknown>;
+  };
+  if (!settingsApi.stored) settingsApi.stored = {};
+  migrateRecordKeys(settingsApi.stored);
   if (typeof localStorage === "undefined") return;
 
   try {
     const persisted = JSON.parse(localStorage.getItem("settings") ?? "{}") as unknown;
     if (!persisted || typeof persisted !== "object" || Array.isArray(persisted)) return;
+    const persistedRecords = persisted as Record<string, unknown>;
+    const migrated = migrateRecordKeys(persistedRecords);
+    if (migrated && typeof localStorage.setItem === "function") {
+      localStorage.setItem("settings", JSON.stringify(persistedRecords));
+    }
 
-    const settingsApi = Settings as unknown as {
-      stored?: Record<string, unknown>;
-    };
-    if (!settingsApi.stored) settingsApi.stored = {};
-
-    for (const [id, record] of Object.entries(persisted as Record<string, unknown>)) {
+    for (const [id, record] of Object.entries(persistedRecords)) {
       if (
         id.startsWith(PLUGIN_SETTING_PREFIX) &&
         record &&
@@ -361,8 +384,8 @@ function decorateVisibleSettingRows(): void {
     if (row.classList.contains(STACKED_SETTING_ROW_CLASS) !== isStacked) {
       row.classList.toggle(STACKED_SETTING_ROW_CLASS, isStacked);
     }
-    if (row.dataset.codexMcpSetting !== setting.id) {
-      row.dataset.codexMcpSetting = setting.id;
+    if (row.dataset.blockbenchMcpSetting !== setting.id) {
+      row.dataset.blockbenchMcpSetting = setting.id;
     }
 
     if (setting.type === "text" || setting.type === "password") {
@@ -556,7 +579,7 @@ function settingsUiTeardown(): void {
   if (typeof document !== "undefined") {
     removeInlineSettingExtras();
     document.querySelectorAll<HTMLElement>(`.${SETTING_ROW_CLASS}`).forEach((row) => {
-      const settingId = row.dataset.codexMcpSetting;
+      const settingId = row.dataset.blockbenchMcpSetting;
       const input = row.querySelector<HTMLInputElement>("input.dark_bordered");
       if (settingId && input?.id === `setting_${settingId}`) input.removeAttribute("id");
       if (input) input.disabled = false;
@@ -568,7 +591,7 @@ function settingsUiTeardown(): void {
         NUMBER_SETTING_ROW_CLASS,
         DISABLED_SETTING_ROW_CLASS
       );
-      delete row.dataset.codexMcpSetting;
+      delete row.dataset.blockbenchMcpSetting;
     });
   }
 }
@@ -624,7 +647,7 @@ export function settingsSetup(): void {
     icon: "lan",
     onChange: warnForNonLoopbackHost,
   });
-  addSetting("codex_mcp_port", {
+  addSetting(MCP_PORT_SETTING, {
     name: tl("mcp.settings.port_name"),
     description: tl("mcp.settings.port_desc"),
     type: "number",
@@ -634,7 +657,7 @@ export function settingsSetup(): void {
     step: 1,
     icon: "numbers",
   });
-  addSetting("codex_mcp_endpoint", {
+  addSetting(MCP_ENDPOINT_SETTING, {
     name: tl("mcp.settings.endpoint_name"),
     description: tl("mcp.settings.endpoint_desc"),
     type: "text",
@@ -657,7 +680,7 @@ export function settingsSetup(): void {
     icon: "key",
     onChange: keepEnabledAuthTokenNonEmpty,
   });
-  addSetting("codex_mcp_session_timeout", {
+  addSetting(MCP_SESSION_TIMEOUT_SETTING, {
     name: tl("mcp.settings.session_timeout_name"),
     description: tl("mcp.settings.session_timeout_desc"),
     type: "number",
@@ -667,7 +690,7 @@ export function settingsSetup(): void {
     step: 1,
     icon: "timer",
   });
-  addSetting("codex_mcp_sse_heartbeat", {
+  addSetting(MCP_SSE_HEARTBEAT_SETTING, {
     name: tl("mcp.settings.sse_heartbeat_name"),
     description: tl("mcp.settings.sse_heartbeat_desc"),
     type: "number",
@@ -678,7 +701,7 @@ export function settingsSetup(): void {
     icon: "favorite",
   });
 
-  addSetting("codex_mcp_audit_retention", {
+  addSetting(MCP_AUDIT_RETENTION_SETTING, {
     name: tl("mcp.settings.audit_retention_name"),
     description: tl("mcp.settings.audit_retention_desc", [MAX_AUDIT_RETENTION]),
     type: "number",
@@ -689,7 +712,7 @@ export function settingsSetup(): void {
     icon: "inventory_2",
     onChange: () => auditManager.settingsChanged(),
   });
-  addSetting("codex_mcp_audit_page_size", {
+  addSetting(MCP_AUDIT_PAGE_SIZE_SETTING, {
     name: tl("mcp.settings.audit_page_size_name"),
     description: tl("mcp.settings.audit_page_size_desc"),
     type: "select",
@@ -702,7 +725,7 @@ export function settingsSetup(): void {
     icon: "view_list",
     onChange: () => auditManager.settingsChanged(),
   });
-  addSetting("codex_mcp_audit_default_scope", {
+  addSetting(MCP_AUDIT_DEFAULT_SCOPE_SETTING, {
     name: tl("mcp.settings.audit_scope_name"),
     description: tl("mcp.settings.audit_scope_desc"),
     type: "select",

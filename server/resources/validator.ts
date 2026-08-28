@@ -67,8 +67,7 @@ function extractElementRefs(problem: ValidatorProblem): {
   const cubeMatch = problem.message.match(/cube\s+"([^"]+)"/i);
   if (cubeMatch) {
     const cubeName = cubeMatch[1];
-    const cube = Cube.all.find((c) => c.name === cubeName);
-    if (cube) {
+    for (const cube of Cube.all.filter((candidate) => candidate.name === cubeName)) {
       refs.push({ type: "cube", name: cube.name, uuid: cube.uuid });
     }
   }
@@ -76,10 +75,10 @@ function extractElementRefs(problem: ValidatorProblem): {
   const textureMatch = problem.message.match(/texture\s+"([^"]+)"/i);
   if (textureMatch) {
     const textureName = textureMatch[1];
-    const texture = Texture.all.find(
+    const textures = Texture.all.filter(
       (t) => t.name === textureName || t.folder + "/" + t.name === textureName
     );
-    if (texture) {
+    for (const texture of textures) {
       refs.push({ type: "texture", name: texture.name, uuid: texture.uuid });
     }
   }
@@ -88,8 +87,8 @@ function extractElementRefs(problem: ValidatorProblem): {
   if (animationMatch) {
     const animName = animationMatch[1];
     // @ts-ignore - Animation.all exists at runtime
-    const animation = Animation.all?.find((a: { name: string; uuid: string }) => a.name === animName);
-    if (animation) {
+    const animations = Animation.all?.filter((a: { name: string; uuid: string }) => a.name === animName) ?? [];
+    for (const animation of animations) {
       refs.push({ type: "animation", name: animation.name, uuid: animation.uuid });
     }
   }
@@ -97,8 +96,7 @@ function extractElementRefs(problem: ValidatorProblem): {
   const boneMatch = problem.message.match(/on\s+"([^"]+)"/i);
   if (boneMatch && !animationMatch) {
     const boneName = boneMatch[1];
-    const group = Group.all.find((g) => g.name === boneName);
-    if (group) {
+    for (const group of Group.all.filter((candidate) => candidate.name === boneName)) {
       refs.push({ type: "group", name: group.name, uuid: group.uuid });
     }
   }
@@ -238,7 +236,13 @@ export function registerValidatorResources() {
       }
 
       // Find specific check
-      const check = Validator.checks.find((c) => c.id === id);
+      const checkMatches = Validator.checks.filter((candidate) => candidate.id === id);
+      if (checkMatches.length > 1) {
+        throw new Error(
+          `Validator check ID "${id}" is ambiguous (${checkMatches.length} matches).`
+        );
+      }
+      const check = checkMatches[0];
       if (!check) {
         throw new Error(`Validator check with ID "${id}" not found.`);
       }

@@ -1,4 +1,4 @@
-# Contributing to Codex Blockbench MCP
+# Contributing to Blockbench MCP
 
 The plugin is written in TypeScript and built with Bun. Keep changes focused and verify them at the smallest useful scope.
 
@@ -12,7 +12,7 @@ bun run dev
 bun run build
 ```
 
-`bun run dev:watch` rebuilds on change. For live tests, load `dist/codex_blockbench_mcp.js` from Blockbench's plugin dialog; the filename must not change. MCP Inspector is available through `bun run inspect`.
+`bun run dev:watch` rebuilds on change. For live tests, load `dist/blockbench_mcp.js` from Blockbench's plugin dialog; the filename must not change. MCP Inspector is available through `bun run inspect`.
 
 ## Layout
 

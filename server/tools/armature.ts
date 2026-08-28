@@ -28,8 +28,11 @@ import {
  * Find an armature by UUID or name
  */
 function findArmature(id: string): Armature | undefined {
-  const uuidMatch = Armature.all.find((armature) => armature.uuid === id);
-  if (uuidMatch) return uuidMatch;
+  const uuidMatches = Armature.all.filter((armature) => armature.uuid === id);
+  if (uuidMatches.length === 1) return uuidMatches[0];
+  if (uuidMatches.length > 1) {
+    throw new Error(`Armature UUID "${id}" is duplicated in the current project.`);
+  }
   const nameMatches = Armature.all.filter((armature) => armature.name === id);
   if (nameMatches.length > 1) {
     throw new Error(
@@ -55,8 +58,11 @@ function findArmatureOrThrow(id: string): Armature {
  * Find an armature bone by UUID or name
  */
 function findArmatureBone(id: string): ArmatureBone | undefined {
-  const uuidMatch = ArmatureBone.all.find((bone) => bone.uuid === id);
-  if (uuidMatch) return uuidMatch;
+  const uuidMatches = ArmatureBone.all.filter((bone) => bone.uuid === id);
+  if (uuidMatches.length === 1) return uuidMatches[0];
+  if (uuidMatches.length > 1) {
+    throw new Error(`Armature bone UUID "${id}" is duplicated in the current project.`);
+  }
   const nameMatches = ArmatureBone.all.filter((bone) => bone.name === id);
   if (nameMatches.length > 1) {
     throw new Error(
@@ -82,9 +88,27 @@ function findArmatureBoneOrThrow(id: string): ArmatureBone {
  * Find a mesh by UUID or name
  */
 function findMesh(id: string): Mesh | undefined {
-  return Mesh.all.find(
-    (m) => m.uuid === id || m.name === id || m.uuid.startsWith(id)
-  );
+  const exactUuid = Mesh.all.filter((mesh) => mesh.uuid === id);
+  if (exactUuid.length === 1) return exactUuid[0];
+  if (exactUuid.length > 1) throw new Error(`Mesh UUID "${id}" is duplicated.`);
+
+  const names = Mesh.all.filter((mesh) => mesh.name === id);
+  if (names.length === 1) return names[0];
+  if (names.length > 1) {
+    throw new Error(
+      `Mesh name "${id}" is ambiguous (${names.length} matches: ` +
+        `${names.map((mesh) => mesh.uuid).join(", ")}). Use an exact UUID.`
+    );
+  }
+
+  const prefixes = Mesh.all.filter((mesh) => mesh.uuid.startsWith(id));
+  if (prefixes.length === 1) return prefixes[0];
+  if (prefixes.length > 1) {
+    throw new Error(
+      `Mesh UUID prefix "${id}" is ambiguous (${prefixes.length} matches). Use a full UUID.`
+    );
+  }
+  return undefined;
 }
 
 /**

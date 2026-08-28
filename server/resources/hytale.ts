@@ -2,7 +2,12 @@
 /// <reference types="blockbench-types" />
 
 import { createResource } from "@/lib/factories";
-import { findByResourceId, makeResourceId } from "@/lib/resourceUri";
+import {
+  findByExactUuid,
+  findByResourceId,
+  makeResourceId,
+} from "@/lib/resourceUri";
+import { runInProjectContext } from "@/lib/projectContext";
 import {
   isHytalePluginInstalled,
   isHytaleFormat,
@@ -16,6 +21,16 @@ import {
   isCubeDoubleSided,
   type HytaleCube,
 } from "@/lib/hytale";
+
+function resolveHytaleProject(projectUuid: string): ModelProject {
+  const project = findByExactUuid(ModelProject.all, projectUuid, "Project");
+  if (!runInProjectContext(project, () => isHytaleFormat())) {
+    throw new Error(
+      `Project "${project.name}" (${project.uuid}) is not a Hytale format project.`
+    );
+  }
+  return project;
+}
 
 /**
  * Register Hytale-specific resources.
@@ -35,19 +50,20 @@ export function registerHytaleResources() {
   // ============================================================================
 
   createResource("hytale-format", {
-    uriTemplate: "hytale://format",
+    uriTemplate: "hytale://format/{project}",
     title: "Hytale Format Information",
     description:
-      "Returns comprehensive information about the current Hytale format, including format type, block size, node limits, and feature support.",
+      "Returns Hytale format information for the exact project UUID embedded in the listed URI.",
     async listCallback() {
-      if (!isHytaleFormat()) {
+      const project = Project;
+      if (!project || !isHytaleFormat()) {
         return { resources: [] };
       }
 
       return {
         resources: [
           {
-            uri: "hytale://format",
+            uri: `hytale://format/${project.uuid}`,
             name: `Hytale ${getHytaleFormatType()} format`,
             description: `Block size: ${getHytaleBlockSize()}, FPS: ${getHytaleAnimationFPS()}`,
             mimeType: "application/json",
@@ -55,25 +71,14 @@ export function registerHytaleResources() {
         ],
       };
     },
-    async readCallback(uri) {
-      if (!isHytaleFormat()) {
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              text: JSON.stringify({
-                active: false,
-                message: "No Hytale format project is currently active.",
-              }),
-              mimeType: "application/json",
-            },
-          ],
-        };
-      }
-
-      const formatType = getHytaleFormatType();
-      const blockSize = getHytaleBlockSize();
-      const nodeValidation = validateNodeCount();
+    async readCallback(uri, { project: projectUuid }) {
+      const project = resolveHytaleProject(projectUuid);
+      const details = runInProjectContext(project, () => {
+        const formatType = getHytaleFormatType();
+        const blockSize = getHytaleBlockSize();
+        const nodeValidation = validateNodeCount();
+        return { formatType, blockSize, nodeValidation, animationFPS: getHytaleAnimationFPS() };
+      });
 
       return {
         contents: [
@@ -81,13 +86,14 @@ export function registerHytaleResources() {
             uri: uri.href,
             text: JSON.stringify({
               active: true,
-              formatType,
-              formatId: formatType === "character" ? "hytale_character" : "hytale_prop",
-              blockSize,
-              animationFPS: getHytaleAnimationFPS(),
-              nodeCount: nodeValidation.count,
-              maxNodes: nodeValidation.max,
-              nodeCountValid: nodeValidation.valid,
+              projectUuid: project.uuid,
+              formatType: details.formatType,
+              formatId: details.formatType === "character" ? "hytale_character" : "hytale_prop",
+              blockSize: details.blockSize,
+              animationFPS: details.animationFPS,
+              nodeCount: details.nodeValidation.count,
+              maxNodes: details.nodeValidation.max,
+              nodeCountValid: details.nodeValidation.valid,
               features: {
                 boneRig: true,
                 animationFiles: true,
@@ -113,41 +119,29 @@ export function registerHytaleResources() {
   // ============================================================================
 
   createResource("hytale-attachments", {
-    uriTemplate: "hytale://attachments/{id}",
+    uriTemplate: "hytale://attachments/{project}/{id}",
     title: "Hytale Attachments",
     description:
-      "Returns information about attachment collections in the current Hytale project. Attachments are separate models that can be attached to bones. List URIs use the slugified collection name (e.g. `hytale://attachments/helmet`) when unique, with a `~<uuid-prefix>` suffix on collision. Reads also accept the raw UUID or exact name.",
+      "Returns attachment collections from the exact Hytale project UUID embedded in each listed URI. Object references remain strict and collision-qualified.",
     async listCallback() {
-      if (!isHytaleFormat()) {
+      const project = Project;
+      if (!project || !isHytaleFormat()) {
         return { resources: [] };
       }
 
       const attachments = getAttachmentCollections();
       return {
         resources: attachments.map((a) => ({
-          uri: `hytale://attachments/${makeResourceId(a, attachments)}`,
+          uri: `hytale://attachments/${project.uuid}/${makeResourceId(a, attachments)}`,
           name: a.name,
           description: `Attachment collection${a.texture ? " with texture" : ""}`,
           mimeType: "application/json",
         })),
       };
     },
-    async readCallback(uri, { id }) {
-      if (!isHytaleFormat()) {
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              text: JSON.stringify({
-                error: "No Hytale format project is currently active.",
-              }),
-              mimeType: "application/json",
-            },
-          ],
-        };
-      }
-
-      const attachments = getAttachmentCollections();
+    async readCallback(uri, { project: projectUuid, id }) {
+      const project = resolveHytaleProject(projectUuid);
+      const attachments = runInProjectContext(project, () => getAttachmentCollections());
 
       // If ID provided, find specific attachment
       if (id) {
@@ -201,41 +195,29 @@ export function registerHytaleResources() {
   // ============================================================================
 
   createResource("hytale-pieces", {
-    uriTemplate: "hytale://pieces/{id}",
+    uriTemplate: "hytale://pieces/{project}/{id}",
     title: "Hytale Attachment Pieces",
     description:
-      "Returns information about groups marked as attachment pieces. Attachment pieces connect to like-named bones in the main model. List URIs use the slugified bone name (e.g. `hytale://pieces/hand-right`) when unique, with a `~<uuid-prefix>` suffix on collision. Reads also accept the raw UUID or exact name.",
+      "Returns attachment pieces from the exact Hytale project UUID embedded in each listed URI. Object references remain strict and collision-qualified.",
     async listCallback() {
-      if (!isHytaleFormat()) {
+      const project = Project;
+      if (!project || !isHytaleFormat()) {
         return { resources: [] };
       }
 
       const pieces = getAttachmentPieces();
       return {
         resources: pieces.map((p) => ({
-          uri: `hytale://pieces/${makeResourceId(p, pieces)}`,
+          uri: `hytale://pieces/${project.uuid}/${makeResourceId(p, pieces)}`,
           name: p.name,
           description: "Attachment piece bone",
           mimeType: "application/json",
         })),
       };
     },
-    async readCallback(uri, { id }) {
-      if (!isHytaleFormat()) {
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              text: JSON.stringify({
-                error: "No Hytale format project is currently active.",
-              }),
-              mimeType: "application/json",
-            },
-          ],
-        };
-      }
-
-      const pieces = getAttachmentPieces();
+    async readCallback(uri, { project: projectUuid, id }) {
+      const project = resolveHytaleProject(projectUuid);
+      const pieces = runInProjectContext(project, () => getAttachmentPieces());
 
       // If ID provided, find specific piece
       if (id) {
@@ -288,12 +270,13 @@ export function registerHytaleResources() {
   // ============================================================================
 
   createResource("hytale-cubes", {
-    uriTemplate: "hytale://cubes/{id}",
+    uriTemplate: "hytale://cubes/{project}/{id}",
     title: "Hytale Cubes",
     description:
-      "Returns information about cubes with Hytale-specific properties (shading_mode, double_sided, stretch). List URIs use the slugified cube name (e.g. `hytale://cubes/torso`) when unique, with a `~<uuid-prefix>` suffix on collision. Reads also accept the raw UUID or exact name.",
+      "Returns cubes with Hytale-specific properties from the exact project UUID embedded in each listed URI. Object references remain strict and collision-qualified.",
     async listCallback() {
-      if (!isHytaleFormat()) {
+      const project = Project;
+      if (!project || !isHytaleFormat()) {
         return { resources: [] };
       }
 
@@ -301,30 +284,17 @@ export function registerHytaleResources() {
       const cubes: Cube[] = Cube.all ?? [];
       return {
         resources: cubes.map((c: Cube) => ({
-          uri: `hytale://cubes/${makeResourceId(c, cubes)}`,
+          uri: `hytale://cubes/${project.uuid}/${makeResourceId(c, cubes)}`,
           name: c.name,
           description: `Shading: ${getCubeShadingMode(c)}, Double-sided: ${isCubeDoubleSided(c)}`,
           mimeType: "application/json",
         })),
       };
     },
-    async readCallback(uri, { id }) {
-      if (!isHytaleFormat()) {
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              text: JSON.stringify({
-                error: "No Hytale format project is currently active.",
-              }),
-              mimeType: "application/json",
-            },
-          ],
-        };
-      }
-
+    async readCallback(uri, { project: projectUuid, id }) {
+      const project = resolveHytaleProject(projectUuid);
       // @ts-ignore - Cube is globally available
-      const cubes: Cube[] = Cube.all ?? [];
+      const cubes: Cube[] = runInProjectContext(project, () => Cube.all ?? []);
 
       // If ID provided, find specific cube
       if (id) {

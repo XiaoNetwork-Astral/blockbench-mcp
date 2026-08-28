@@ -6,6 +6,8 @@ import {
   runInProjectContext,
   type McpCameraState,
 } from "@/lib/projectContext";
+import { resolveUniqueReference } from "@/lib/modelSafety";
+import { applySessionPreviewVisibilityToClone } from "@/lib/previewState";
 
 /**
  * Helper function to create properly formatted image content for MCP responses.
@@ -88,30 +90,42 @@ export function fixCircularReferences<
   };
 }
 
-/**
- * Return the routed project's textures without assuming that Blockbench has
- * already synchronized both texture registries. This matters immediately
- * after creating or reopening a texture, when either registry can briefly
- * lag behind the other.
- */
+/** Return only textures owned by the routed project. */
 export function getProjectTextures(): Texture[] {
-  const textures: Texture[] = [];
-  const seen = new Set<Texture>();
-  for (const texture of [...(Project?.textures ?? []), ...(Texture.all ?? [])]) {
-    if (seen.has(texture)) continue;
-    seen.add(texture);
-    textures.push(texture);
-  }
-  return textures;
+  return Project?.textures ? [...Project.textures] : [];
 }
 
 export function getProjectTexture(id: string): Texture | null {
-  const texture = getProjectTextures().find(
-    ({ id: textureId, name, uuid }) =>
-      String(textureId) === id || name === id || uuid === id
-  );
+  const textures = getProjectTextures();
+  const uuidMatches = textures.filter((texture) => texture.uuid === id);
+  if (uuidMatches.length === 1) return uuidMatches[0];
+  if (uuidMatches.length > 1) {
+    throw new Error(
+      `Texture UUID "${id}" is duplicated in the current project. ` +
+        "Stop editing and repair the project before continuing."
+    );
+  }
 
-  return texture || null;
+  if (/^\d+$/.test(id)) {
+    const numericMatches = textures.filter((texture) => String(texture.id) === id);
+    if (numericMatches.length === 1) return numericMatches[0];
+    if (numericMatches.length > 1) {
+      throw new Error(
+        `Texture numeric ID "${id}" is ambiguous (${numericMatches.length} matches: ` +
+          `${numericMatches.map((texture) => texture.uuid).join(", ")}). Use an exact UUID.`
+      );
+    }
+  }
+
+  const nameMatches = textures.filter((texture) => texture.name === id);
+  if (nameMatches.length === 1) return nameMatches[0];
+  if (nameMatches.length > 1) {
+    throw new Error(
+      `Texture name "${id}" is ambiguous (${nameMatches.length} matches: ` +
+        `${nameMatches.map((texture) => texture.uuid).join(", ")}). Use an exact UUID.`
+    );
+  }
+  return null;
 }
 
 /** Reject texture assignments that Blockbench's current format cannot render. */
@@ -234,8 +248,14 @@ export function findGroupOrThrow(name: string): Group {
   const groups = getOutlinerCandidates().filter(
     (candidate): candidate is Group => candidate instanceof Group
   );
-  const uuidMatch = groups.find((group: Group) => group.uuid === name);
-  if (uuidMatch) return uuidMatch;
+  const uuidMatches = groups.filter((group: Group) => group.uuid === name);
+  if (uuidMatches.length === 1) return uuidMatches[0];
+  if (uuidMatches.length > 1) {
+    throw new Error(
+      `Bone/group UUID "${name}" is duplicated in the current project. ` +
+        "Stop editing and repair the project before continuing."
+    );
+  }
   const nameMatches = groups.filter((group: Group) => group.name === name);
   if (nameMatches.length > 1) {
     throw new Error(
@@ -258,8 +278,14 @@ export function findGroupOrThrow(name: string): Group {
  * @throws Error with suggestion to use inspect_elements/list_outline
  */
 export function findMeshOrThrow(id: string): Mesh {
-  const uuidMatch = Mesh.all.find((mesh: Mesh) => mesh.uuid === id);
-  if (uuidMatch) return uuidMatch;
+  const uuidMatches = Mesh.all.filter((mesh: Mesh) => mesh.uuid === id);
+  if (uuidMatches.length === 1) return uuidMatches[0];
+  if (uuidMatches.length > 1) {
+    throw new Error(
+      `Mesh UUID "${id}" is duplicated in the current project. ` +
+        "Stop editing and repair the project before continuing."
+    );
+  }
   const nameMatches = Mesh.all.filter((mesh: Mesh) => mesh.name === id);
   if (nameMatches.length > 1) {
     throw new Error(
@@ -326,22 +352,26 @@ export function findTextureOrThrow(id: string): Texture {
  */
 export function findTextureGroupOrThrow(id: string): TextureGroup {
   // @ts-ignore - TextureGroup is globally available in Blockbench
-  const group = TextureGroup.all.find(
-    (g: TextureGroup) => g.uuid === id || g.name === id
+  return resolveUniqueReference(
+    id,
+    TextureGroup.all,
+    "Material/texture group",
+    'inspect_materials with command.action "list_materials"'
   );
-  if (!group) {
-    throw new Error(
-      `Material/texture group "${id}" not found. Use inspect_materials with command.action "list_materials" to see available materials.`
-    );
-  }
-  return group;
 }
 
 /**
  * Helper to get texture info for a PBR channel
  */
 export function getChannelTextureInfo(textures: Texture[], channel: string) {
-  const tex = textures.find((t: Texture) => t.pbr_channel === channel);
+  const matches = textures.filter((texture: Texture) => texture.pbr_channel === channel);
+  if (matches.length > 1) {
+    throw new Error(
+      `PBR channel "${channel}" is ambiguous (${matches.length} textures: ` +
+        `${matches.map((texture) => texture.uuid).join(", ")}). Repair the material group first.`
+    );
+  }
+  const tex = matches[0];
   return tex
     ? { name: tex.name, uuid: tex.uuid, hasTexture: true }
     : { hasTexture: false };
@@ -487,7 +517,8 @@ function renderProjectOffscreen(
   project: ModelProject,
   state: McpCameraState,
   width: number,
-  height: number
+  height: number,
+  sessionId?: string
 ): string {
   const preview = Screencam.NoAAPreview;
   if (!preview?.renderer) {
@@ -512,7 +543,17 @@ function renderProjectOffscreen(
   camera.updateMatrixWorld(true);
 
   const renderScene = new THREE.Scene();
-  renderScene.add(project.model_3d.clone(true));
+  const modelClone = project.model_3d.clone(true);
+  const sourceNodes: THREE.Object3D[] = [];
+  const clonedNodes: THREE.Object3D[] = [];
+  project.model_3d.traverse((node) => sourceNodes.push(node));
+  modelClone.traverse((node) => clonedNodes.push(node));
+  const sourceToClone = new Map<THREE.Object3D, THREE.Object3D>();
+  for (let index = 0; index < Math.min(sourceNodes.length, clonedNodes.length); index += 1) {
+    sourceToClone.set(sourceNodes[index], clonedNodes[index]);
+  }
+  applySessionPreviewVisibilityToClone(project, sourceToClone, sessionId);
+  renderScene.add(modelClone);
   let lightCount = 0;
   const canvasScene = (Canvas as typeof Canvas & { scene?: THREE.Scene }).scene;
   canvasScene?.traverse((node) => {
@@ -550,7 +591,8 @@ export async function captureScreenshot(
       target,
       cameraStateForProject(target, sessionId),
       width,
-      height
+      height,
+      sessionId
     ),
     "image/png"
   );

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
 import { getAndActivateTexture, imageContent } from "@/lib/util";
+import { editTextureWithUndo } from "@/lib/textureSafety";
 
 const byte = z.number().int().min(0).max(255);
 
@@ -25,7 +26,7 @@ export const applyTexturePixelsParameters = z.object({
     .describe("Exact canvas pixels in top-left-origin texture coordinates."),
 });
 
-export const codexTextureToolDocs: ToolSpec[] = [
+export const exactTextureToolDocs: ToolSpec[] = [
   {
     name: "edit_texture_pixels",
     description:
@@ -41,10 +42,10 @@ export const codexTextureToolDocs: ToolSpec[] = [
 
 type ApplyTexturePixelsArgs = z.infer<typeof applyTexturePixelsParameters>;
 
-export function registerCodexTextureTools() {
-  createTool(codexTextureToolDocs[0].name, {
-    ...codexTextureToolDocs[0],
-    async execute({ texture_id, pixels }: ApplyTexturePixelsArgs) {
+export function registerExactTextureTools() {
+  createTool(exactTextureToolDocs[0].name, {
+    ...exactTextureToolDocs[0],
+    async execute({ texture_id, pixels }: ApplyTexturePixelsArgs, context) {
       const texture = getAndActivateTexture(texture_id);
       const invalid = pixels.find(
         ({ x, y }) => x >= texture.width || y >= texture.height
@@ -56,8 +57,10 @@ export function registerCodexTextureTools() {
         );
       }
 
-      Undo.initEdit({ textures: [texture], selected_texture: true, bitmap: true });
-      texture.edit(
+      editTextureWithUndo(
+        context.project!,
+        texture,
+        "MCP applied exact texture pixels",
         (canvas: HTMLCanvasElement) => {
           const ctx = canvas.getContext("2d", { willReadFrequently: true });
           if (!ctx) throw new Error("Texture canvas has no 2D context.");
@@ -71,9 +74,8 @@ export function registerCodexTextureTools() {
           }
           ctx.putImageData(image, 0, 0);
         },
-        { edit_name: "MCP exact texture pixel edit" }
+        true
       );
-      Undo.finishEdit("MCP applied exact texture pixels");
       texture.saved = false;
       if (Project) Project.saved = false;
       Canvas.updateAll();
@@ -98,5 +100,5 @@ export function registerCodexTextureTools() {
         ],
       };
     },
-  }, codexTextureToolDocs[0].status);
+  }, exactTextureToolDocs[0].status);
 }

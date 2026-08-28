@@ -567,10 +567,17 @@ export function registerProjectTools() {
     ...projectToolDocs[8],
     async execute({ path, name, show }, context) {
       const normalizedPath = normalizeLocalBbmodelPath(path);
-      const existing = ModelProject.all.find((project) =>
+      const existingMatches = ModelProject.all.filter((project) =>
         Boolean(project.save_path && sameLocalPath(project.save_path, normalizedPath)) ||
         Boolean(project.export_path && sameLocalPath(project.export_path, normalizedPath))
       );
+      if (existingMatches.length > 1) {
+        throw new Error(
+          `Local project path "${normalizedPath}" is already owned by multiple open tabs: ` +
+            `${existingMatches.map((project) => project.uuid).join(", ")}. Close the duplicates first.`
+        );
+      }
+      const existing = existingMatches[0];
       if (existing) {
         setSessionWorkingProject(context.sessionId, existing);
         if (show && !existing.selected) existing.select();
@@ -635,7 +642,7 @@ export function registerProjectTools() {
         // loadModelFile chooses a codec from the path extension before it
         // examines the content. This synthetic path is cleared immediately
         // after the new tab is identified.
-        path: `codex-duplicate-${source.uuid}.bbmodel`,
+        path: `blockbench-mcp-duplicate-${source.uuid}.bbmodel`,
         content,
       }, {});
       const duplicate = openedProjectSince(before);

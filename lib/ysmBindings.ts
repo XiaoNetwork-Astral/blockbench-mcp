@@ -1,9 +1,16 @@
-const STORAGE_KEY = "codex_blockbench_mcp.ysm_bindings";
+import {
+  LEGACY_YSM_BINDINGS_STORAGE_KEY,
+  readMigratedStorageItem,
+} from "@/lib/brandingMigration";
+
+const STORAGE_KEY = "blockbench_mcp.ysm_bindings";
 
 export interface YsmBinding {
   geometry: string;
   geometryIdentifier: string | null;
   texture: string | null;
+  /** Exact project-local texture identity; absent only on bindings from pre-.36 builds. */
+  textureUuid?: string | null;
   bbmodel: string | null;
   bbmodelSha256: string | null;
   sourceSha256: string;
@@ -28,7 +35,9 @@ function projectKey(project: ModelProject): string {
 
 function load(): StoredBindings {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readMigratedStorageItem(localStorage, STORAGE_KEY, [
+      LEGACY_YSM_BINDINGS_STORAGE_KEY,
+    ]);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as StoredBindings;
     return parsed && typeof parsed === "object" ? parsed : {};

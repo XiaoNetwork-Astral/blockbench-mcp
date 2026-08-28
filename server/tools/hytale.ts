@@ -29,6 +29,7 @@ import {
 import { findGroupOrThrow, findElementOrThrow } from "@/lib/util";
 import {
   finishCreatedOutlinerEdit,
+  resolveUniqueReference,
   resolveOutlinerParentOrThrow,
   rollbackCreatedOutlinerEdit,
 } from "@/lib/modelSafety";
@@ -40,6 +41,16 @@ import {
   stretchSchema,
   size2dSchema,
 } from "@/lib/zodObjects";
+
+function findHytaleAnimation(reference: string): _Animation {
+  const animations = (Animation as unknown as { all: _Animation[] }).all;
+  return resolveUniqueReference(
+    reference,
+    animations,
+    "Animation",
+    "inspect_animation"
+  );
+}
 
 // ============================================================================
 // Hytale-Specific Enums
@@ -676,15 +687,9 @@ export function registerHytaleTools() {
 
         // Find animation
         // @ts-ignore - Animation is globally available
-        let animation: Animation;
+        let animation: _Animation;
         if (animation_id) {
-          // @ts-ignore - Animation is globally available
-          animation = Animation.all.find(
-            (a: Animation) => a.uuid === animation_id || a.name === animation_id
-          );
-          if (!animation) {
-            throw new Error(`Animation "${animation_id}" not found.`);
-          }
+          animation = findHytaleAnimation(animation_id);
         } else {
           // @ts-ignore - Animation is globally available
           animation = Animation.selected;
@@ -743,15 +748,9 @@ export function registerHytaleTools() {
 
         // Find animation
         // @ts-ignore - Animation is globally available
-        let animation: Animation;
+        let animation: _Animation;
         if (animation_id) {
-          // @ts-ignore - Animation is globally available
-          animation = Animation.all.find(
-            (a: Animation) => a.uuid === animation_id || a.name === animation_id
-          );
-          if (!animation) {
-            throw new Error(`Animation "${animation_id}" not found.`);
-          }
+          animation = findHytaleAnimation(animation_id);
         } else {
           // @ts-ignore - Animation is globally available
           animation = Animation.selected;

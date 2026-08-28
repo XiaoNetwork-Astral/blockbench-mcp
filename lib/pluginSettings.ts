@@ -2,11 +2,18 @@ export const DEFAULT_MCP_PORT = 3000;
 export const MIN_MCP_PORT = 1024;
 export const MAX_MCP_PORT = 65_535;
 export const DEFAULT_MCP_BIND_HOST = "127.0.0.1";
-export const MCP_BIND_HOST_SETTING = "codex_mcp_bind_host";
+export const MCP_BIND_HOST_SETTING = "blockbench_mcp_bind_host";
 export const DEFAULT_MCP_ENDPOINT = "/bb-mcp";
-export const MCP_AUTH_ENABLED_SETTING = "codex_mcp_auth_enabled";
-export const MCP_AUTH_TOKEN_SETTING = "codex_mcp_auth_token";
-export const PLUGIN_WORKSPACE_SETTING = "codex_mcp_plugin_workspace";
+export const MCP_PORT_SETTING = "blockbench_mcp_port";
+export const MCP_ENDPOINT_SETTING = "blockbench_mcp_endpoint";
+export const MCP_AUTH_ENABLED_SETTING = "blockbench_mcp_auth_enabled";
+export const MCP_AUTH_TOKEN_SETTING = "blockbench_mcp_auth_token";
+export const PLUGIN_WORKSPACE_SETTING = "blockbench_mcp_plugin_workspace";
+export const MCP_SESSION_TIMEOUT_SETTING = "blockbench_mcp_session_timeout";
+export const MCP_SSE_HEARTBEAT_SETTING = "blockbench_mcp_sse_heartbeat";
+export const MCP_AUDIT_RETENTION_SETTING = "blockbench_mcp_audit_retention";
+export const MCP_AUDIT_PAGE_SIZE_SETTING = "blockbench_mcp_audit_page_size";
+export const MCP_AUDIT_DEFAULT_SCOPE_SETTING = "blockbench_mcp_audit_default_scope";
 export const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
 export const MAX_SESSION_TIMEOUT_MINUTES = 1_440;
 export const DEFAULT_SSE_HEARTBEAT_SECONDS = 15;
@@ -97,18 +104,18 @@ export function formatMcpHostForUrl(host: string): string {
 }
 
 export function getMcpPort(): number {
-  return numericSetting("codex_mcp_port", DEFAULT_MCP_PORT, MIN_MCP_PORT, MAX_MCP_PORT);
+  return numericSetting(MCP_PORT_SETTING, DEFAULT_MCP_PORT, MIN_MCP_PORT, MAX_MCP_PORT);
 }
 
 export function getMcpEndpoint(): string {
-  const configured = String(Settings.get("codex_mcp_endpoint") || "").trim();
+  const configured = String(Settings.get(MCP_ENDPOINT_SETTING) || "").trim();
   const endpoint = configured.startsWith("/") ? configured : `/${configured}`;
   return /^\/[^\s?#]*$/.test(endpoint) && endpoint !== "/" ? endpoint : DEFAULT_MCP_ENDPOINT;
 }
 
 export function getSessionTimeoutMinutes(): number {
   return numericSetting(
-    "codex_mcp_session_timeout",
+    MCP_SESSION_TIMEOUT_SETTING,
     DEFAULT_SESSION_TIMEOUT_MINUTES,
     1,
     MAX_SESSION_TIMEOUT_MINUTES
@@ -117,7 +124,7 @@ export function getSessionTimeoutMinutes(): number {
 
 export function getSseHeartbeatSeconds(): number {
   return numericSetting(
-    "codex_mcp_sse_heartbeat",
+    MCP_SSE_HEARTBEAT_SETTING,
     DEFAULT_SSE_HEARTBEAT_SECONDS,
     0,
     MAX_SSE_HEARTBEAT_SECONDS
@@ -126,7 +133,7 @@ export function getSseHeartbeatSeconds(): number {
 
 export function getAuditRetention(): number {
   return numericSetting(
-    "codex_mcp_audit_retention",
+    MCP_AUDIT_RETENTION_SETTING,
     DEFAULT_AUDIT_RETENTION,
     MIN_AUDIT_RETENTION,
     MAX_AUDIT_RETENTION
@@ -134,10 +141,10 @@ export function getAuditRetention(): number {
 }
 
 export function getAuditPageSize(): 25 | 50 | 100 {
-  const value = Number(Settings.get("codex_mcp_audit_page_size"));
+  const value = Number(Settings.get(MCP_AUDIT_PAGE_SIZE_SETTING));
   return value === 50 || value === 100 ? value : 25;
 }
 
 export function getAuditDefaultScope(): "current" | "all" {
-  return Settings.get("codex_mcp_audit_default_scope") === "all" ? "all" : "current";
+  return Settings.get(MCP_AUDIT_DEFAULT_SCOPE_SETTING) === "all" ? "all" : "current";
 }

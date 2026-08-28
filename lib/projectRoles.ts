@@ -1,3 +1,8 @@
+import {
+  LEGACY_PROJECT_ROLES_STORAGE_KEY,
+  readMigratedStorageItem,
+} from "@/lib/brandingMigration";
+
 export const PROJECT_ROLES = [
   "unassigned",
   "legacy_reference",
@@ -7,7 +12,7 @@ export const PROJECT_ROLES = [
 
 export type ProjectRole = (typeof PROJECT_ROLES)[number];
 
-const STORAGE_KEY = "codex_blockbench_mcp.project_roles";
+const STORAGE_KEY = "blockbench_mcp.project_roles";
 const protectedRoles = new Set<ProjectRole>(["legacy_reference", "new_baseline"]);
 const protectionListeners = new Set<(project: ModelProject) => void>();
 const viewOnlyMutationTools = new Set([
@@ -49,7 +54,9 @@ function loadStoredRoles(): StoredProjectRoles {
   cachedStorage = storage;
   if (!storage) return cachedRoles = {};
   try {
-    const raw = storage.getItem(STORAGE_KEY);
+    const raw = readMigratedStorageItem(storage, STORAGE_KEY, [
+      LEGACY_PROJECT_ROLES_STORAGE_KEY,
+    ]);
     if (!raw) return cachedRoles = {};
     const parsed = JSON.parse(raw) as StoredProjectRoles;
     cachedRoles = parsed && typeof parsed === "object" ? parsed : {};

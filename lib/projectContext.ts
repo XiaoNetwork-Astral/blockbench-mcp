@@ -1,5 +1,10 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
+import {
+  clearAllPreviewVisibilityStates,
+  clearSessionPreviewVisibilityState,
+  forgetProjectPreviewVisibilityState,
+} from "@/lib/previewState";
 
 export interface McpCameraState {
   position: [number, number, number];
@@ -36,8 +41,14 @@ function runtimeProject(): ModelProject | null {
 /** Resolve an open tab by UUID, exact name, or exact save path. */
 export function resolveOpenProject(reference: string): ModelProject {
   const projects = runtimeProjects();
-  const byUuid = projects.find((project) => project.uuid === reference);
-  if (byUuid) return byUuid;
+  const uuidMatches = projects.filter((project) => project.uuid === reference);
+  if (uuidMatches.length === 1) return uuidMatches[0];
+  if (uuidMatches.length > 1) {
+    throw new Error(
+      `Project UUID "${reference}" is duplicated across ${uuidMatches.length} open tabs. ` +
+        "Close the duplicate/corrupt tabs before continuing."
+    );
+  }
 
   const matches = projects.filter(
     (project) => project.name === reference || project.save_path === reference
@@ -76,7 +87,11 @@ export function getSessionWorkingProjectId(sessionId?: string): string | null {
 export function peekSessionWorkingProject(sessionId?: string): ModelProject | null {
   const id = getSessionWorkingProjectId(sessionId);
   if (!id) return null;
-  return runtimeProjects().find((project) => project.uuid === id) ?? null;
+  const matches = runtimeProjects().filter((project) => project.uuid === id);
+  if (matches.length > 1) {
+    throw new Error(`The MCP working project UUID "${id}" is duplicated across open tabs.`);
+  }
+  return matches[0] ?? null;
 }
 
 /** Resolve the project explicitly owned by one MCP session. */
@@ -84,7 +99,14 @@ export function requireSessionWorkingProject(sessionId?: string): ModelProject {
   const key = sessionKey(sessionId);
   const boundId = workingProjectIds.get(key);
   if (boundId) {
-    const bound = runtimeProjects().find((project) => project.uuid === boundId);
+    const matches = runtimeProjects().filter((project) => project.uuid === boundId);
+    if (matches.length > 1) {
+      throw new Error(
+        `The MCP working project UUID "${boundId}" is duplicated across open tabs. ` +
+          "Close the duplicate/corrupt tabs before continuing."
+      );
+    }
+    const bound = matches[0];
     if (bound) return bound;
     throw new Error(
       `The MCP working project (${boundId}) is no longer open. Use edit_projects with ` +
@@ -103,11 +125,13 @@ export function clearSessionProjectState(sessionId?: string): void {
   const key = sessionKey(sessionId);
   workingProjectIds.delete(key);
   cameraStates.delete(key);
+  clearSessionPreviewVisibilityState(sessionId);
 }
 
 export function clearAllProjectSessionState(): void {
   workingProjectIds.clear();
   cameraStates.clear();
+  clearAllPreviewVisibilityStates();
 }
 
 export function forgetProjectState(projectId: string): void {
@@ -117,6 +141,7 @@ export function forgetProjectState(projectId: string): void {
   for (const perProject of cameraStates.values()) {
     perProject.delete(projectId);
   }
+  forgetProjectPreviewVisibilityState(projectId);
 }
 
 export function setSessionCameraState(

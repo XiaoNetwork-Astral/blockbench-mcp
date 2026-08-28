@@ -90,13 +90,13 @@ export function showClientManager(): void {
   clientManagerDialog?.delete();
 
   clientManagerDialog = new Dialog({
-    id: "codex_blockbench_mcp_client_manager",
+    id: "blockbench_mcp_client_manager",
     title: tl("mcp.client_manager.title"),
     icon: "devices",
     width: 780,
     resizable: "y",
     component: {
-      name: "codex_blockbench_mcp_client_manager",
+      name: "blockbench_mcp_client_manager",
       data: () => ({
         clients: [] as ManagedClient[],
         blockedClients: [] as BlockedClient[],

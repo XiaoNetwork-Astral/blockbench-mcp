@@ -13,6 +13,7 @@ import { applyKeyframeValues } from "@/lib/toolFixes";
 import {
   collectOutlinerSubtree,
   finishCreatedOutlinerEdit,
+  resolveUniqueReference,
   resolveOutlinerParentOrThrow,
   rollbackCreatedOutlinerEdit,
 } from "@/lib/modelSafety";
@@ -41,22 +42,71 @@ export function normalizeAnimationName(name: string): string {
     : `animation.${normalized}`;
 }
 
+const KEYFRAME_TIME_EPSILON = 0.001;
+
+export function resolveUniqueKeyframeAtTime<T extends { time: number }>(
+  keyframes: readonly T[] | undefined,
+  time: number,
+  context: string
+): T {
+  const matches = (keyframes ?? []).filter(
+    (keyframe) => Math.abs(keyframe.time - time) < KEYFRAME_TIME_EPSILON
+  );
+  if (matches.length === 0) {
+    throw new Error(`No keyframe exists at ${time} seconds for ${context}.`);
+  }
+  if (matches.length > 1) {
+    throw new Error(
+      `Ambiguous keyframe reference at ${time} seconds for ${context}: ` +
+        `${matches.length} keyframes are within ${KEYFRAME_TIME_EPSILON} seconds.`
+    );
+  }
+  return matches[0];
+}
+
+export function assertKeyframeTimesAvailable(
+  existingKeyframes: readonly { time: number }[] | undefined,
+  requestedTimes: readonly number[],
+  context: string
+): void {
+  requestedTimes.forEach((time, index) => {
+    const duplicateRequest = requestedTimes
+      .slice(0, index)
+      .some((otherTime) => Math.abs(otherTime - time) < KEYFRAME_TIME_EPSILON);
+    if (duplicateRequest) {
+      throw new Error(
+        `Duplicate keyframe time ${time} seconds in the request for ${context}.`
+      );
+    }
+
+    const existingMatches = (existingKeyframes ?? []).filter(
+      (keyframe) => Math.abs(keyframe.time - time) < KEYFRAME_TIME_EPSILON
+    );
+    if (existingMatches.length > 1) {
+      throw new Error(
+        `Ambiguous existing keyframes at ${time} seconds for ${context}: ` +
+          `${existingMatches.length} keyframes are within ${KEYFRAME_TIME_EPSILON} seconds.`
+      );
+    }
+    if (existingMatches.length === 1) {
+      throw new Error(
+        `A keyframe already exists at ${time} seconds for ${context}.`
+      );
+    }
+  });
+}
+
 function findAnimationOrThrow(reference?: string): _Animation {
   if (!reference) {
     if (!Animation.selected) throw new Error("No animation is selected.");
     return Animation.selected;
   }
-  const uuidMatch = Animation.all.find((animation) => animation.uuid === reference);
-  if (uuidMatch) return uuidMatch;
-  const nameMatches = Animation.all.filter((animation) => animation.name === reference);
-  if (nameMatches.length === 1) return nameMatches[0];
-  if (nameMatches.length > 1) {
-    throw new Error(
-      `Animation name "${reference}" is ambiguous. Use one of these UUIDs: ` +
-        nameMatches.map((animation) => animation.uuid).join(", ")
-    );
-  }
-  throw new Error(`Animation "${reference}" was not found. Use inspect_animation first.`);
+  return resolveUniqueReference(
+    reference,
+    Animation.all,
+    "Animation",
+    "inspect_animation"
+  );
 }
 
 function animationSummary(animation: _Animation, includeKeyframes: boolean) {
@@ -633,7 +683,8 @@ createInternalTool(
       };
 
       const normalizedName = normalizeAnimationName(name);
-      const animationsBefore = new Set(Animation.all);
+      const allAnimations = (Animation as unknown as { all: _Animation[] }).all;
+      const animationsBefore = new Set(allAnimations);
       Animator.loadFile({
         content: JSON.stringify({
           format_version: "1.8.0",
@@ -643,8 +694,15 @@ createInternalTool(
         }),
       });
 
-      const created = Animation.all.find((animation) => !animationsBefore.has(animation));
-      if (!created) throw new Error("Blockbench did not add the requested animation.");
+      const createdAnimations = (Animation as unknown as { all: _Animation[] }).all.filter(
+        (animation) => !animationsBefore.has(animation)
+      );
+      if (createdAnimations.length !== 1) {
+        throw new Error(
+          `Blockbench added ${createdAnimations.length} animations for one request; expected exactly one.`
+        );
+      }
+      const created = createdAnimations[0];
       created.select();
       Animator.preview();
 
@@ -671,70 +729,89 @@ createInternalTool(
       // Find the bone
       const group = findGroupOrThrow(bone_name);
 
-      // Get or create animator
+      // Resolve the animator without mutating the animation. Only "create" may
+      // add one, and it does so inside the Undo transaction below.
       let animator = animation.animators[group.uuid];
-      if (!animator) {
-        animator = new BoneAnimator(group.uuid, animation, bone_name);
-        animation.animators[group.uuid] = animator;
+      if (!animator && action !== "create") {
+        throw new Error(`No animator exists for bone ${bone_name}.`);
       }
 
-      Undo.initEdit({
+      const context = `${bone_name}.${channel}`;
+      const requestedTimes = keyframes.map((keyframe) => keyframe.time);
+      if (action === "create") {
+        assertKeyframeTimesAvailable(animator?.[channel], requestedTimes, context);
+      } else {
+        assertKeyframeTimesAvailable(undefined, requestedTimes, context);
+      }
+
+      const resolvedKeyframes =
+        action === "create"
+          ? []
+          : keyframes.map((keyframe) =>
+              resolveUniqueKeyframeAtTime(animator?.[channel], keyframe.time, context)
+            );
+
+      if (action === "select") {
+        Timeline.selected.empty();
+        resolvedKeyframes.forEach((keyframe) => keyframe.select());
+        return `Successfully selected ${resolvedKeyframes.length} keyframes for ${context}`;
+      }
+
+      const undoAspects = {
         animations: [animation],
         keyframes: [],
-      });
+      };
+      Undo.initEdit(undoAspects);
 
-      switch (action) {
-        case "create":
-          keyframes.forEach((kf) => {
-            const keyframe = animator.createKeyframe(
-              {
-                time: kf.time,
+      try {
+        if (!animator) {
+          animator = new BoneAnimator(group.uuid, animation, bone_name);
+          animation.animators[group.uuid] = animator;
+        }
+        const activeAnimator = animator;
+
+        switch (action) {
+          case "create":
+            keyframes.forEach((kf) => {
+              const keyframe = activeAnimator.createKeyframe(
+                {
+                  time: kf.time,
+                  channel,
+                  interpolation: kf.interpolation,
+                },
+                kf.time,
                 channel,
-                interpolation: kf.interpolation,
-              },
-              kf.time,
-              channel,
-              false
-            );
+                false
+              );
 
-            if (kf.values !== undefined) {
-              applyKeyframeValues(keyframe, kf.values);
-            }
+              if (kf.values !== undefined) {
+                applyKeyframeValues(keyframe, kf.values);
+              }
 
-            if (kf.interpolation === "bezier" && kf.bezier_handles) {
-              // @ts-ignore
-              if (kf.bezier_handles.left_time !== undefined)
-                keyframe.bezier_left_time = kf.bezier_handles.left_time;
-              // @ts-ignore
-              if (kf.bezier_handles.left_value)
-                keyframe.bezier_left_value = kf.bezier_handles.left_value;
-              // @ts-ignore
-              if (kf.bezier_handles.right_time !== undefined)
-                keyframe.bezier_right_time = kf.bezier_handles.right_time;
-              // @ts-ignore
-              if (kf.bezier_handles.right_value)
-                keyframe.bezier_right_value = kf.bezier_handles.right_value;
-            }
-          });
-          break;
+              if (kf.interpolation === "bezier" && kf.bezier_handles) {
+                // @ts-ignore
+                if (kf.bezier_handles.left_time !== undefined)
+                  keyframe.bezier_left_time = kf.bezier_handles.left_time;
+                // @ts-ignore
+                if (kf.bezier_handles.left_value)
+                  keyframe.bezier_left_value = kf.bezier_handles.left_value;
+                // @ts-ignore
+                if (kf.bezier_handles.right_time !== undefined)
+                  keyframe.bezier_right_time = kf.bezier_handles.right_time;
+                // @ts-ignore
+                if (kf.bezier_handles.right_value)
+                  keyframe.bezier_right_value = kf.bezier_handles.right_value;
+              }
+            });
+            break;
 
-        case "delete":
-          keyframes.forEach((kf) => {
-            const keyframe = animator[channel]?.find(
-              (k) => Math.abs(k.time - kf.time) < 0.001
-            );
-            if (keyframe) {
-              keyframe.remove();
-            }
-          });
-          break;
+          case "delete":
+            resolvedKeyframes.forEach((keyframe) => keyframe.remove());
+            break;
 
-        case "edit":
-          keyframes.forEach((kf) => {
-            const keyframe = animator[channel]?.find(
-              (k) => Math.abs(k.time - kf.time) < 0.001
-            );
-            if (keyframe) {
+          case "edit":
+            keyframes.forEach((kf, index) => {
+              const keyframe = resolvedKeyframes[index];
               if (kf.values !== undefined) {
                 applyKeyframeValues(keyframe, kf.values);
               }
@@ -755,24 +832,15 @@ createInternalTool(
                 if (kf.bezier_handles.right_value)
                   keyframe.bezier_right_value = kf.bezier_handles.right_value;
               }
-            }
-          });
-          break;
+            });
+            break;
+        }
 
-        case "select":
-          Timeline.selected.empty();
-          keyframes.forEach((kf) => {
-            const keyframe = animator[channel]?.find(
-              (k) => Math.abs(k.time - kf.time) < 0.001
-            );
-            if (keyframe) {
-              keyframe.select();
-            }
-          });
-          break;
+        Undo.finishEdit(`${action} keyframes`);
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        throw error;
       }
-
-      Undo.finishEdit(`${action} keyframes`);
       Animator.preview();
 
       return `Successfully performed ${action} on ${keyframes.length} keyframes for ${bone_name}.${channel}`;
@@ -1341,10 +1409,7 @@ createInternalTool(
           }
 
           const srcAnimation = source.animation
-            ? Animation.all.find(
-                (a) =>
-                  a.uuid === source.animation || a.name === source.animation
-              )
+            ? findAnimationOrThrow(source.animation)
             : Animation.selected;
 
           if (!srcAnimation) {
@@ -1411,10 +1476,7 @@ createInternalTool(
           }
 
           const tgtAnimation = target.animation
-            ? Animation.all.find(
-                (a) =>
-                  a.uuid === target.animation || a.name === target.animation
-              )
+            ? findAnimationOrThrow(target.animation)
             : Animation.selected;
 
           if (!tgtAnimation) {

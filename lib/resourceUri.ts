@@ -36,6 +36,20 @@ export interface INamedItem {
   name?: string | null;
 }
 
+/** Resolve a required UUID without ever falling back to a display name. */
+export function findByExactUuid<T extends INamedItem>(
+  items: readonly T[],
+  uuid: string,
+  kind = "Resource"
+): T {
+  const matches = items.filter((item) => item.uuid === uuid);
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) {
+    throw new Error(`${kind} UUID "${uuid}" is duplicated (${matches.length} matches).`);
+  }
+  throw new Error(`${kind} UUID "${uuid}" was not found.`);
+}
+
 /**
  * Builds a human-readable ID fragment for a resource item.
  *
@@ -51,6 +65,16 @@ export function makeResourceId(
   item: INamedItem,
   siblings: readonly INamedItem[]
 ): string {
+  const duplicateUuidCount = siblings.reduce(
+    (count, sibling) => (sibling.uuid === item.uuid ? count + 1 : count),
+    0
+  );
+  if (duplicateUuidCount !== 1) {
+    throw new Error(
+      `Resource UUID "${item.uuid}" is duplicated (${duplicateUuidCount} matches). ` +
+        "Repair the project before exposing this resource."
+    );
+  }
   const slug = slugify(item.name);
   if (!slug) return item.uuid;
 
@@ -89,25 +113,48 @@ export function findByResourceId<T extends INamedItem>(
 ): T | undefined {
   if (!id) return undefined;
 
-  const directMatch = items.find(
-    (item) => item.uuid === id || item.name === id
-  );
-  if (directMatch) return directMatch;
+  const uuidMatches = items.filter((item) => item.uuid === id);
+  if (uuidMatches.length === 1) return uuidMatches[0];
+  if (uuidMatches.length > 1) {
+    throw new Error(`Resource UUID "${id}" is duplicated (${uuidMatches.length} matches).`);
+  }
+
+  const nameMatches = items.filter((item) => item.name === id);
+  if (nameMatches.length === 1) return nameMatches[0];
+  if (nameMatches.length > 1) {
+    throw new Error(
+      `Resource name "${id}" is ambiguous (${nameMatches.length} matches: ` +
+        `${nameMatches.map((item) => item.uuid).join(", ")}). Use a collision-qualified URI or UUID.`
+    );
+  }
 
   const tildeIndex = id.indexOf("~");
   if (tildeIndex > 0) {
     const slugPart = id.slice(0, tildeIndex).toLowerCase();
     const uuidPart = id.slice(tildeIndex + 1);
-    const match = items.find(
+    const matches = items.filter(
       (item) =>
         slugify(item.name) === slugPart &&
         item.uuid.startsWith(uuidPart)
     );
-    if (match) return match;
+    if (matches.length === 1) return matches[0];
+    if (matches.length > 1) {
+      throw new Error(
+        `Resource ID "${id}" is ambiguous (${matches.length} UUID-prefix matches). Use a full UUID.`
+      );
+    }
   }
 
   const slugLower = id.toLowerCase();
-  return items.find(
+  const slugMatches = items.filter(
     (item) => item.name && slugify(item.name) === slugLower
   );
+  if (slugMatches.length === 1) return slugMatches[0];
+  if (slugMatches.length > 1) {
+    throw new Error(
+      `Resource slug "${id}" is ambiguous (${slugMatches.length} matches: ` +
+        `${slugMatches.map((item) => item.uuid).join(", ")}). Use a collision-qualified URI or UUID.`
+    );
+  }
+  return undefined;
 }

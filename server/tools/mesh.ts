@@ -19,9 +19,9 @@ import {
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import {
   assertFaceTextureAssignmentSupported,
-  getProjectTexture,
   getMeshOrSelected,
   findMeshOrThrow,
+  findTextureOrThrow,
 } from "@/lib/util";
 import {
   finishCreatedOutlinerEdit,
@@ -405,11 +405,8 @@ export function registerMeshTools() {
     async execute({ elements, texture, group }, { reportProgress }) {
       const total = elements.length;
       const projectTexture = texture
-        ? getProjectTexture(texture)
+        ? findTextureOrThrow(texture)
         : Texture.getDefault();
-      if (texture && !projectTexture) {
-        throw new Error(`No texture found for "${texture}".`);
-      }
       if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
       const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
       const meshes: Mesh[] = [];
@@ -488,11 +485,8 @@ export function registerMeshTools() {
     async execute({ elements, texture, group }, { reportProgress }) {
       const total = elements.length;
       const projectTexture = texture
-        ? getProjectTexture(texture)
+        ? findTextureOrThrow(texture)
         : Texture.getDefault();
-      if (texture && !projectTexture) {
-        throw new Error(`No texture found for "${texture}".`);
-      }
       if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
       const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
       const spheres: Mesh[] = [];
@@ -910,9 +904,11 @@ export function registerMeshTools() {
       });
 
       // Create the face
+      const faceTexture = texture ? findTextureOrThrow(texture) : null;
+      if (faceTexture) assertFaceTextureAssignmentSupported(faceTexture);
       const face = new MeshFace(mesh, {
         vertices,
-        texture: texture ? getProjectTexture(texture)?.uuid : undefined,
+        texture: faceTexture?.uuid,
       });
 
       const [faceKey] = mesh.addFaces(face);
@@ -942,11 +938,8 @@ export function registerMeshTools() {
     async execute({ elements, texture, group }, { reportProgress }) {
       const total = elements.length;
       const projectTexture = texture
-        ? getProjectTexture(texture)
+        ? findTextureOrThrow(texture)
         : Texture.getDefault();
-      if (texture && !projectTexture) {
-        throw new Error(`Texture "${texture}" not found.`);
-      }
       if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
       const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
       const cylinders: Mesh[] = [];
@@ -1074,11 +1067,8 @@ export function registerMeshTools() {
     ...meshToolDocs[11],
     async execute({ elements, texture, group }, { reportProgress }) {
       const projectTexture = texture
-        ? getProjectTexture(texture)
+        ? findTextureOrThrow(texture)
         : Texture.getDefault();
-      if (texture && !projectTexture) {
-        throw new Error(`Texture "${texture}" not found.`);
-      }
       if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
       const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
       const meshes: Mesh[] = [];

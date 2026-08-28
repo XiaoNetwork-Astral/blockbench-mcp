@@ -1,12 +1,17 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import path from "node:path";
+import { SETTINGS_CATEGORY_ID } from "@/lib/constants";
+import {
+  LEGACY_PLUGIN_ID,
+  LEGACY_SETTING_ID_MAP,
+} from "@/lib/brandingMigration";
 import {
   reconcileSettingsDialog,
   settingsSetup,
   settingsTeardown,
 } from "@/ui/settings";
 
-const CATEGORY_ID = "codex_blockbench_mcp";
+const CATEGORY_ID = SETTINGS_CATEGORY_ID;
 const originalGlobals = new Map<string, unknown>();
 
 function replaceGlobal(name: string, value: unknown): void {
@@ -47,7 +52,7 @@ function installBlockbenchSettingsMock(options: {
   };
 
   const sidebar = {
-    pages: { [CATEGORY_ID]: "Stale Codex page" } as Record<string, string>,
+    pages: { [CATEGORY_ID]: "Stale Blockbench page" } as Record<string, string>,
     page: "general",
     onPageSwitch(page: string): unknown {
       contentVue.open_category = page;
@@ -155,6 +160,12 @@ function installBlockbenchSettingsMock(options: {
   replaceGlobal("localStorage", {
     getItem(key: string) {
       return key === "settings" ? JSON.stringify(persistedSettings) : null;
+    },
+    setItem(key: string, value: string) {
+      if (key !== "settings") return;
+      const parsed = JSON.parse(value) as Record<string, unknown>;
+      Object.keys(persistedSettings).forEach((id) => delete persistedSettings[id]);
+      Object.assign(persistedSettings, parsed);
     },
     removeItem() {},
   });
@@ -394,9 +405,9 @@ describe("Blockbench settings integration", () => {
     const auth = createSettingRow({ toggle: true });
     const token = createSettingRow({ password: true });
     const labels = new Map([
-      ["codex_mcp_plugin_workspace", directory.label],
-      ["codex_mcp_auth_enabled", auth.label],
-      ["codex_mcp_auth_token", token.label],
+      ["blockbench_mcp_plugin_workspace", directory.label],
+      ["blockbench_mcp_auth_enabled", auth.label],
+      ["blockbench_mcp_auth_token", token.label],
     ]);
     replaceGlobal("document", {
       body: new FakeElement("body"),
@@ -421,15 +432,15 @@ describe("Blockbench settings integration", () => {
 
     settingsSetup();
 
-    expect(directory.input.id).toBe("setting_codex_mcp_plugin_workspace");
-    expect(directory.row.querySelector(".codex-mcp-workspace-browse")).not.toBeNull();
-    expect(token.input.id).toBe("setting_codex_mcp_auth_token");
-    const regenerate = token.row.querySelector(".codex-mcp-token-regenerate");
+    expect(directory.input.id).toBe("setting_blockbench_mcp_plugin_workspace");
+    expect(directory.row.querySelector(".blockbench-mcp-workspace-browse")).not.toBeNull();
+    expect(token.input.id).toBe("setting_blockbench_mcp_auth_token");
+    const regenerate = token.row.querySelector(".blockbench-mcp-token-regenerate");
     expect(regenerate).not.toBeNull();
     expect(token.row.children.indexOf(regenerate!)).toBeLessThan(
       token.row.children.indexOf(token.visibility!)
     );
-    const warning = auth.settingLabel.querySelector(".codex-mcp-auth-inline-warning");
+    const warning = auth.settingLabel.querySelector(".blockbench-mcp-auth-inline-warning");
     expect(warning).not.toBeNull();
     expect(warning!.textContent).toBe("mcp.settings.auth_disabled_inline_warning");
     expect(warning!.hidden).toBe(true);
@@ -438,7 +449,7 @@ describe("Blockbench settings integration", () => {
     auth.input.checked = false;
     auth.input.dispatch("change");
     expect(warning!.hidden).toBe(false);
-    expect(token.row.classList.contains("codex-mcp-setting-disabled")).toBe(true);
+    expect(token.row.classList.contains("blockbench-mcp-setting-disabled")).toBe(true);
     expect(token.row.getAttribute("aria-disabled")).toBe("true");
     expect(token.input.disabled).toBe(true);
     expect(regenerate!.getAttribute("aria-disabled")).toBe("true");
@@ -447,7 +458,7 @@ describe("Blockbench settings integration", () => {
     auth.input.checked = true;
     auth.input.dispatch("change");
     expect(warning!.hidden).toBe(true);
-    expect(token.row.classList.contains("codex-mcp-setting-disabled")).toBe(false);
+    expect(token.row.classList.contains("blockbench-mcp-setting-disabled")).toBe(false);
     expect(token.row.getAttribute("aria-disabled")).toBeNull();
     expect(token.input.disabled).toBe(false);
     expect(regenerate!.getAttribute("aria-disabled")).toBeNull();
@@ -471,20 +482,20 @@ describe("Blockbench settings integration", () => {
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
     expect(Object.keys(category.items)).toHaveLength(11);
-    expect(category.items.codex_mcp_plugin_workspace).toBeDefined();
-    expect(category.items.codex_mcp_bind_host).toBeDefined();
-    expect(category.items.codex_mcp_port).toBeDefined();
-    expect(category.items.codex_mcp_auth_enabled).toBeDefined();
-    expect(category.items.codex_mcp_auth_token).toBeDefined();
-    expect(Object.keys(category.items).indexOf("codex_mcp_auth_enabled")).toBeLessThan(
-      Object.keys(category.items).indexOf("codex_mcp_auth_token")
+    expect(category.items.blockbench_mcp_plugin_workspace).toBeDefined();
+    expect(category.items.blockbench_mcp_bind_host).toBeDefined();
+    expect(category.items.blockbench_mcp_port).toBeDefined();
+    expect(category.items.blockbench_mcp_auth_enabled).toBeDefined();
+    expect(category.items.blockbench_mcp_auth_token).toBeDefined();
+    expect(Object.keys(category.items).indexOf("blockbench_mcp_auth_enabled")).toBeLessThan(
+      Object.keys(category.items).indexOf("blockbench_mcp_auth_token")
     );
-    category.items.codex_mcp_auth_enabled.onChange?.(false);
+    category.items.blockbench_mcp_auth_enabled.onChange?.(false);
     expect(mock.getMessageBoxes()).toEqual([]);
-    expect(category.items.codex_mcp_instructions).toBeUndefined();
-    expect(category.items.codex_mcp_copy_connection).toBeUndefined();
-    expect(category.items.codex_mcp_regenerate_auth_token).toBeUndefined();
-    expect((category.items.codex_mcp_auth_token as any).plugin).toBeUndefined();
+    expect(category.items.blockbench_mcp_instructions).toBeUndefined();
+    expect(category.items.blockbench_mcp_copy_connection).toBeUndefined();
+    expect(category.items.blockbench_mcp_regenerate_auth_token).toBeUndefined();
+    expect((category.items.blockbench_mcp_auth_token as any).plugin).toBeUndefined();
     expect(mock.settingsApi.dialog!.sidebar.pages[CATEGORY_ID]).toBe(
       "mcp.settings.category_name"
     );
@@ -511,7 +522,7 @@ describe("Blockbench settings integration", () => {
       name: "Old name",
       open: false,
       items: {
-        codex_mcp_instructions: { id: "codex_mcp_instructions" } as any,
+        blockbench_mcp_instructions: { id: "blockbench_mcp_instructions" } as any,
       },
     };
     mock.settingsApi.dialog!.sidebar.pages[CATEGORY_ID] = "Old name";
@@ -520,7 +531,7 @@ describe("Blockbench settings integration", () => {
 
     expect(Object.keys(mock.settingsApi.structure[CATEGORY_ID].items)).toHaveLength(11);
     expect(
-      mock.settingsApi.structure[CATEGORY_ID].items.codex_mcp_instructions
+      mock.settingsApi.structure[CATEGORY_ID].items.blockbench_mcp_instructions
     ).toBeUndefined();
     expect(mock.settingsApi.dialog!.sidebar.pages[CATEGORY_ID]).toBe(
       "mcp.settings.category_name"
@@ -535,11 +546,11 @@ describe("Blockbench settings integration", () => {
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
     expect(Object.keys(category.items)).toHaveLength(11);
-    expect(category.items.codex_mcp_plugin_workspace).toBeDefined();
-    expect(category.items.codex_mcp_bind_host).toBeDefined();
-    expect(category.items.codex_mcp_port).toBeDefined();
-    expect(category.items.codex_mcp_auth_enabled).toBeDefined();
-    expect(category.items.codex_mcp_auth_token).toBeDefined();
+    expect(category.items.blockbench_mcp_plugin_workspace).toBeDefined();
+    expect(category.items.blockbench_mcp_bind_host).toBeDefined();
+    expect(category.items.blockbench_mcp_port).toBeDefined();
+    expect(category.items.blockbench_mcp_auth_enabled).toBeDefined();
+    expect(category.items.blockbench_mcp_auth_token).toBeDefined();
     expect(mock.getAddCategoryCalls()).toBe(0);
 
     // Simulate Blockbench mounting its settings dialog after plugin startup,
@@ -558,35 +569,76 @@ describe("Blockbench settings integration", () => {
     const token = "c".repeat(64);
     const mock = installBlockbenchSettingsMock({
       storedSettings: {
-        codex_mcp_port: { value: 3000 },
-        codex_mcp_plugin_workspace: { value: "D:\\old-temp" },
+        blockbench_mcp_port: { value: 3000 },
+        blockbench_mcp_plugin_workspace: { value: "D:\\old-temp" },
       },
       persistedSettings: {
-        codex_mcp_port: { value: 4312 },
-        codex_mcp_plugin_workspace: { value: "D:\\current-temp" },
-        codex_mcp_auth_enabled: { value: false },
-        codex_mcp_auth_token: { value: token },
+        blockbench_mcp_port: { value: 4312 },
+        blockbench_mcp_plugin_workspace: { value: "D:\\current-temp" },
+        blockbench_mcp_auth_enabled: { value: false },
+        blockbench_mcp_auth_token: { value: token },
       },
     });
 
     settingsSetup();
 
     let category = mock.settingsApi.structure[CATEGORY_ID];
-    expect(category.items.codex_mcp_port.value).toBe(4312);
-    expect(category.items.codex_mcp_plugin_workspace.value).toBe("D:\\current-temp");
-    expect(category.items.codex_mcp_auth_enabled.value).toBe(false);
-    expect(category.items.codex_mcp_auth_token.value).toBe(token);
+    expect(category.items.blockbench_mcp_port.value).toBe(4312);
+    expect(category.items.blockbench_mcp_plugin_workspace.value).toBe("D:\\current-temp");
+    expect(category.items.blockbench_mcp_auth_enabled.value).toBe(false);
+    expect(category.items.blockbench_mcp_auth_token.value).toBe(token);
 
-    category.items.codex_mcp_port.set(4789);
+    category.items.blockbench_mcp_port.set(4789);
     settingsTeardown();
 
     expect(mock.getSaveLocalStoragesCalls()).toBeGreaterThan(0);
-    expect(mock.settingsApi.stored.codex_mcp_port).toEqual({ value: 4789 });
-    expect(mock.getPersistedSettings().codex_mcp_port).toEqual({ value: 4789 });
+    expect(mock.settingsApi.stored.blockbench_mcp_port).toEqual({ value: 4789 });
+    expect(mock.getPersistedSettings().blockbench_mcp_port).toEqual({ value: 4789 });
 
     settingsSetup();
     category = mock.settingsApi.structure[CATEGORY_ID];
-    expect(category.items.codex_mcp_port.value).toBe(4789);
-    expect(category.items.codex_mcp_plugin_workspace.value).toBe("D:\\current-temp");
+    expect(category.items.blockbench_mcp_port.value).toBe(4789);
+    expect(category.items.blockbench_mcp_plugin_workspace.value).toBe("D:\\current-temp");
+  });
+
+  test("migrates legacy plugin identity and setting records without overriding new values", () => {
+    const legacyPortId = Object.entries(LEGACY_SETTING_ID_MAP).find(
+      ([, current]) => current === "blockbench_mcp_port"
+    )?.[0];
+    const legacyTokenId = Object.entries(LEGACY_SETTING_ID_MAP).find(
+      ([, current]) => current === "blockbench_mcp_auth_token"
+    )?.[0];
+    expect(legacyPortId).toBeDefined();
+    expect(legacyTokenId).toBeDefined();
+
+    const token = "d".repeat(64);
+    const mock = installBlockbenchSettingsMock({
+      storedSettings: {
+        [legacyPortId!]: { value: 3111 },
+      },
+      persistedSettings: {
+        [legacyPortId!]: { value: 4222 },
+        [legacyTokenId!]: { value: token },
+        blockbench_mcp_port: { value: 4555 },
+      },
+    });
+    mock.settingsApi.structure[LEGACY_PLUGIN_ID] = {
+      name: "Legacy plugin category",
+      open: true,
+      items: {},
+    };
+    mock.settingsApi.dialog!.sidebar.pages[LEGACY_PLUGIN_ID] = "Legacy plugin category";
+
+    settingsSetup();
+
+    const category = mock.settingsApi.structure[CATEGORY_ID];
+    expect(category.open).toBe(true);
+    expect(category.items.blockbench_mcp_port.value).toBe(4555);
+    expect(category.items.blockbench_mcp_auth_token.value).toBe(token);
+    expect(mock.settingsApi.structure[LEGACY_PLUGIN_ID]).toBeUndefined();
+    expect(mock.settingsApi.dialog!.sidebar.pages[LEGACY_PLUGIN_ID]).toBeUndefined();
+    expect(mock.settingsApi.stored[legacyPortId!]).toBeUndefined();
+    expect(mock.getPersistedSettings()[legacyPortId!]).toBeUndefined();
+    expect(mock.getPersistedSettings().blockbench_mcp_port).toEqual({ value: 4555 });
   });
 });

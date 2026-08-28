@@ -103,10 +103,10 @@ describe("Blockbench Tools menu server controls", () => {
     });
 
     expect(actions.map((action) => action.id)).toEqual([
-      "codex_blockbench_mcp_start_server",
-      "codex_blockbench_mcp_stop_server",
-      "codex_blockbench_mcp_show_server_status",
-      "codex_blockbench_mcp_manage_clients",
+      "blockbench_mcp_start_server",
+      "blockbench_mcp_stop_server",
+      "blockbench_mcp_show_server_status",
+      "blockbench_mcp_manage_clients",
     ]);
 
     (actions[0].options.click as () => void)();

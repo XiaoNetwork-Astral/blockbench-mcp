@@ -38,6 +38,11 @@ import {
   peekSessionWorkingProject,
   resolveOpenProject,
 } from "@/lib/projectContext";
+import { portableBbmodelText } from "@/lib/projectFiles";
+import {
+  assertExternalWriteAllowed,
+  normalizeExternalPath,
+} from "@/lib/textureSafety";
 
 export const ysmSetWorkspaceParameters = z.object({
   path: z
@@ -176,20 +181,60 @@ function projectCubeCount(project: ModelProject): number {
   return project.elements.filter((element) => element instanceof Cube).length;
 }
 
-function findBoundTexture(project: ModelProject, relativePath: string): Texture {
-  const expectedName = PathModule.basename(relativePath);
-  const absolute = resolvePluginWorkspacePath(relativePath);
-  const normalizedAbsolute = absolute.replace(/\\/g, "/").toLocaleLowerCase();
-  const texture = project.textures.find((candidate) => {
-    const candidatePath = candidate.path?.replace(/\\/g, "/").toLocaleLowerCase();
-    return candidatePath === normalizedAbsolute || candidate.name === expectedName;
-  }) ?? (project.textures.length === 1 ? project.textures[0] : null);
-  if (!texture) {
+export function findBoundTexture(
+  project: ModelProject,
+  relativePath: string,
+  textureUuid?: string | null
+): Texture {
+  if (textureUuid) {
+    const uuidMatches = project.textures.filter((candidate) => candidate.uuid === textureUuid);
+    if (uuidMatches.length === 1) return uuidMatches[0];
+    if (uuidMatches.length > 1) {
+      throw new Error(
+        `Bound texture UUID "${textureUuid}" is duplicated in project "${project.name}".`
+      );
+    }
     throw new Error(
-      `Bound texture ${relativePath} is not loaded in project "${project.name}".`
+      `Bound texture UUID "${textureUuid}" is no longer present in project "${project.name}". Rebind before saving.`
     );
   }
-  return texture;
+
+  const expectedName = PathModule.basename(relativePath);
+  const absolute = resolvePluginWorkspacePath(relativePath);
+  const normalizedAbsolute = normalizeExternalPath(absolute);
+  const pathMatches = project.textures.filter((candidate) => {
+    const linked = candidate as Texture & { relative_path?: string };
+    const paths = [linked.path, linked.relative_path].filter(
+      (path): path is string => typeof path === "string" && path.length > 0
+    );
+    return paths.some((path) => {
+      const resolved = PathModule.isAbsolute(path)
+        ? path
+        : project.save_path
+          ? PathModule.resolve(PathModule.dirname(project.save_path), path)
+          : path;
+      return normalizeExternalPath(resolved) === normalizedAbsolute;
+    });
+  });
+  if (pathMatches.length === 1) return pathMatches[0];
+  if (pathMatches.length > 1) {
+    throw new Error(
+      `Bound texture path ${relativePath} is ambiguous in project "${project.name}" ` +
+        `(${pathMatches.map((texture) => texture.uuid).join(", ")}).`
+    );
+  }
+
+  const nameMatches = project.textures.filter((candidate) => candidate.name === expectedName);
+  if (nameMatches.length === 1) return nameMatches[0];
+  if (nameMatches.length > 1) {
+    throw new Error(
+      `Bound texture name "${expectedName}" is ambiguous in project "${project.name}" ` +
+        `(${nameMatches.map((texture) => texture.uuid).join(", ")}). Rebind using unique texture data.`
+    );
+  }
+  throw new Error(
+    `Bound texture ${relativePath} is not loaded in project "${project.name}".`
+  );
 }
 
 function compileBedrockDocument(): Record<string, unknown> {
@@ -291,10 +336,14 @@ export function registerYsmTools() {
         throw new Error(`Portable project does not exist inside the plugin workspace: ${bbmodelPath}`);
       }
 
+      const boundTexture = texturePath
+        ? findBoundTexture(project, texturePath)
+        : null;
       const binding: YsmBinding = {
         geometry,
         geometryIdentifier: selected.identifier,
         texture: texturePath,
+        textureUuid: boundTexture?.uuid ?? null,
         bbmodel: bbmodelPath,
         sourceSha256: sha256WorkspaceFile(geometry),
         textureSha256: texturePath ? sha256WorkspaceFile(texturePath) : null,
@@ -350,6 +399,22 @@ export function registerYsmTools() {
         }
       }
 
+      const plannedWrites = [
+        { path: binding.geometry, allowOwnTextureDependency: false },
+        { path: include_texture ? binding.texture : null, allowOwnTextureDependency: true },
+        { path: include_bbmodel ? binding.bbmodel : null, allowOwnTextureDependency: false },
+      ].filter((write): write is { path: string; allowOwnTextureDependency: boolean } =>
+        Boolean(write.path)
+      );
+      for (const write of plannedWrites) {
+        assertExternalWriteAllowed(
+          resolvePluginWorkspacePath(write.path),
+          project,
+          "ysm_save_project",
+          { allowOwnTextureDependency: write.allowOwnTextureDependency }
+        );
+      }
+
       const source = readWorkspaceJson(binding.geometry);
       const compiled = context!.runInProject(() => compileBedrockDocument(), project);
       const merged = mergeCompiledGeometry(source, compiled, binding.geometryIdentifier);
@@ -359,7 +424,7 @@ export function registerYsmTools() {
       let textureToSave: Texture | null = null;
       let textureBytes: Uint8Array | null = null;
       if (include_texture && binding.texture) {
-        textureToSave = findBoundTexture(project, binding.texture);
+        textureToSave = findBoundTexture(project, binding.texture, binding.textureUuid);
         textureBytes = dataUrlBytes(textureToSave.getDataURL());
       }
 
@@ -371,7 +436,7 @@ export function registerYsmTools() {
         const previousSavePath = project.save_path;
         try {
           project.save_path = resolvePluginWorkspacePath(binding.bbmodel);
-          projectText = String(context!.runInProject(
+          projectText = portableBbmodelText(context!.runInProject(
             () => Codecs.project.compile({ bitmaps: true, absolute_paths: false }),
             project
           ));
@@ -390,6 +455,7 @@ export function registerYsmTools() {
 
       const updated: YsmBinding = {
         ...binding,
+        textureUuid: textureToSave?.uuid ?? binding.textureUuid ?? null,
         sourceSha256: sha256WorkspaceFile(binding.geometry),
         textureSha256: binding.texture ? sha256WorkspaceFile(binding.texture) : null,
         bbmodelSha256: binding.bbmodel ? sha256WorkspaceFile(binding.bbmodel) : null,

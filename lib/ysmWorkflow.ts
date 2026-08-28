@@ -12,8 +12,14 @@ import {
   type ProjectRole,
 } from "@/lib/projectRoles";
 import { getForegroundProject, runInProjectContext } from "@/lib/projectContext";
+import { portableBbmodelText } from "@/lib/projectFiles";
+import { isolateProjectTextures } from "@/lib/textureSafety";
+import {
+  LEGACY_YSM_WORKFLOW_STORAGE_KEY,
+  readMigratedStorageItem,
+} from "@/lib/brandingMigration";
 
-const STORAGE_KEY = "codex_blockbench_mcp.ysm_workflow.v1";
+const STORAGE_KEY = "blockbench_mcp.ysm_workflow.v1";
 
 export interface YsmWorkflowState {
   version: 1;
@@ -35,14 +41,17 @@ interface OpenWorkflowOptions {
 }
 
 const roleTitles: Record<Exclude<ProjectRole, "unassigned">, string> = {
-  legacy_reference: "旧版参照",
-  new_baseline: "新版基线",
-  working_copy: "工作副本",
+  legacy_reference: "Legacy Reference",
+  new_baseline: "New Baseline",
+  working_copy: "Working Copy",
 };
 
 function loadState(): YsmWorkflowState | null {
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null") as YsmWorkflowState | null;
+    const raw = readMigratedStorageItem(localStorage, STORAGE_KEY, [
+      LEGACY_YSM_WORKFLOW_STORAGE_KEY,
+    ]);
+    const parsed = JSON.parse(raw || "null") as YsmWorkflowState | null;
     return parsed?.version === 1 ? parsed : null;
   } catch {
     return null;
@@ -75,14 +84,24 @@ function openBbmodel(relativePath: string): ModelProject {
     path: absolutePath,
     content: readWorkspaceText(relativePath),
   }, {});
-  const opened = ModelProject.all.find(
-    (project) => project.save_path === absolutePath || !before.has(project)
-  );
-  if (!opened) throw new Error(`Blockbench did not open ${relativePath}.`);
-  return opened;
+  const created = ModelProject.all.filter((project) => !before.has(project));
+  if (created.length === 1) return created[0];
+  if (created.length > 1) {
+    throw new Error(
+      `Opening ${relativePath} unexpectedly created ${created.length} project tabs. ` +
+        "Close the extra tabs before continuing."
+    );
+  }
+  const pathMatches = ModelProject.all.filter((project) => project.save_path === absolutePath);
+  if (pathMatches.length === 1) return pathMatches[0];
+  if (pathMatches.length > 1) {
+    throw new Error(`Multiple open project tabs point to ${relativePath}.`);
+  }
+  throw new Error(`Blockbench did not open ${relativePath}.`);
 }
 
 function assignRole(project: ModelProject, role: Exclude<ProjectRole, "unassigned">, skinName: string): void {
+  runInProjectContext(project, () => isolateProjectTextures(project));
   setProjectRole(project, role);
   project.name = `${roleTitles[role]}｜${skinName}`;
   project.saved = true;
@@ -190,9 +209,7 @@ function compileProject(project: ModelProject): string {
     project,
     () => Codecs.project.compile({ bitmaps: true, absolute_paths: false })
   );
-  if (typeof compiled === "string") return compiled;
-  if (compiled && typeof compiled === "object") return JSON.stringify(compiled, null, 2);
-  throw new Error("Blockbench returned no portable .bbmodel content.");
+  return portableBbmodelText(compiled);
 }
 
 export async function mergeWorkingIntoBaseline(): Promise<Record<string, unknown>> {

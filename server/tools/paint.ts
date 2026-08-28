@@ -9,6 +9,10 @@ import {
 } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL } from "@/lib/constants";
 import { getProjectTexture, getAndActivateTexture, setBarItemValue } from "@/lib/util";
+import {
+  editTextureWithUndo,
+  prepareTextureForMutation,
+} from "@/lib/textureSafety";
 import { getDeterministicShapeGeometry } from "@/lib/toolFixes";
 import {
   textureIdOptionalSchema,
@@ -470,8 +474,9 @@ export function registerPaintTools() {
         tolerance,
         fill_mode,
         blend_mode,
-      }) {
+      }, context) {
         const texture = getAndActivateTexture(texture_id);
+        prepareTextureForMutation(context.project!, texture);
 
         // Apply settings
         if (color) {
@@ -493,9 +498,10 @@ export function registerPaintTools() {
 
         // Perform fill
         Painter.startPaintTool(texture, x, y, {}, { shiftKey: false });
+        if ((Painter as typeof Painter & { paint_stroke_canceled?: boolean }).paint_stroke_canceled) {
+          throw new Error("Blockbench rejected the fill stroke before any pixels were changed.");
+        }
         Painter.stopPaintTool();
-
-        Undo.finishEdit("Fill tool");
         Canvas.updateAll();
 
         return `Filled area at (${x}, ${y}) on texture "${texture.name}"`;
@@ -517,13 +523,8 @@ export function registerPaintTools() {
         line_width,
         opacity,
         blend_mode,
-      }) {
+      }, context) {
         const texture = getAndActivateTexture(texture_id);
-
-        Undo.initEdit({
-          textures: [texture],
-          bitmap: true,
-        });
 
         // Apply settings
         if (color) {
@@ -551,7 +552,7 @@ export function registerPaintTools() {
         // pointer-driven UI workflow that owns its own Undo transaction; using
         // it from MCP can be rejected by PointerTarget while still returning a
         // successful tool response.
-        texture.edit((canvas: HTMLCanvasElement) => {
+        editTextureWithUndo(context.project!, texture, "Draw shape", (canvas: HTMLCanvasElement) => {
           const ctx = canvas.getContext("2d");
           if (!ctx) throw new Error("Blockbench could not open the texture canvas.");
           const { offset } = texture.getActiveCanvas();
@@ -598,7 +599,7 @@ export function registerPaintTools() {
           }
 
           ctx.restore();
-        }, { edit_name: "Draw shape" });
+        });
 
         Canvas.updateAll();
 
@@ -620,13 +621,9 @@ export function registerPaintTools() {
         end_color,
         opacity,
         blend_mode,
-      }) {
+      }, context) {
         const texture = getAndActivateTexture(texture_id);
-
-        Undo.initEdit({
-          textures: [texture],
-          bitmap: true,
-        });
+        prepareTextureForMutation(context.project!, texture);
 
         // Apply settings
         ColorPanel.set(start_color);
@@ -646,10 +643,11 @@ export function registerPaintTools() {
 
         // Apply gradient
         Painter.startPaintTool(texture, start.x, start.y, {}, { shiftKey: false });
+        if ((Painter as typeof Painter & { paint_stroke_canceled?: boolean }).paint_stroke_canceled) {
+          throw new Error("Blockbench rejected the gradient stroke before any pixels were changed.");
+        }
         Painter.useGradientTool(texture, end.x, end.y, {});
         Painter.stopPaintTool();
-
-        Undo.finishEdit("Apply gradient");
         Canvas.updateAll();
 
         return `Applied gradient from (${start.x}, ${start.y}) to (${end.x}, ${end.y}) on texture "${texture.name}"`;
@@ -699,13 +697,9 @@ export function registerPaintTools() {
     paintToolDocs[4].name,
     {
       ...paintToolDocs[4],
-      async execute({ texture_id, source, target, brush_size, opacity, mode }) {
+      async execute({ texture_id, source, target, brush_size, opacity, mode }, context) {
         const texture = getAndActivateTexture(texture_id);
-
-        Undo.initEdit({
-          textures: [texture],
-          bitmap: true,
-        });
+        prepareTextureForMutation(context.project!, texture);
 
         // Apply settings
         if (brush_size !== undefined) {
@@ -729,9 +723,10 @@ export function registerPaintTools() {
 
         // Apply at target point
         Painter.startPaintTool(texture, target.x, target.y, {}, { shiftKey: false });
+        if ((Painter as typeof Painter & { paint_stroke_canceled?: boolean }).paint_stroke_canceled) {
+          throw new Error("Blockbench rejected the copy-brush stroke before any pixels were changed.");
+        }
         Painter.stopPaintTool();
-
-        Undo.finishEdit("Copy brush");
         Canvas.updateAll();
 
         return `Copied from (${source.x}, ${source.y}) to (${target.x}, ${target.y}) on texture "${texture.name}"`;
@@ -752,13 +747,9 @@ export function registerPaintTools() {
         softness,
         shape,
         connect_strokes,
-      }) {
+      }, context) {
         const texture = getAndActivateTexture(texture_id);
-
-        Undo.initEdit({
-          textures: [texture],
-          bitmap: true,
-        });
+        prepareTextureForMutation(context.project!, texture);
 
         // Apply settings
         if (brush_size !== undefined) {
@@ -778,23 +769,19 @@ export function registerPaintTools() {
         // @ts-ignore
         BarItems.eraser.select();
 
-        // Erase at coordinates
-        for (let i = 0; i < coordinates.length; i++) {
-          const coord = coordinates[i];
-
-          if (i === 0 || !connect_strokes) {
-            // Start new stroke
-            Painter.startPaintTool(texture, coord.x, coord.y, {}, { shiftKey: false });
-          } else {
-            // Continue stroke
-            Painter.movePaintTool(texture, coord.x, coord.y, {});
-          }
+        // One native stroke owns one Undo transaction. Passing `new_face=true`
+        // emits a separate dab without connecting it to the preceding point.
+        const first = coordinates[0];
+        Painter.startPaintTool(texture, first.x, first.y, {}, { shiftKey: false });
+        if ((Painter as typeof Painter & { paint_stroke_canceled?: boolean }).paint_stroke_canceled) {
+          throw new Error("Blockbench rejected the eraser stroke before any pixels were changed.");
+        }
+        for (const coord of coordinates.slice(1)) {
+          Painter.movePaintTool(texture, coord.x, coord.y, {}, !connect_strokes);
         }
 
         // Finish erasing
         Painter.stopPaintTool();
-
-        Undo.finishEdit("Erase texture");
         Canvas.updateAll();
 
         return `Erased ${coordinates.length} points on texture "${texture.name}"`;
@@ -924,14 +911,8 @@ export function registerPaintTools() {
         coordinates,
         brush_settings,
         connect_strokes,
-      }) {
+      }, context) {
         const texture = getAndActivateTexture(texture_id);
-
-        Undo.initEdit({
-          textures: [texture],
-          selected_texture: true,
-          bitmap: true,
-        });
 
         // Parse brush color to RGB values
         const colorHex = brush_settings?.color ?? "#000000";
@@ -956,7 +937,10 @@ export function registerPaintTools() {
         ColorPanel.set(colorHex);
 
         // Paint using Painter.edit() method
-        texture.edit(
+        editTextureWithUndo(
+          context.project!,
+          texture,
+          "Paint with brush",
           (canvas: HTMLCanvasElement) => {
             const ctx = canvas.getContext("2d")!;
             for (const coord of coordinates) {
@@ -981,10 +965,8 @@ export function registerPaintTools() {
               }
             }
           },
-          { edit_name: "Paint with brush" }
+          true
         );
-
-        Undo.finishEdit("Paint with brush");
         Canvas.updateAll();
 
         return `Painted ${coordinates.length} points on texture "${texture.name}"`;
@@ -1037,9 +1019,16 @@ export function registerPaintTools() {
       ...paintToolDocs[9],
       async execute({ preset_name }) {
         // @ts-ignore
-        const preset = StateMemory.brush_presets.find(
+        const presets = StateMemory.brush_presets.filter(
           (p) => p.name === preset_name
         );
+        if (presets.length > 1) {
+          throw new Error(
+            `Brush preset name "${preset_name}" is ambiguous (${presets.length} matches). ` +
+              "Rename or remove duplicate presets before loading one."
+          );
+        }
+        const preset = presets[0];
 
         if (!preset) {
           throw new Error(`Brush preset "${preset_name}" not found.`);
@@ -1058,8 +1047,9 @@ export function registerPaintTools() {
     paintToolDocs[10].name,
     {
       ...paintToolDocs[10],
-      async execute({ action, texture_id, coordinates, radius, mode }) {
+      async execute({ action, texture_id, coordinates, radius, mode }, context) {
         const texture = getAndActivateTexture(texture_id);
+        prepareTextureForMutation(context.project!, texture);
 
         Undo.initEdit({
           textures: [texture],
@@ -1176,8 +1166,9 @@ export function registerPaintTools() {
         opacity,
         blend_mode,
         target_index,
-      }) {
+      }, context) {
         const texture = getAndActivateTexture(texture_id);
+        prepareTextureForMutation(context.project!, texture);
 
         Undo.initEdit({
           textures: [texture],

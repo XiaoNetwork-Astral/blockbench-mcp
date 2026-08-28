@@ -1,37 +1,37 @@
-# 通用 Blockbench 建模规则
+# General Blockbench Modeling Rules
 
-本文件可独立用于普通 Blockbench 建模，不依赖项目专用说明。用户在当前任务中较新、明确的要求优先；只要求查看或分析时，不修改项目。
+This file can be used independently for ordinary Blockbench modeling and does not depend on project-specific instructions. The user's newer, explicit requirements for the current task take priority. Do not modify a project when the user has asked only to view or analyze it.
 
-## 开始前
+## Before Starting
 
-1. 确认任务是新建、调整还是检查，并确认格式、用途、比例、坐标方向、纹理尺寸、视觉要求和交付物。
-2. 先浏览参考资料的目录和版本，再完整查看当前判断依赖的部分。把资料事实、用户意见、推断和未知内容分开。
-3. 调整现有模型时，先读取与本次改动有关的项目结构和状态。未知内容默认保留。
-4. 使用多项目 MCP 时，把目标绑定为 MCP 工作项目。除非用户要求查看该项目，不切换其前台标签。
-5. 修改现行基线前建立工作副本或检查点。会改变结构、风格、版本或覆盖文件的决定必须由用户确认。
-6. 除非用户明确要求导入现成资产，不在 Blockbench 外生成完整模型或 `.bbmodel` 再整体导入。
+1. Confirm whether the task is to create, adjust, or inspect something, and confirm the format, purpose, scale, coordinate orientation, texture dimensions, visual requirements, and deliverables.
+2. First review the structure and versions of the reference material, then read every part on which the current judgment depends. Keep source facts, user opinions, inferences, and unknowns separate.
+3. When adjusting an existing model, first read the project structure and state relevant to the requested change. Preserve unknown content by default.
+4. When using a multi-project MCP, bind the target as the MCP working project. Do not switch its foreground tab unless the user asks to view that project.
+5. Create a working copy or checkpoint before modifying the current baseline. Decisions that change structure, style, version, or overwrite files require user confirmation.
+6. Unless the user explicitly requests importing a ready-made asset, do not generate a complete model or `.bbmodel` outside Blockbench and then import it wholesale.
 
-## 建立结构
+## Building the Structure
 
-- 先规划主体、部件、连接件、附着物和需要独立运动的结构，再建立 Outliner 分组树。
-- 每个新建、复制或移动的节点都必须显式指定父级。只有确实应位于根层时才使用字面量 `root`；缺失、失效或歧义父级必须在修改前报错。
-- 先创建父组并回读 UUID，再顺序创建子项。优先用 UUID 引用对象。
-- 按“大轮廓 → 主要体块 → 连接结构 → 次要部件 → 细节”推进。重复结构先验证一个样例，再复制或批量扩展。
-- 每个小阶段结束后只回读本次改动涉及的数据。批量操作部分失败时先查清现状，不在半成品上继续叠加。
+- Plan the main body, parts, connectors, attachments, and structures that need independent movement before creating the Outliner group tree.
+- Every newly created, copied, or moved node must have an explicit parent. Use the literal `root` only when the node truly belongs at the root level; report a missing, invalid, or ambiguous parent before making changes.
+- Create parent groups first and read back their UUIDs, then create children in order. Prefer UUIDs when referring to objects.
+- Work from “overall silhouette → primary volumes → connecting structures → secondary parts → details.” Validate one example before copying or expanding a repeated structure in bulk.
+- At the end of each small stage, read back only the data involved in that stage. If a bulk operation partially fails, establish the actual state before continuing; do not layer more changes onto a partial result.
 
-## 检查几何与贴图
+## Inspecting Geometry and Textures
 
-- 先明确附着物应连接到谁、从哪个方向接触、是否允许嵌入。检查父子关系、世界坐标和三轴范围。
-- 关键结构同时查看正面、侧面、顶面和三分之四视图。单一投影重合不能证明深度方向已经接触。
-- 对旋转对象，必要时检查变换后的实际角点或网格，不只看轴对齐包围盒。
-- 纹理操作前确认项目分辨率、源图尺寸和 UV 模式。关键修改后检查像素内容、纹理 UUID、UV 范围与视口结果。
-- 独立运动的结构才单独分组或建骨骼；枢轴放在实际关节、铰链或握持点，并用小角度测试继承关系。
-- 导出前确认保存目标，并按本轮改动范围检查可能受影响的层级、几何、纹理或 UV。
+- First establish what an attachment should connect to, the direction from which it should make contact, and whether intersection is permitted. Check parent-child relationships, world coordinates, and extents along all three axes.
+- Inspect important structures from the front, side, top, and three-quarter views. Overlap in a single projection does not prove contact along the depth axis.
+- For rotated objects, inspect the transformed vertices or mesh when necessary instead of relying only on an axis-aligned bounding box.
+- Before texture operations, confirm the project resolution, source-image dimensions, and UV mode. After an important change, inspect pixel content, the texture UUID, UV ranges, and the viewport result.
+- Create a separate group or bone only for a structure that needs independent motion. Place the pivot at the actual joint, hinge, or grip point, and test inheritance with a small rotation.
+- Before export, confirm the save target and inspect the hierarchy, geometry, textures, or UVs that could have been affected within the scope of the current changes.
 
-## 不确定与交付
+## Uncertainty and Delivery
 
-- 资料不足、结构含义不明、多视角仍无法判断，或连续修改没有收敛时，停止修改并保留现场。
-- 向用户提供相关对象、坐标、预期关系和最有辨识度的视图；用户纠正后先验证一个小范围样例。
-- 工具返回成功不等于模型正确；只核对会影响当前结论的对象、数据和视图，不机械重复全量检查。
-- 保存、覆盖基线、关闭未保存标签、删除试验内容、打包或发布前，必须有当前步骤的明确授权。
-- 完成当前阶段后说明已完成内容、仍有的不确定性和需要用户检查的重点，然后停下来。
+- If the references are insufficient, structural meaning is unclear, multiple views still do not resolve the question, or repeated changes are not converging, stop modifying the model and preserve its current state.
+- Give the user the relevant objects, coordinates, expected relationship, and most informative view. After the user corrects the interpretation, validate one small example first.
+- A successful tool response does not prove the model is correct. Verify only the objects, data, and views that affect the current conclusion; do not mechanically repeat full inspections.
+- Saving, overwriting a baseline, closing an unsaved tab, deleting experimental content, packaging, or publishing requires explicit authorization for that step.
+- When the current stage is complete, state what was completed, what uncertainty remains, and what the user should inspect, then stop.

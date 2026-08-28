@@ -1,35 +1,35 @@
-<div class="codex-mcp-client-manager">
-    <div class="codex-mcp-client-summary" aria-live="polite">
+<div class="blockbench-mcp-client-manager">
+    <div class="blockbench-mcp-client-summary" aria-live="polite">
         <span>
             <strong>{{clients.length}}</strong>
             {{tl(clients.length === 1 ? 'mcp.client_manager.client' : 'mcp.client_manager.clients')}}
         </span>
-        <span class="codex-mcp-client-summary-separator" aria-hidden="true">&middot;</span>
+        <span class="blockbench-mcp-client-summary-separator" aria-hidden="true">&middot;</span>
         <span>
             <strong>{{sessionCount}}</strong>
             {{tl(sessionCount === 1 ? 'mcp.client_manager.session' : 'mcp.client_manager.sessions')}}
         </span>
     </div>
 
-    <p class="codex-mcp-client-explanation">
+    <p class="blockbench-mcp-client-explanation">
         {{tl('mcp.client_manager.session_explanation')}}
     </p>
 
-    <div class="codex-mcp-client-toolbar">
-        <label class="codex-mcp-client-search">
+    <div class="blockbench-mcp-client-toolbar">
+        <label class="blockbench-mcp-client-search">
             <i class="material-icons" aria-hidden="true">search</i>
             <input type="search" v-model.trim="searchQuery"
                 :placeholder="tl('mcp.client_manager.search_placeholder')">
         </label>
-        <div class="codex-mcp-client-expand-controls">
-            <button type="button" class="codex-mcp-client-expand-button"
+        <div class="blockbench-mcp-client-expand-controls">
+            <button type="button" class="blockbench-mcp-client-expand-button"
                 :disabled="filteredClients.length === 0 || allVisibleExpanded"
                 :title="tl('mcp.client_manager.expand_all')"
                 :aria-label="tl('mcp.client_manager.expand_all')"
                 @click="setAllVisible(true)">
                 <i class="material-icons" aria-hidden="true">unfold_more</i>
             </button>
-            <button type="button" class="codex-mcp-client-expand-button"
+            <button type="button" class="blockbench-mcp-client-expand-button"
                 :disabled="filteredClients.length === 0 || !anyVisibleExpanded"
                 :title="tl('mcp.client_manager.collapse_all')"
                 :aria-label="tl('mcp.client_manager.collapse_all')"
@@ -39,57 +39,57 @@
         </div>
     </div>
 
-    <div class="codex-mcp-client-scroll-region">
-        <div v-if="filteredClients.length" class="codex-mcp-client-list">
-            <section v-for="client in filteredClients" :key="client.key" class="codex-mcp-client-card"
+    <div class="blockbench-mcp-client-scroll-region">
+        <div v-if="filteredClients.length" class="blockbench-mcp-client-list">
+            <section v-for="client in filteredClients" :key="client.key" class="blockbench-mcp-client-card"
                 :class="{expanded: isClientExpanded(client.key)}">
-                <div class="codex-mcp-client-header">
-                    <button type="button" class="codex-mcp-client-toggle"
+                <div class="blockbench-mcp-client-header">
+                    <button type="button" class="blockbench-mcp-client-toggle"
                         :aria-expanded="isClientExpanded(client.key) ? 'true' : 'false'"
                         :title="tl(isClientExpanded(client.key) ? 'mcp.client_manager.hide_sessions' : 'mcp.client_manager.show_sessions')"
                         @click="toggleClient(client.key)">
-                        <i class="material-icons codex-mcp-client-chevron">
+                        <i class="material-icons blockbench-mcp-client-chevron">
                             {{isClientExpanded(client.key) ? 'expand_less' : 'expand_more'}}
                         </i>
-                        <span class="codex-mcp-client-identity">
+                        <span class="blockbench-mcp-client-identity">
                             <strong>{{formatClientName(client)}}</strong>
-                            <span class="codex-mcp-client-meta">
-                                <span v-if="client.remoteAddress" class="codex-mcp-client-address">{{client.remoteAddress}}</span>
-                                <span class="codex-mcp-client-session-count">
+                            <span class="blockbench-mcp-client-meta">
+                                <span v-if="client.remoteAddress" class="blockbench-mcp-client-address">{{client.remoteAddress}}</span>
+                                <span class="blockbench-mcp-client-session-count">
                                     {{tl('mcp.client_manager.session_count', [client.sessions.length])}}
                                 </span>
-                                <span class="codex-mcp-client-last-activity">
+                                <span class="blockbench-mcp-client-last-activity">
                                     {{tl('mcp.client_manager.last_activity')}}: {{formatTime(client.lastActivity)}}
                                 </span>
                             </span>
                         </span>
                     </button>
-                    <div class="codex-mcp-client-actions">
-                        <button type="button" class="codex-mcp-client-action" @click.stop="disconnectClient(client.key)">
+                    <div class="blockbench-mcp-client-actions">
+                        <button type="button" class="blockbench-mcp-client-action" @click.stop="disconnectClient(client.key)">
                             <i class="material-icons">link_off</i>
                             <span>{{tl('mcp.client_manager.disconnect_client')}}</span>
                         </button>
-                        <button type="button" class="codex-mcp-client-action danger" @click.stop="confirmBlockClient(client)">
+                        <button type="button" class="blockbench-mcp-client-action danger" @click.stop="confirmBlockClient(client)">
                             <i class="material-icons">block</i>
                             <span>{{tl('mcp.client_manager.block_client')}}</span>
                         </button>
                     </div>
                 </div>
 
-                <div v-if="isClientExpanded(client.key)" class="codex-mcp-client-details">
-                    <div v-if="client.userAgent" class="codex-mcp-client-agent" :title="client.userAgent">
+                <div v-if="isClientExpanded(client.key)" class="blockbench-mcp-client-details">
+                    <div v-if="client.userAgent" class="blockbench-mcp-client-agent" :title="client.userAgent">
                         {{client.userAgent}}
                     </div>
 
-                    <div class="codex-mcp-session-list">
-                        <div class="codex-mcp-session-header">
+                    <div class="blockbench-mcp-session-list">
+                        <div class="blockbench-mcp-session-header">
                             <span>{{tl('mcp.client_manager.session_id')}}</span>
                             <span>{{tl('mcp.client_manager.connected_at')}}</span>
                             <span>{{tl('mcp.client_manager.last_activity')}}</span>
                             <span>{{tl('mcp.client_manager.request_count')}}</span>
                             <span></span>
                         </div>
-                        <div v-for="session in client.sessions" :key="session.id" class="codex-mcp-session-row">
+                        <div v-for="session in client.sessions" :key="session.id" class="blockbench-mcp-session-row">
                             <code :title="session.id">{{formatSessionId(session.id)}}</code>
                             <span :title="tl('mcp.client_manager.connected_at')">
                                 {{formatTime(session.connectedAt)}}
@@ -100,7 +100,7 @@
                             <span :title="tl('mcp.client_manager.request_count')">
                                 {{session.requestCount}}
                             </span>
-                            <button type="button" class="codex-mcp-session-disconnect"
+                            <button type="button" class="blockbench-mcp-session-disconnect"
                                 :title="tl('mcp.client_manager.disconnect_session')"
                                 :aria-label="tl('mcp.client_manager.disconnect_session')"
                                 @click="disconnectSession(session.id)">
@@ -111,16 +111,16 @@
                 </div>
             </section>
         </div>
-        <div v-else-if="clients.length" class="codex-mcp-client-empty">
+        <div v-else-if="clients.length" class="blockbench-mcp-client-empty">
             {{tl('mcp.client_manager.no_matching_clients')}}
         </div>
-        <div v-else class="codex-mcp-client-empty">
+        <div v-else class="blockbench-mcp-client-empty">
             {{tl('mcp.client_manager.no_clients')}}
         </div>
 
-        <section v-if="blockedClients.length" class="codex-mcp-blocked-clients">
+        <section v-if="blockedClients.length" class="blockbench-mcp-blocked-clients">
             <h3>{{tl('mcp.client_manager.blocked_clients')}}</h3>
-            <div v-for="client in blockedClients" :key="client.key" class="codex-mcp-blocked-row">
+            <div v-for="client in blockedClients" :key="client.key" class="blockbench-mcp-blocked-row">
                 <div>
                     <strong>{{formatClientName(client)}}</strong>
                     <span v-if="client.remoteAddress">{{client.remoteAddress}}</span>
@@ -132,7 +132,7 @@
         </section>
     </div>
 
-    <p class="codex-mcp-client-warning">
+    <p class="blockbench-mcp-client-warning">
         {{tl('mcp.client_manager.block_warning')}}
     </p>
 </div>

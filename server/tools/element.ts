@@ -7,7 +7,7 @@ import {
   createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
-import { findElementOrThrow, findTextureOrThrow } from "@/lib/util";
+import { findElementOrThrow, findGroupOrThrow, findTextureOrThrow } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import {
   elementIdSchema,
@@ -423,8 +423,11 @@ function isDescendantOf(el: { parent?: unknown }, targetGroup: Group): boolean {
 }
 
 function findCollectionOrThrow(reference: string): Collection {
-  const byUuid = Collection.all.find((collection) => collection.uuid === reference);
-  if (byUuid) return byUuid;
+  const byUuid = Collection.all.filter((collection) => collection.uuid === reference);
+  if (byUuid.length === 1) return byUuid[0];
+  if (byUuid.length > 1) {
+    throw new Error(`Collection UUID "${reference}" is duplicated (${byUuid.length} matches).`);
+  }
   const byName = Collection.all.filter((collection) => collection.name === reference);
   if (byName.length === 1) return byName[0];
   if (byName.length > 1) {
@@ -715,15 +718,8 @@ export function registerElementTools() {
       const regex = safeCompileRegex(name_pattern);
       const needle = name_contains?.toLowerCase() ?? null;
       const parentScope = parent_group
-        // @ts-ignore - Group is a Blockbench global
-        ? (Group.all.find((g: Group) => g.uuid === parent_group || g.name === parent_group) ?? null)
+        ? findGroupOrThrow(parent_group)
         : null;
-
-      if (parent_group && !parentScope) {
-        throw new Error(
-          `Parent group "${parent_group}" not found. Use inspect_elements with command.action "list_outline" to see available groups.`
-        );
-      }
 
       const candidates: Array<Cube | Mesh | Group> = [
         ...(selected_only ? Cube.selected : Cube.all),
@@ -771,15 +767,8 @@ export function registerElementTools() {
     ...elementToolDocs[6],
     async execute({ type, add_to_selection, parent_group }) {
       const parentScope = parent_group
-        // @ts-ignore - Group is a Blockbench global
-        ? (Group.all.find((g: Group) => g.uuid === parent_group || g.name === parent_group) ?? null)
+        ? findGroupOrThrow(parent_group)
         : null;
-
-      if (parent_group && !parentScope) {
-        throw new Error(
-          `Parent group "${parent_group}" not found. Use inspect_elements with command.action "list_outline" to see available groups.`
-        );
-      }
 
       const pool: Array<Cube | Mesh | Group> = (() => {
         if (type === "cube") return [...Cube.all];

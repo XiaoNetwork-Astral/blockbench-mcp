@@ -44,9 +44,17 @@ export function selectGeometry(
 ): { geometry: JsonObject; index: number; identifier: string | null } {
   const entries = geometries(document);
   if (!entries.length) throw new Error("Geometry document contains no geometry entries.");
-  const index = identifier
-    ? entries.findIndex((geometry) => identifierOf(geometry) === identifier)
-    : 0;
+  const identifierMatches = identifier
+    ? entries
+        .map((geometry, index) => ({ geometry, index }))
+        .filter(({ geometry }) => identifierOf(geometry) === identifier)
+    : [];
+  if (identifierMatches.length > 1) {
+    throw new Error(
+      `Geometry identifier "${identifier}" is ambiguous (${identifierMatches.length} entries).`
+    );
+  }
+  const index = identifier ? identifierMatches[0]?.index ?? -1 : 0;
   if (index < 0) {
     const available = entries.map(identifierOf).filter(Boolean).join(", ");
     throw new Error(

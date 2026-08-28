@@ -26,8 +26,10 @@ import {
 import { measureGeometryParameters } from "@/server/tools/spatial";
 import { removeTextureParameters } from "@/server/tools/texture";
 import {
+  assertKeyframeTimesAvailable,
   manageAnimationParameters,
   normalizeAnimationName,
+  resolveUniqueKeyframeAtTime,
 } from "@/server/tools/animation";
 import { captureScreenshotParameters } from "@/server/tools/camera";
 import { detectCoplanarFacesParameters } from "@/server/tools/spatial";
@@ -66,15 +68,33 @@ function faceElement(
 }
 
 describe("scoped texture assignment", () => {
-  test("resolves names, UUIDs, and numeric IDs across both Blockbench registries", () => {
+  test("resolves names, UUIDs, and numeric IDs only inside the routed project", () => {
     const first = { id: 0, uuid: "texture-a", name: "first" };
     const second = { id: 1, uuid: "texture-b", name: "second" };
-    (globalThis as any).Project = { textures: [first] };
-    (globalThis as any).Texture = { all: [first, second] };
-    expect(getProjectTextures()).toEqual([first, second]);
-    expect(getProjectTexture("0")).toBe(first);
-    expect(getProjectTexture("second")).toBe(second);
-    expect(getProjectTexture("texture-b")).toBe(second);
+    const foreign = { id: 2, uuid: "texture-c", name: "foreign" };
+    (globalThis as any).Project = { textures: [first, second] };
+    (globalThis as any).Texture = { all: [foreign] };
+    expect(getProjectTextures()).toEqual([first, second] as unknown as Texture[]);
+    expect(getProjectTexture("0")).toBe(first as unknown as Texture);
+    expect(getProjectTexture("second")).toBe(second as unknown as Texture);
+    expect(getProjectTexture("texture-b")).toBe(second as unknown as Texture);
+    expect(getProjectTexture("foreign")).toBeNull();
+  });
+
+  test("rejects duplicate texture names, numeric IDs, and UUIDs", () => {
+    const first = { id: 0, uuid: "texture-a", name: "skin" };
+    const duplicateName = { id: 1, uuid: "texture-b", name: "skin" };
+    (globalThis as any).Project = { textures: [first, duplicateName] };
+    (globalThis as any).Texture = { all: [first, duplicateName] };
+    expect(() => getProjectTexture("skin")).toThrow(/ambiguous/i);
+
+    const duplicateId = { id: 0, uuid: "texture-c", name: "other" };
+    (globalThis as any).Project = { textures: [first, duplicateId] };
+    expect(() => getProjectTexture("0")).toThrow(/ambiguous/i);
+
+    const duplicateUuid = { id: 3, uuid: "texture-a", name: "third" };
+    (globalThis as any).Project = { textures: [first, duplicateUuid] };
+    expect(() => getProjectTexture("texture-a")).toThrow(/duplicated/i);
   });
 
   test("rejects misleading non-default assignments in strict single-texture formats", () => {
@@ -82,9 +102,9 @@ describe("scoped texture assignment", () => {
     const second = { id: 1, uuid: "texture-b", name: "second" };
     (globalThis as any).Format = { id: "bedrock_block", single_texture: true };
     (globalThis as any).Texture = { getDefault: () => first };
-    expect(() => assertFaceTextureAssignmentSupported(second as Texture))
+    expect(() => assertFaceTextureAssignmentSupported(second as unknown as Texture))
       .toThrow(/one project texture/i);
-    expect(() => assertFaceTextureAssignmentSupported(first as Texture)).not.toThrow();
+    expect(() => assertFaceTextureAssignmentSupported(first as unknown as Texture)).not.toThrow();
   });
 
   test("writes only resolved target faces", () => {
@@ -241,6 +261,34 @@ describe("project file and new tool contracts", () => {
       .toContain("format_version");
   });
 
+  test("portable bbmodel output embeds textures and removes machine-local paths", () => {
+    const portable = JSON.parse(portableBbmodelText({
+      meta: { format_version: "5.0" },
+      textures: [{
+        uuid: "texture-a",
+        name: "default.png",
+        internal: true,
+        path: "D:\\session-temp\\default.png",
+        relative_path: "C:/Users/test/session/default.png",
+        sync_to_project: "other-project",
+        source: "data:image/png;base64,AAAA",
+      }],
+    })) as any;
+    expect(portable.textures[0]).toMatchObject({
+      uuid: "texture-a",
+      internal: true,
+      sync_to_project: "",
+      source: "data:image/png;base64,AAAA",
+    });
+    expect(portable.textures[0].path).toBeUndefined();
+    expect(portable.textures[0].relative_path).toBeUndefined();
+
+    expect(() => portableBbmodelText({
+      meta: { format_version: "5.0" },
+      textures: [{ uuid: "texture-a", name: "linked.png", internal: false }],
+    })).toThrow(/not embedded/i);
+  });
+
   test("requires explicit, internally consistent mutation inputs", () => {
     expect(() => removeTextureParameters.parse({ texture: "old" })).not.toThrow();
     expect(() => removeTextureParameters.parse({
@@ -300,5 +348,24 @@ describe("project file and new tool contracts", () => {
     expect(detectCoplanarFacesParameters.parse({
       pairs: [{ first: "blade", second: "guard" }],
     })).toMatchObject({ max_triangle_comparisons: 200_000, max_results_per_pair: 100 });
+  });
+
+  test("keyframe time references reject missing, duplicated, and colliding targets", () => {
+    const first = { uuid: "keyframe-a", time: 1 };
+    const second = { uuid: "keyframe-b", time: 1.0005 };
+
+    expect(resolveUniqueKeyframeAtTime([first], 1, "arm.rotation")).toBe(first);
+    expect(() => resolveUniqueKeyframeAtTime([], 1, "arm.rotation")).toThrow(
+      /No keyframe/i
+    );
+    expect(() =>
+      resolveUniqueKeyframeAtTime([first, second], 1, "arm.rotation")
+    ).toThrow(/Ambiguous/i);
+    expect(() =>
+      assertKeyframeTimesAvailable([], [1, 1.0005], "arm.rotation")
+    ).toThrow(/Duplicate/i);
+    expect(() =>
+      assertKeyframeTimesAvailable([first], [1], "arm.rotation")
+    ).toThrow(/already exists/i);
   });
 });

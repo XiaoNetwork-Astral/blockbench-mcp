@@ -1,7 +1,13 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { createResource } from "@/lib/factories";
-import { findByResourceId, makeResourceUri } from "@/lib/resourceUri";
+import {
+  findByExactUuid,
+  findByResourceId,
+  makeResourceId,
+  makeResourceUri,
+} from "@/lib/resourceUri";
+import { runInProjectContext } from "@/lib/projectContext";
 
 // Register projects resource using the factory pattern
 createResource("projects", {
@@ -96,32 +102,33 @@ createResource("projects", {
 });
 
 createResource("nodes", {
-  uriTemplate: "nodes://{id}",
+  uriTemplate: "nodes://{project}/{id}",
   title: "Blockbench Nodes",
   description:
-    "Returns the current nodes in the Blockbench editor. List URIs use the node's slugified name (e.g. `nodes://head`) when unique, with a `~<uuid-prefix>` suffix added to disambiguate collisions. Reads also accept the raw UUID or exact name.",
+    "Returns nodes from the project UUID embedded in each listed URI, so changing the foreground tab cannot retarget a saved resource link.",
   async listCallback() {
-    if (!Project?.nodes_3d) {
+    const project = Project;
+    if (!project?.nodes_3d) {
       return { resources: [] };
     }
-    const nodes = Object.values(Project.nodes_3d);
+    const nodes = Object.values(project.nodes_3d);
     return {
       resources: nodes.map((node) => ({
-        uri: makeResourceUri("nodes", node, nodes),
+        uri: `nodes://${project.uuid}/${makeResourceId(node, nodes)}`,
         name: node.name || node.uuid,
         description: `3D node in current project`,
         mimeType: "application/json",
       })),
     };
   },
-  async readCallback(uri, { id }) {
-    if (!Project?.nodes_3d) {
+  async readCallback(uri, { project: projectUuid, id }) {
+    const project = findByExactUuid(ModelProject.all, projectUuid, "Project");
+    if (!project.nodes_3d) {
       throw new Error("No nodes found in the Blockbench editor.");
     }
 
-    const nodes = Object.values(Project.nodes_3d);
-    const node =
-      (id ? Project.nodes_3d[id] : undefined) ?? findByResourceId(nodes, id);
+    const nodes = Object.values(project.nodes_3d);
+    const node = findByResourceId(nodes, id);
 
     if (!node) {
       throw new Error(`Node with ID "${id}" not found.`);
@@ -146,26 +153,28 @@ createResource("nodes", {
 });
 
 createResource("textures", {
-  uriTemplate: "textures://{id}",
+  uriTemplate: "textures://{project}/{id}",
   title: "Blockbench Textures",
   description:
-    "Returns information about textures in the current Blockbench project. List URIs use the texture's slugified name (e.g. `textures://skin`) when unique, with a `~<uuid-prefix>` suffix added on collision. Reads also accept the raw UUID, short numeric `id`, or exact name.",
+    "Returns textures from the exact project UUID embedded in each listed URI. Texture IDs and names are resolved only inside that project and ambiguity is rejected.",
   async listCallback() {
-    const textures = Project?.textures ?? [];
+    const project = Project;
+    const textures = project?.textures ?? [];
     if (textures.length === 0) {
       return { resources: [] };
     }
     return {
       resources: textures.map((texture) => ({
-        uri: makeResourceUri("textures", texture, textures),
+        uri: `textures://${project!.uuid}/${makeResourceId(texture, textures)}`,
         name: texture.name || texture.uuid,
         mimeType: "application/json",
         description: texture.path ? `Texture from ${texture.path}` : "Embedded texture",
       })),
     };
   },
-  async readCallback(uri, { id }) {
-    const textures = Project?.textures ?? [];
+  async readCallback(uri, { project: projectUuid, id }) {
+    const project = findByExactUuid(ModelProject.all, projectUuid, "Project");
+    const textures = project.textures ?? [];
 
     if (textures.length === 0) {
       return {
@@ -180,31 +189,40 @@ createResource("textures", {
     }
 
     // Helper to extract texture info
-    const getTextureInfo = (texture: Texture) => ({
-      uuid: texture.uuid,
-      name: texture.name,
-      id: texture.id,
-      width: texture.width,
-      height: texture.height,
-      frameCount: texture.frameCount,
-      // @ts-ignore - ratio property exists at runtime
-      ratio: texture.ratio,
-      path: texture.path || null,
-      folder: texture.folder || null,
-      namespace: texture.namespace || null,
-      particle: texture.particle ?? false,
-      render_mode: texture.render_mode || "default",
-      render_sides: texture.render_sides || "auto",
-      visible: texture.visible ?? true,
-      saved: texture.saved ?? false,
-      selected: texture.selected ?? false,
-      source: texture.source || null,
-    });
+    const getTextureInfo = (texture: Texture) => runInProjectContext(project, () => ({
+        project_uuid: project.uuid,
+        uuid: texture.uuid,
+        name: texture.name,
+        id: texture.id,
+        width: texture.width,
+        height: texture.height,
+        frameCount: texture.frameCount,
+        // @ts-ignore - ratio property exists at runtime
+        ratio: texture.ratio,
+        path: texture.path || null,
+        folder: texture.folder || null,
+        namespace: texture.namespace || null,
+        particle: texture.particle ?? false,
+        render_mode: texture.render_mode || "default",
+        render_sides: texture.render_sides || "auto",
+        visible: texture.visible ?? true,
+        saved: texture.saved ?? false,
+        selected: texture.selected ?? false,
+        source: texture.source || null,
+      }));
 
     // If ID provided, find specific texture
     if (id) {
-      const texture =
-        textures.find((t) => t.id === id) ?? findByResourceId(textures, id);
+      const numericMatches = /^\d+$/.test(id)
+        ? textures.filter((texture) => String(texture.id) === id)
+        : [];
+      if (numericMatches.length > 1) {
+        throw new Error(
+          `Texture numeric ID "${id}" is ambiguous (${numericMatches.length} matches: ` +
+            `${numericMatches.map((texture) => texture.uuid).join(", ")}). Use a UUID.`
+        );
+      }
+      const texture = numericMatches[0] ?? findByResourceId(textures, id);
 
       if (!texture) {
         throw new Error(`Texture with ID "${id}" not found.`);
@@ -238,13 +256,14 @@ createResource("textures", {
 });
 
 if (Plugins.installed.some((p: { id: string }) => p.id === "reference_models")) {
-  createResource("reference_models", {
-    uriTemplate: "reference_models://{id}",
+createResource("reference_models", {
+    uriTemplate: "reference_models://{project}/{id}",
     title: "Reference Models",
     description:
-      "Returns information about reference models in the current Blockbench project. Requires the Reference Models plugin. List URIs use the slugified name (e.g. `reference_models://turntable`) when unique, with a `~<uuid-prefix>` suffix on collision. Reads also accept the raw UUID or exact name.",
+      "Returns reference models from the exact project UUID embedded in each listed URI. Requires the Reference Models plugin.",
     async listCallback() {
-      const elements = Outliner?.elements ?? [];
+      const project = Project;
+      const elements = project?.elements ?? [];
       const referenceModels = elements.filter(
         (e) => e.type === "reference_model"
       );
@@ -253,7 +272,7 @@ if (Plugins.installed.some((p: { id: string }) => p.id === "reference_models")) 
       }
       return {
         resources: referenceModels.map((model) => ({
-          uri: makeResourceUri("reference_models", model, referenceModels),
+          uri: `reference_models://${project!.uuid}/${makeResourceId(model, referenceModels)}`,
           name: model.name || model.uuid,
           description: (model as { path?: string }).path
             ? `Reference model from ${(model as { path?: string }).path}`
@@ -262,8 +281,9 @@ if (Plugins.installed.some((p: { id: string }) => p.id === "reference_models")) 
         })),
       };
     },
-    async readCallback(uri, { id }) {
-      const elements = Outliner?.elements ?? [];
+    async readCallback(uri, { project: projectUuid, id }) {
+      const project = findByExactUuid(ModelProject.all, projectUuid, "Project");
+      const elements = project.elements ?? [];
       const referenceModels = elements.filter(
         (e) => e.type === "reference_model"
       );

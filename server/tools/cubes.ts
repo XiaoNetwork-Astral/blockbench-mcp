@@ -7,7 +7,7 @@ import { STATUS_STABLE } from "@/lib/constants";
 import {
   assertFaceTextureAssignmentSupported,
   findElementOrThrow,
-  getProjectTexture,
+  findTextureOrThrow,
 } from "@/lib/util";
 import {
   CUBE_FACE_KEYS,
@@ -214,12 +214,8 @@ createTool(cubeToolDocs[0].name, {
   ...cubeToolDocs[0],
   async execute({ elements, texture, faces, group }) {
     const projectTexture = texture
-      ? getProjectTexture(texture)
+      ? findTextureOrThrow(texture)
       : Texture.getDefault();
-
-    if (texture && !projectTexture) {
-      throw new Error(`No texture found for "${texture}".`);
-    }
     if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
     const outlinerParent = resolveOutlinerParentOrThrow(group, "cube");
 
@@ -293,12 +289,11 @@ createTool(cubeToolDocs[1].name, {
   }) {
     let cubes: Cube[];
     if (id) {
-      cubes = (Cube.all ?? []).filter((el: Cube) => el.uuid === id || el.name === id);
-      if (!cubes.length) {
-        throw new Error(
-          `Cube with ID "${id}" not found. Use inspect_elements with command.action "list_outline" to see available cubes.`
-        );
+      const element = findElementOrThrow(id);
+      if (!(element instanceof Cube)) {
+        throw new Error(`Element "${id}" is not a cube.`);
       }
+      cubes = [element];
     } else {
       cubes = Cube.selected;
       if (!cubes.length) {

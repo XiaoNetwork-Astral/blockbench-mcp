@@ -19,7 +19,7 @@ import { registerMaterialInstanceTools } from "./tools/material-instances";
 import { registerArmatureTools } from "./tools/armature";
 import { registerHistoryTools } from "./tools/history";
 import { registerExportTools } from "./tools/export";
-import { registerCodexTextureTools } from "./tools/codex-texture";
+import { registerExactTextureTools } from "./tools/exact-texture";
 import { registerYsmTools } from "./tools/ysm";
 import { registerWorkflowTools } from "./tools/workflow";
 import { registerSpatialTools } from "./tools/spatial";
@@ -38,7 +38,7 @@ const registrationFunctions = [
   registerAnimationTools,
   registerArmatureTools,
   registerCameraTools,
-  registerCodexTextureTools,
+  registerExactTextureTools,
   registerCubesTools,
   registerDisplayTools,
   registerElementTools,

@@ -8,6 +8,7 @@ import {
   type AuditStatus,
   type AuditTravelPlan,
 } from "@/lib/audit";
+import { PLUGIN_ID, SETTINGS_CATEGORY_ID } from "@/lib/constants";
 import type { IMCPTool } from "@/types";
 import { getProjectRole } from "@/lib/projectRoles";
 import {
@@ -23,9 +24,12 @@ let cssHandle: Deletable | undefined;
 let rawDataDialog: Dialog | undefined;
 let movedToListener: Deletable | undefined;
 let layoutTimer: ReturnType<typeof setTimeout> | undefined;
+let sidebarResizeObserver: ResizeObserver | undefined;
+let sidebarMutationObserver: MutationObserver | undefined;
+const AUDIT_PANEL_LAYOUT_EPSILON = 8;
 
 type ProjectScope = "current" | "all" | string;
-const NO_PROJECT_SCOPE = "__codex_no_project__";
+const NO_PROJECT_SCOPE = "__blockbench_mcp_no_project__";
 
 interface AuditPanelProject {
   id: string;
@@ -144,25 +148,37 @@ function timelineCursor(scope: ProjectScope): { projectId: string | null; undoIn
   };
 }
 
-function normalizeAuditPanelHeight(): void {
-  if (!panel || !panel.isInSidebar() || panel.attached_to || panel.folded) return;
+export function hasRecoverableAuditPanelSlack(
+  sidebarHeight: number,
+  visiblePanelHeights: readonly number[],
+  fixedHeight: boolean
+): boolean {
+  if (!fixedHeight || sidebarHeight <= 0) return false;
+  const occupiedHeight = visiblePanelHeights.reduce(
+    (total, height) => total + Math.max(0, height),
+    0
+  );
+  return sidebarHeight - occupiedHeight > AUDIT_PANEL_LAYOUT_EPSILON;
+}
+
+function releaseConstrainedAuditPanelHeight(): void {
+  if (!panel || !panel.isInSidebar() || panel.attached_to || panel.folded || !panel.fixed_height) return;
   const sidebar = panel.container.parentElement;
   if (!sidebar || !sidebar.clientHeight) return;
 
-  const sidebarRect = sidebar.getBoundingClientRect();
-  const panelRect = panel.container.getBoundingClientRect();
-  const availableHeight = Math.floor(sidebarRect.bottom - panelRect.top);
-  if (availableHeight <= 0) return;
+  const visiblePanelHeights = Array.from(sidebar.children)
+    .filter((child): child is HTMLElement =>
+      child instanceof HTMLElement &&
+      !child.classList.contains("hidden") &&
+      child.getBoundingClientRect().height > 0
+    )
+    .map((child) => child.getBoundingClientRect().height);
+  if (!hasRecoverableAuditPanelSlack(sidebar.clientHeight, visiblePanelHeights, true)) return;
 
-  const minimum = Math.min(panel.min_height ?? 180, availableHeight);
-  const requested = panel.position_data.height || 430;
-  const height = Math.max(minimum, Math.min(requested, availableHeight));
-  if (panel.fixed_height && Math.abs(panel.position_data.height - height) < 2) return;
-
-  // Blockbench clears fixed_height while moving a panel. A non-growable list
-  // then uses its complete content height, so restore a native resizable height
-  // once the panel has reached its new sidebar position.
-  panel.customizePosition({ height, fixed_height: true });
+  // Blockbench pins a fixed-height bottom panel below any unused flex space.
+  // Releasing the override lets this growable panel consume newly available
+  // sidebar height without requiring an undock/redock cycle.
+  panel.customizePosition({ fixed_height: false });
   panel.update();
 }
 
@@ -170,8 +186,46 @@ function scheduleAuditPanelLayout(): void {
   if (layoutTimer) clearTimeout(layoutTimer);
   layoutTimer = setTimeout(() => {
     layoutTimer = undefined;
-    normalizeAuditPanelHeight();
+    releaseConstrainedAuditPanelHeight();
   }, 0);
+}
+
+function disconnectAuditPanelLayoutObservers(): void {
+  sidebarResizeObserver?.disconnect();
+  sidebarResizeObserver = undefined;
+  sidebarMutationObserver?.disconnect();
+  sidebarMutationObserver = undefined;
+}
+
+function observeAuditPanelSidebar(): void {
+  disconnectAuditPanelLayoutObservers();
+  if (!panel || !panel.isInSidebar() || panel.attached_to) return;
+  const sidebar = panel.container.parentElement;
+  if (!sidebar) return;
+
+  if (typeof ResizeObserver !== "undefined") {
+    sidebarResizeObserver = new ResizeObserver(scheduleAuditPanelLayout);
+    sidebarResizeObserver.observe(sidebar);
+  }
+  if (typeof MutationObserver !== "undefined") {
+    sidebarMutationObserver = new MutationObserver((records) => {
+      const ownContainer = panel?.container;
+      if (records.some((record) => !ownContainer?.contains(record.target))) {
+        scheduleAuditPanelLayout();
+      }
+    });
+    sidebarMutationObserver.observe(sidebar, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+      childList: true,
+      subtree: true,
+    });
+  }
+}
+
+function handleAuditPanelMoved(): void {
+  observeAuditPanelSidebar();
+  scheduleAuditPanelLayout();
 }
 
 function showPanel(): void {
@@ -279,19 +333,19 @@ export function buildAuditRawData(
 function showRawDataDialog(item: AuditOperationSummary, details: AuditOperationDetails): void {
   rawDataDialog?.delete();
   rawDataDialog = new Dialog({
-    id: "codex_mcp_audit_raw_data",
+    id: "blockbench_mcp_audit_raw_data",
     title: tl("mcp.audit.raw_data_title"),
     icon: "data_object",
     width: 720,
     resizable: "xy",
     component: {
-      name: "codex_mcp_audit_raw_data",
+      name: "blockbench_mcp_audit_raw_data",
       data: () => ({
         note: tl("mcp.audit.raw_data_note"),
         jsonText: JSON.stringify(buildAuditRawData(item, details), null, 2),
       }),
       template: `
-        <div class="codex-audit-raw-dialog">
+        <div class="blockbench-audit-raw-dialog">
           <p>{{note}}</p>
           <pre>{{jsonText}}</pre>
         </div>
@@ -307,9 +361,9 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
   if (panel) return panel;
   cssHandle = Blockbench.addCSS(auditPanelCss);
 
-  panel = new Panel("codex_mcp_audit_panel", {
-    id: "codex_mcp_audit_panel",
-    plugin: "codex_blockbench_mcp",
+  panel = new Panel("blockbench_mcp_audit_panel", {
+    id: "blockbench_mcp_audit_panel",
+    plugin: PLUGIN_ID,
     icon: "manage_history",
     name: tl("mcp.audit.panel_name"),
     optional: true,
@@ -320,13 +374,12 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
       folded: false,
       sidebar_index: 10,
     },
-    growable: false,
+    growable: true,
     resizable: true,
     min_height: 180,
     expand_button: true,
-    onResize: scheduleAuditPanelLayout,
     component: {
-      name: "codex_mcp_audit_panel",
+      name: "blockbench_mcp_audit_panel",
       data: () => ({
         items: [] as AuditOperationSummary[],
         details: {} as Record<string, AuditOperationDetails | null>,
@@ -421,7 +474,7 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         },
         hidePanel,
         openSettings(): void {
-          const category = Settings.structure.codex_blockbench_mcp;
+          const category = Settings.structure[SETTINGS_CATEGORY_ID];
           if (category) category.open = true;
           Settings.openDialog();
         },
@@ -701,10 +754,11 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
     },
   });
 
-  movedToListener = panel.on("moved_to", scheduleAuditPanelLayout);
+  movedToListener = panel.on("moved_to", handleAuditPanelMoved);
+  observeAuditPanelSidebar();
   scheduleAuditPanelLayout();
 
-  showAction = new Action("codex_blockbench_mcp_show_audit_panel", {
+  showAction = new Action("blockbench_mcp_show_audit_panel", {
     name: tl("mcp.audit.show_panel"),
     description: tl("mcp.audit.show_panel_description"),
     icon: "manage_history",
@@ -717,6 +771,7 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
 export function auditPanelTeardown(): void {
   movedToListener?.delete();
   movedToListener = undefined;
+  disconnectAuditPanelLayoutObservers();
   if (layoutTimer) clearTimeout(layoutTimer);
   layoutTimer = undefined;
   rawDataDialog?.delete();

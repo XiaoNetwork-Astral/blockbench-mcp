@@ -1,6 +1,6 @@
 {
-  "version": "1.7.0-codex.35",
-  "generatedAt": "2026-08-24T10:34:24.715Z",
+  "version": "1.7.0-blockbench.37",
+  "generatedAt": "2026-08-28T02:53:24.770Z",
   "tools": [
     {
       "name": "create_cube",
@@ -2006,14 +2006,18 @@
                             "items": {
                               "type": "string"
                             },
-                            "default": []
+                            "default": [],
+                            "description": "Bones to hide only in this MCP session's offscreen screenshots.",
+                            "markdownDescription": "Bones to hide only in this MCP session's offscreen screenshots."
                           },
                           "show_bones": {
                             "type": "array",
                             "items": {
                               "type": "string"
                             },
-                            "default": []
+                            "default": [],
+                            "description": "Bones to show only in this MCP session's offscreen screenshots.",
+                            "markdownDescription": "Bones to show only in this MCP session's offscreen screenshots."
                           },
                           "only_bones": {
                             "type": "array",
@@ -2021,8 +2025,8 @@
                               "type": "string"
                             },
                             "default": [],
-                            "description": "If non-empty, isolates these bones together with their ancestors and descendants.",
-                            "markdownDescription": "If non-empty, isolates these bones together with their ancestors and descendants."
+                            "description": "If non-empty, isolates these bones with their ancestors and descendants only in this MCP session's offscreen screenshots. Pass empty visibility arrays to clear the filter.",
+                            "markdownDescription": "If non-empty, isolates these bones with their ancestors and descendants only in this MCP session's offscreen screenshots. Pass empty visibility arrays to clear the filter."
                           }
                         },
                         "additionalProperties": false
@@ -3450,7 +3454,7 @@
       "status": "experimental",
       "category": "Export",
       "annotations": {
-        "destructiveHint": false,
+        "destructiveHint": true,
         "openWorldHint": true
       },
       "parameters": {
@@ -6505,16 +6509,18 @@
                             "type": "string"
                           },
                           "width": {
-                            "type": "number",
+                            "type": "integer",
                             "minimum": 16,
                             "maximum": 4096,
-                            "default": 16
+                            "description": "Explicit output width. Omit with data to preserve the source image width.",
+                            "markdownDescription": "Explicit output width. Omit with data to preserve the source image width."
                           },
                           "height": {
-                            "type": "number",
+                            "type": "integer",
                             "minimum": 16,
                             "maximum": 4096,
-                            "default": 16
+                            "description": "Explicit output height. Omit with data to preserve the source image height.",
+                            "markdownDescription": "Explicit output height. Omit with data to preserve the source image height."
                           },
                           "data": {
                             "type": "string",

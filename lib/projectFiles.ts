@@ -59,14 +59,47 @@ export function parseBbmodelText(text: string, source: string): Record<string, u
 }
 
 export function portableBbmodelText(compiled: unknown): string {
-  if (typeof compiled === "string") {
-    parseBbmodelText(compiled, "compiled project");
-    return compiled;
+  const input = typeof compiled === "string"
+    ? compiled
+    : compiled && typeof compiled === "object" && !(compiled instanceof ArrayBuffer)
+      ? JSON.stringify(compiled)
+      : null;
+  if (!input) throw new Error("Blockbench returned no portable JSON .bbmodel content.");
+
+  // Parse and clone so callers never mutate a codec-owned object while making
+  // its serialized representation portable.
+  const document = parseBbmodelText(input, "compiled project");
+  const textures = Array.isArray(document.textures)
+    ? document.textures as Array<Record<string, unknown>>
+    : [];
+  const textureUuids = new Set<string>();
+  for (const texture of textures) {
+    const uuid = typeof texture.uuid === "string" ? texture.uuid : "";
+    if (!uuid) throw new Error("Portable .bbmodel texture is missing its UUID.");
+    if (textureUuids.has(uuid)) {
+      throw new Error(`Portable .bbmodel contains duplicated texture UUID "${uuid}".`);
+    }
+    textureUuids.add(uuid);
+
+    const sourceEmbedded = typeof texture.source === "string"
+      && /^data:image\//i.test(texture.source);
+    const layers = Array.isArray(texture.layers)
+      ? texture.layers as Array<Record<string, unknown>>
+      : [];
+    const layersEmbedded = layers.length > 0 && layers.every(
+      (layer) => typeof layer.data_url === "string" && /^data:image\//i.test(layer.data_url)
+    );
+    if (!sourceEmbedded && !layersEmbedded) {
+      throw new Error(
+        `Texture "${String(texture.name ?? uuid)}" is not embedded; refusing to create a ` +
+          "machine-dependent portable .bbmodel."
+      );
+    }
+
+    texture.internal = true;
+    texture.sync_to_project = "";
+    delete texture.path;
+    delete texture.relative_path;
   }
-  if (compiled && typeof compiled === "object" && !(compiled instanceof ArrayBuffer)) {
-    const text = JSON.stringify(compiled);
-    parseBbmodelText(text, "compiled project");
-    return text;
-  }
-  throw new Error("Blockbench returned no portable JSON .bbmodel content.");
+  return JSON.stringify(document);
 }

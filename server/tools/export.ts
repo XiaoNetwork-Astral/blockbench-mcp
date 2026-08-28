@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
-import { parseBbmodelText } from "@/lib/projectFiles";
+import { parseBbmodelText, portableBbmodelText } from "@/lib/projectFiles";
+import { assertExternalWriteAllowed } from "@/lib/textureSafety";
 
 export const listExportFormatsParameters = z.object({
   only_current_format: z
@@ -64,7 +65,7 @@ export const exportToolDocs: ToolSpec[] = [
       "Compiles the MCP working project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.",
     annotations: {
       title: "Export Model",
-      destructiveHint: false,
+      destructiveHint: true,
       openWorldHint: true,
     },
     parameters: exportModelParameters,
@@ -275,20 +276,23 @@ export function registerExportTools() {
         plan.id
       );
 
-      const isArrayBuffer = rawResult instanceof ArrayBuffer;
+      const exportResult = plan.id === "project"
+        ? portableBbmodelText(rawResult)
+        : rawResult;
+      const isArrayBuffer = exportResult instanceof ArrayBuffer;
       const isBinaryView =
-        ArrayBuffer.isView(rawResult) && !(rawResult instanceof DataView);
+        ArrayBuffer.isView(exportResult) && !(exportResult instanceof DataView);
       const binaryBuffer = isArrayBuffer
-        ? Buffer.from(rawResult as ArrayBuffer)
+        ? Buffer.from(exportResult as ArrayBuffer)
         : isBinaryView
           ? Buffer.from(
-              (rawResult as ArrayBufferView).buffer,
-              (rawResult as ArrayBufferView).byteOffset,
-              (rawResult as ArrayBufferView).byteLength
+              (exportResult as ArrayBufferView).buffer,
+              (exportResult as ArrayBufferView).byteOffset,
+              (exportResult as ArrayBufferView).byteLength
             )
           : null;
 
-      const text = binaryBuffer ? null : toTextContent(rawResult);
+      const text = binaryBuffer ? null : toTextContent(exportResult);
       const byteLength = binaryBuffer
         ? binaryBuffer.byteLength
         : Buffer.byteLength(text ?? "", "utf8");
@@ -296,8 +300,14 @@ export function registerExportTools() {
 
       let wrote_to_path: string | null = null;
       if (path) {
+        if (/\.bbmodel$/i.test(path) && plan.id !== "project") {
+          throw new Error(
+            `Refusing to write codec "${plan.id}" output to a .bbmodel path. Use codec_id "project".`
+          );
+        }
+        assertExternalWriteAllowed(path, targetProject, "export_model");
         if (plan.id === "project") {
-          assertPortableProjectExportMatches(rawResult, targetProject);
+          assertPortableProjectExportMatches(exportResult, targetProject);
         }
         // @ts-ignore - requireNativeModule is a Blockbench global
         const fs = requireNativeModule("fs", {

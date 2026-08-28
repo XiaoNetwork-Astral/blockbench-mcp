@@ -1,7 +1,8 @@
 import { PLUGIN_WORKSPACE_SETTING, getStoredSettingValue } from "@/lib/pluginSettings";
-
-const LEGACY_SETTING_KEY = "codex_mcp_temporary_directory";
-const LEGACY_STORAGE_KEY = "codex_blockbench_mcp.ysm_workspace";
+import {
+  LEGACY_PLUGIN_WORKSPACE_SETTING,
+  LEGACY_PLUGIN_WORKSPACE_STORAGE_KEY,
+} from "@/lib/brandingMigration";
 
 type ScopedFs = typeof import("node:fs");
 type CryptoModule = typeof import("node:crypto");
@@ -18,7 +19,7 @@ function normalizedRoot(value: unknown): string {
 export function getInitialPluginWorkspaceRoot(): string {
   const stored = String(
     getStoredSettingValue(PLUGIN_WORKSPACE_SETTING)
-      ?? getStoredSettingValue(LEGACY_SETTING_KEY)
+      ?? getStoredSettingValue(LEGACY_PLUGIN_WORKSPACE_SETTING)
       ?? ""
   ).trim();
   if (stored) {
@@ -30,9 +31,9 @@ export function getInitialPluginWorkspaceRoot(): string {
   // native Setting. Once migrated, clearing the Setting must not resurrect it.
   const legacy = typeof localStorage === "undefined"
     ? ""
-    : String(localStorage.getItem(LEGACY_STORAGE_KEY) ?? "").trim();
+    : String(localStorage.getItem(LEGACY_PLUGIN_WORKSPACE_STORAGE_KEY) ?? "").trim();
   if (legacy && typeof localStorage !== "undefined") {
-    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_PLUGIN_WORKSPACE_STORAGE_KEY);
   }
   workspaceRoot = normalizedRoot(legacy);
   return workspaceRoot;
@@ -67,7 +68,7 @@ export function choosePluginWorkspace(): boolean {
   const selected = Blockbench.pickDirectory({
     title: tl("mcp.settings.plugin_workspace_picker_title"),
     startpath: getPluginWorkspaceRoot() || undefined,
-    resource_id: "codex_blockbench_mcp_ysm_workspace",
+    resource_id: "blockbench_mcp_ysm_workspace",
   });
   if (!selected) return false;
   return setPluginWorkspaceRoot(selected, true);

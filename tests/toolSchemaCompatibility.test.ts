@@ -15,7 +15,7 @@ import {
   cameraPublicToolDocs,
   cameraToolDocs,
 } from "@/server/tools/camera";
-import { codexTextureToolDocs } from "@/server/tools/codex-texture";
+import { exactTextureToolDocs } from "@/server/tools/exact-texture";
 import { cubeToolDocs } from "@/server/tools/cubes";
 import {
   displayPublicToolDocs,
@@ -56,7 +56,7 @@ const corePublicToolDocs = [
   ...animationPublicToolDocs,
   ...armaturePublicToolDocs,
   ...cameraPublicToolDocs,
-  ...codexTextureToolDocs,
+  ...exactTextureToolDocs,
   ...cubeToolDocs,
   ...displayPublicToolDocs,
   ...elementPublicToolDocs,
@@ -189,7 +189,7 @@ function findActionLiterals(value: unknown): string[] {
   return own.concat(Object.values(object).flatMap(findActionLiterals));
 }
 
-describe("Codex MCP schema compatibility", () => {
+describe("Blockbench MCP schema compatibility", () => {
   test("all 36 core public tools avoid unsupported draft-07 tuple items", () => {
     const failures = corePublicToolDocs.flatMap((tool) => {
       const schema = zodToJsonSchema(tool.parameters, { $refStrategy: "root" });

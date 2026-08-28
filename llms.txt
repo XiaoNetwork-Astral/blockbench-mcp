@@ -1,10 +1,10 @@
-# Codex Blockbench MCP
+# Blockbench MCP
 
 - Repository: https://github.com/XiaoNetwork-Astral/blockbench-mcp
 - Upstream: https://github.com/jasonjgardner/blockbench-mcp-plugin
 - License: GPL-3.0-only
-- Version: 1.7.0-codex.35
-- Artifact: `dist/codex_blockbench_mcp.js`
+- Version: 1.7.0-blockbench.37
+- Artifact: `dist/blockbench_mcp.js`
 - Default MCP URL: `http://127.0.0.1:3000/bb-mcp`
 
 ## Interface

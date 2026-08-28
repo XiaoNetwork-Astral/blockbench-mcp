@@ -14,10 +14,19 @@ import {
   DEFAULT_AUDIT_RETENTION,
   getAuditRetention,
 } from "@/lib/pluginSettings";
+import { LEGACY_AUDIT_DATABASE_NAME } from "@/lib/brandingMigration";
+
+function openProjectByUuid(uuid: string): ModelProject | null {
+  const matches = ModelProject.all.filter((project) => project.uuid === uuid);
+  if (matches.length > 1) {
+    throw new Error(`Project UUID "${uuid}" is duplicated across open tabs.`);
+  }
+  return matches[0] ?? null;
+}
 
 export type { AuditSource, AuditStatus } from "@/lib/auditCore";
 
-const DATABASE_NAME = "codex_blockbench_mcp_audit";
+const DATABASE_NAME = "blockbench_mcp_audit";
 const DATABASE_VERSION = 1;
 const OPERATIONS_STORE = "operations";
 const DETAILS_STORE = "details";
@@ -167,6 +176,75 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
   });
 }
 
+async function migrateLegacyAuditDatabase(target: IDBDatabase): Promise<void> {
+  if (
+    typeof indexedDB.databases !== "function" ||
+    !(await indexedDB.databases()).some(
+      (database) => database.name === LEGACY_AUDIT_DATABASE_NAME
+    )
+  ) {
+    return;
+  }
+
+  const legacy = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(LEGACY_AUDIT_DATABASE_NAME);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () =>
+      reject(request.error ?? new Error("Unable to open the legacy audit database"));
+  });
+
+  try {
+    if (
+      !legacy.objectStoreNames.contains(OPERATIONS_STORE) ||
+      !legacy.objectStoreNames.contains(DETAILS_STORE)
+    ) {
+      return;
+    }
+
+    const readTransaction = legacy.transaction(
+      [OPERATIONS_STORE, DETAILS_STORE],
+      "readonly"
+    );
+    const readDone = transactionDone(readTransaction);
+    const [summaries, details] = await Promise.all([
+      requestResult(
+        readTransaction.objectStore(OPERATIONS_STORE).getAll() as IDBRequest<
+          AuditOperationSummary[]
+        >
+      ),
+      requestResult(
+        readTransaction.objectStore(DETAILS_STORE).getAll() as IDBRequest<
+          AuditOperationDetails[]
+        >
+      ),
+    ]);
+    await readDone;
+
+    const writeTransaction = target.transaction(
+      [OPERATIONS_STORE, DETAILS_STORE],
+      "readwrite"
+    );
+    summaries.forEach((summary) =>
+      writeTransaction.objectStore(OPERATIONS_STORE).put(summary)
+    );
+    details.forEach((detail) =>
+      writeTransaction.objectStore(DETAILS_STORE).put(detail)
+    );
+    await transactionDone(writeTransaction);
+  } finally {
+    legacy.close();
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(LEGACY_AUDIT_DATABASE_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () =>
+      reject(request.error ?? new Error("Unable to remove the migrated audit database"));
+    request.onblocked = () =>
+      reject(new Error("Removing the migrated audit database was blocked"));
+  });
+}
+
 function matchesAuditQuery(item: AuditOperationSummary, query: AuditQuery): boolean {
   if (query.source && query.source !== "all" && item.source !== query.source) return false;
   if (query.status && query.status !== "all" && item.status !== query.status) return false;
@@ -247,13 +325,20 @@ class AuditStore {
           request.result.close();
           return;
         }
-        this.database = request.result;
-        this.database.onversionchange = () => {
+        const database = request.result;
+        database.onversionchange = () => {
           this.database?.close();
           this.database = null;
           this.databasePromise = null;
         };
-        resolve(request.result);
+        void migrateLegacyAuditDatabase(database)
+          .catch((error) => {
+            console.warn("[Blockbench MCP] Could not migrate legacy audit history:", error);
+          })
+          .finally(() => {
+            this.database = database;
+            resolve(database);
+          });
       };
       request.onerror = () => {
         const error = request.error ?? new Error("Unable to open the audit database");
@@ -831,7 +916,7 @@ class AuditManager {
     entryIds: ReadonlySet<string>
   ): AuditUndoEntryDetail[] {
     if (!projectId || entryIds.size === 0) return [];
-    const project = ModelProject.all.find((candidate) => candidate.uuid === projectId);
+    const project = openProjectByUuid(projectId);
     if (!project) return [];
     const ownership = this.getOwnership(projectId);
     const details: AuditUndoEntryDetail[] = [];
@@ -872,7 +957,7 @@ class AuditManager {
         targetPoint
       );
     }
-    const project = ModelProject.all.find((candidate) => candidate.uuid === targetPoint.projectId);
+    const project = openProjectByUuid(targetPoint.projectId);
     if (!project) {
       return this.invalidPlan(operationId, phase, "The model project is no longer open.", targetPoint);
     }
@@ -914,7 +999,7 @@ class AuditManager {
     if (!plan.valid) throw new Error(plan.reason || "This history state is no longer available.");
     if (plan.unsafeCount > 0 && !allowUnsafe) throw new AuditConfirmationRequiredError(plan);
     if (!plan.projectId) throw new Error("The history record has no model project.");
-    const project = ModelProject.all.find((candidate) => candidate.uuid === plan.projectId);
+    const project = openProjectByUuid(plan.projectId);
     if (!project) throw new Error("The model project is no longer open.");
     if (!project.selected && !project.select()) {
       throw new Error(`Blockbench refused to select model \"${project.name}\".`);

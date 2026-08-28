@@ -1,6 +1,6 @@
-# Claude 协作说明
+# Claude Collaboration Instructions
 
-- Blockbench 建模、检查或调整：先读并遵守 `AGENTS.md`。
-- 当前工作区另有项目专用说明时，在 `AGENTS.md` 之后阅读，不要把专用路径和版本规则用于其他项目。
-- 插件开发：读 `CONTRIBUTING.md`。
-- 用户在当前任务中的较新、明确要求优先。
+- For Blockbench modeling, inspection, or adjustment, read and follow `AGENTS.md` first.
+- If the current workspace contains additional project-specific instructions, read them after `AGENTS.md`. Do not apply project-specific paths or version rules to other projects.
+- For plugin development, read `CONTRIBUTING.md`.
+- The user's newer, explicit requirements for the current task take priority.

@@ -27,6 +27,10 @@ import {
   type FaceTextureElementTarget,
 } from "@/lib/faceTextures";
 import {
+  assertExternalWriteAllowed,
+  prepareTextureForMutation,
+} from "@/lib/textureSafety";
+import {
   colorSchema,
   elementIdSchema,
   textureIdSchema,
@@ -43,8 +47,20 @@ import {
 export const createTextureParameters = z
   .object({
     name: z.string(),
-    width: z.number().min(16).max(4096).default(16),
-    height: z.number().min(16).max(4096).default(16),
+    width: z
+      .number()
+      .int()
+      .min(16)
+      .max(4096)
+      .optional()
+      .describe("Explicit output width. Omit with data to preserve the source image width."),
+    height: z
+      .number()
+      .int()
+      .min(16)
+      .max(4096)
+      .optional()
+      .describe("Explicit output height. Omit with data to preserve the source image height."),
     data: z
       .string()
       .optional()
@@ -85,6 +101,13 @@ export const createTextureParameters = z
       "The 'layer_name' property is required when 'fill_color' is set.",
     path: ["layer_name", "fill_color"],
   })
+  .refine(
+    ({ width, height }) => (width === undefined) === (height === undefined),
+    {
+      message: "The 'width' and 'height' properties must be provided together.",
+      path: ["width", "height"],
+    }
+  )
   .refine(
     ({ pbr_channel, group }) => (pbr_channel && group) || !pbr_channel,
     {
@@ -565,9 +588,11 @@ export function registerTextureTools() {
       layer_name,
       render_mode,
       render_sides,
-    }) {
+    }, context) {
       const textureGroup = group ? findTextureGroupOrThrow(group) : undefined;
       const resolvedGroup = textureGroup?.uuid;
+      const initialWidth = width ?? 16;
+      const initialHeight = height ?? 16;
       Undo.initEdit({
         textures: [],
         selected_texture: true,
@@ -577,8 +602,8 @@ export function registerTextureTools() {
 
       let texture = new Texture({
         name,
-        width,
-        height,
+        width: initialWidth,
+        height: initialHeight,
         group: resolvedGroup,
         pbr_channel,
         render_mode,
@@ -612,9 +637,11 @@ export function registerTextureTools() {
               `texture file "${localPath}"`
             );
           }
-          await resizeTextureSource(texture, width, height);
+          if (width !== undefined && height !== undefined) {
+            await resizeTextureSource(texture, width, height);
+          }
         } else {
-          const source = createSizedTextureDataUrl(width, height, (ctx) => {
+          const source = createSizedTextureDataUrl(initialWidth, initialHeight, (ctx) => {
             if (!fill_color) return;
             const color = Array.isArray(fill_color)
               // @ts-ignore - tinycolor is available globally in Blockbench
@@ -627,22 +654,32 @@ export function registerTextureTools() {
               // @ts-ignore - tinycolor is available globally in Blockbench
               : tinycolor(fill_color);
             ctx.fillStyle = color.toRgbString().toLowerCase();
-            ctx.fillRect(0, 0, width, height);
+            ctx.fillRect(0, 0, initialWidth, initialHeight);
           });
           (texture as Texture & { keep_size?: boolean }).keep_size = true;
           await waitForTextureImage(
             texture,
             () => texture.fromDataURL(source),
-            `${width}×${height} texture canvas`
+            `${initialWidth}×${initialHeight} texture canvas`
           );
+        }
+
+        // Imported files are sources, not shared writable backing stores for
+        // the new project texture. Detach before the creation Undo is finished.
+        prepareTextureForMutation(context.project!, texture);
+
+        const finalWidth = width ?? texture.width;
+        const finalHeight = height ?? texture.height;
+        if (!finalWidth || !finalHeight) {
+          throw new Error(`Texture "${name}" did not expose valid source dimensions.`);
         }
 
         texture.layers_enabled = false;
         if (data) texture.fillParticle();
         applyTextureCreationSettings(texture, {
           name,
-          width,
-          height,
+          width: finalWidth,
+          height: finalHeight,
           group: resolvedGroup,
           pbrChannel: pbr_channel,
           renderMode: render_mode,
@@ -1185,7 +1222,7 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[11].name, {
     ...textureToolDocs[11],
-    async execute({ material }) {
+    async execute({ material }, context) {
       const textureGroup = findTextureGroupOrThrow(material);
       const filePath = textureGroup.material_config.getFilePath();
 
@@ -1195,6 +1232,8 @@ export function registerTextureTools() {
         );
       }
 
+      assertExternalWriteAllowed(filePath, context.project!, "save_material_config");
+
       textureGroup.material_config.save();
 
       return `Saved material config to "${filePath}"`;
@@ -1203,7 +1242,7 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[12].name, {
     ...textureToolDocs[12],
-    async execute({ texture, replacement, clear_references }) {
+    async execute({ texture, replacement, clear_references }, context) {
       const target = findTextureOrThrow(texture);
       const replacementTexture = replacement
         ? findTextureOrThrow(replacement)
@@ -1233,6 +1272,10 @@ export function registerTextureTools() {
         );
       }
 
+      // The removal transaction must own a complete project-local bitmap copy;
+      // otherwise Undo can reload pixels from an external file that changed.
+      prepareTextureForMutation(context.project!, target);
+
       const wasSelected = Texture.selected?.uuid === target.uuid;
       const wasParticle = target.particle;
       const wasDefault = target.use_as_default;
@@ -1241,6 +1284,7 @@ export function registerTextureTools() {
         elements: referencedElements,
         groups: referencedGroups,
         selected_texture: true,
+        bitmap: true,
         collections: [],
       } as UndoAspects;
       Undo.initEdit(beforeAspects);
@@ -1289,6 +1333,7 @@ export function registerTextureTools() {
         elements: referencedElements,
         groups: referencedGroups,
         selected_texture: true,
+        bitmap: true,
         collections: [],
       } as UndoAspects;
       Undo.finishEdit("Agent removed texture", afterAspects);

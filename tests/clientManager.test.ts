@@ -4,10 +4,10 @@ import { clientMatchesSearch } from "@/ui/clientManager";
 
 describe("MCP client manager search", () => {
   const client = {
-    clientName: "codex-mcp-client",
+    clientName: "blockbench-mcp-client",
     clientVersion: "0.149.0-alpha.4",
     remoteAddress: "127.0.0.1",
-    userAgent: "codex-mcp-client/0.149.0-alpha.4",
+    userAgent: "blockbench-mcp-client/0.149.0-alpha.4",
     sessions: [
       { id: "0493b0e2-example-session-ee7fa1" },
       { id: "1f74e57e-another-session-cd092e" },
@@ -16,7 +16,7 @@ describe("MCP client manager search", () => {
 
   test("matches identity, address, version, and nested session IDs", () => {
     expect(clientMatchesSearch(client, "")).toBe(true);
-    expect(clientMatchesSearch(client, "CODEX-MCP")).toBe(true);
+    expect(clientMatchesSearch(client, "BLOCKBENCH-MCP")).toBe(true);
     expect(clientMatchesSearch(client, "127.0.0.1")).toBe(true);
     expect(clientMatchesSearch(client, "alpha.4")).toBe(true);
     expect(clientMatchesSearch(client, "ee7fa1")).toBe(true);
@@ -35,17 +35,17 @@ describe("MCP client manager presentation", () => {
     expect(template).toContain("setAllVisible(true)");
     expect(template).toContain("setAllVisible(false)");
     expect(template).not.toContain("toggleAllVisible");
-    expect(template.match(/codex-mcp-client-expand-button/g)).toHaveLength(2);
-    expect(styles).toContain(".codex-mcp-client-scroll-region");
-    expect(styles).toContain(".codex-mcp-client-expand-controls");
+    expect(template.match(/blockbench-mcp-client-expand-button/g)).toHaveLength(2);
+    expect(styles).toContain(".blockbench-mcp-client-scroll-region");
+    expect(styles).toContain(".blockbench-mcp-client-expand-controls");
     expect(styles).toContain("max-width: 34px");
     expect(styles).toContain("max-height: 34px");
-    expect(styles).toContain(".codex-mcp-client-expand-button:not(:disabled):focus");
+    expect(styles).toContain(".blockbench-mcp-client-expand-button:not(:disabled):focus");
     expect(styles).toContain("-webkit-text-fill-color: var(--color-text) !important");
-    expect(styles).toContain(".codex-mcp-client-toggle:focus-visible");
+    expect(styles).toContain(".blockbench-mcp-client-toggle:focus-visible");
     expect(styles).toContain("text-decoration: none !important");
     expect(styles).toContain("user-select: none");
-    expect(styles).toContain(".codex-mcp-client-expand-button:disabled:focus");
+    expect(styles).toContain(".blockbench-mcp-client-expand-button:disabled:focus");
     expect(styles).toContain("max-height: min(280px, 36vh)");
     expect(styles.match(/overflow-y: auto/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });

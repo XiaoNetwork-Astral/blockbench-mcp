@@ -1,6 +1,6 @@
 {
-  "name": "codex-blockbench-mcp",
-  "version": "1.7.0-codex.35",
+  "name": "blockbench-mcp",
+  "version": "1.7.0-blockbench.37",
   "description": "Local-first Blockbench MCP plugin with guarded modeling and optional workflow integrations",
   "keywords": [
     "Blockbench",
@@ -16,10 +16,10 @@
     "url": "https://github.com/XiaoNetwork-Astral/blockbench-mcp/issues"
   },
   "type": "module",
-  "main": "dist/codex_blockbench_mcp.js",
+  "main": "dist/blockbench_mcp.js",
   "scripts": {
     "test": "bun test tests",
-    "test:codex": "bun test tests",
+    "test:blockbench": "bun test tests",
     "check": "bun test tests",
     "prompts:build": "bun run ./build/generate-manifest.ts",
     "dev": "bun run prompts:build && bun run ./build --clean --sourcemap",
