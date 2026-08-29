@@ -1,0 +1,5011 @@
+{
+  "schema_version": 1,
+  "generated_from": {
+    "stable": {
+      "declared_version": "2.6.5-forge+mc1.20.1",
+      "commit": null,
+      "root_digest": "f2254058c714d9b764154df2e1c65898a23708783622b1ae583ba626abc07505",
+      "files": [
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/ArgsVariable.java",
+          "sha256": "fbcd50d674d8f443ca07c8786bc9e7b7d770ae850298f5ca0006ed031bac4db2"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java",
+          "sha256": "bfca19f328a4af85295d3edc105f8a0534ad8d85c3a7673e5c203e41c9c9d76d"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/FnBinding.java",
+          "sha256": "678611bdd463e09ca85ba3534064f0a4a7670c45290aa0ae011d751935cfd334"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ctrl/Armor.java",
+          "sha256": "ea3fc5f47829ea42d5cdcaae6e315c9cb6a73ecfbb993136665184c5729ce0cf"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ctrl/HandRenderFunction.java",
+          "sha256": "ddb7d9d6f89e66fc7dd1a69775e65a79f8911486aad52d1912bad9111be53cb6"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ctrl/IndicateReload.java",
+          "sha256": "1aa5a99d85a378645977c037daa11a041bad41c5cdafab27c791e3f4c85ebd67"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ctrl/Reset.java",
+          "sha256": "4640b8ab1fb37c97275ed12d49fbb878a1df0adb59c0c60fce434e7da2ca104a"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ctrl/Ride.java",
+          "sha256": "a4449c03bbb0fea21a539d9a7a253b30f8ec75e3d27c935c1139d047c162e02b"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ctrl/SetAnimation.java",
+          "sha256": "8bf24dca48364d4ce3b15589fa153f32a8485a0b03191a80a864e7465462a618"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ctrl/SetTransitionSpeed.java",
+          "sha256": "0dc62b4594f9890cb05fdfb058d527f08875ce079050eb1100c67f39d2e233b8"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/physics/FirstOrder.java",
+          "sha256": "f05a19c2dfa9cdbf6f4b85134f0d9e0fef0412d256c204d0a97441a7134b2622"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/physics/IPhysics.java",
+          "sha256": "39c8dd701ad7908f7c386be8a98f01dbc1d7b889c3ccf0497b4ca6bee13227a6"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/physics/SecondOrder.java",
+          "sha256": "bfd754a2a2e8fa4a5ac83b70cc1d6c3e17b22ac05cdf0dfadaee67079a68d6d3"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/BoneParamFunction.java",
+          "sha256": "c1ca3ab7da864428fdf9984b1632d054fc13ef0f96134424a89e2a8d0ac3e3a0"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/BonePivotAbs.java",
+          "sha256": "132a8bdf62f4a8c0e8873c27d3bda720dbffee44e9cbc8c63ef0784393e67e9f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/BonePosition.java",
+          "sha256": "9edd2cd3808c34b8473282dcbaffb8b03f296170d53b2823171cc212b7471e3b"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/BoneRotation.java",
+          "sha256": "5525fd0c0fc1073a929a10d8160b8dfa9894ff2c42877f8f28784d0296af73ad"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/BoneScale.java",
+          "sha256": "c03551a4051593f69498a20a751d00038127384e160c56fa8407ac7e89ad84e6"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/curios/HasAnyCurios.java",
+          "sha256": "07f7406be8bfc641161955911df4bb0340bd98114b5241ccd70a05e4d0a535fd"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/curios/HasAnyCuriosWithAllTags.java",
+          "sha256": "60c5929f573914760907a18ad0e33f2a82b807991c9148f74896176e4a8f3279"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/curios/HasAnyCuriosWithAnyTag.java",
+          "sha256": "bd24fe5d85a421ed019c2789ac8a5b54bb2a33f7e4e39543cf37091b1a6364e5"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/Defer.java",
+          "sha256": "5cd20d93b5579ca704dea4ecc1fe80e8a9fe6e0e37d8a2dc5dd40eb3feff352e"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/DumpEquippedItem.java",
+          "sha256": "8d125e7825a7712aefd656a31bae0c16669f8fc2f84369be7128acfbe5ada02f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/DumpRelativeBlock.java",
+          "sha256": "1257c126f244d7585d2132091c090db6b5f9fcb1683d99ce5fc2c8c421cb2925"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/EffectLevel.java",
+          "sha256": "13a0b4f48dc2316f42aeb5829b67c4a94cd1aa16aecdc753bf92a9cc5b03d351"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/EquippedEnchantmentLevel.java",
+          "sha256": "bfdd21b0ae783fb1d42c36a10d51b1c23ce3ad65d408e4c2d4f8e1b196be1ded"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/FirstOrderFunction.java",
+          "sha256": "412cffe3b53b89891624c56f19e07769391f16456493b30965b868df622c5083"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/FirstPersonModHide.java",
+          "sha256": "7bffdd30e9b8b002746eaf6daeee313b14dc1192d169ea980c0f9a3f52e32a55"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/InputKeyDetectionFunction.java",
+          "sha256": "5b666bfe459567c4b4a77f28d536e170d5300d4214dbbc8dbec7fd8859a251ea"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/LadderFacing.java",
+          "sha256": "8bffda6e127da0338537ee6f50b707e6830d0400b5614a8aad335019d77deaf4"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/ModVersion.java",
+          "sha256": "552a546af2a7211241b7e55518b5fca8718289962bfd7534162752c638b150f2"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/Particle.java",
+          "sha256": "6b0b504748e59ad7dd759970478647c167ce3a5ce5e236a8742f590eee3505b8"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/PerlinNoise.java",
+          "sha256": "d278ba0ff656627e90e74867dd36c5eba211222cceb79c6bbf31dbedd7557466"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/RelativeBlockName.java",
+          "sha256": "2a065010c88d7b9912392cba024225ea692dfbae69a1ccbae026ee354304b8d1"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/RelativeBlockNameAny.java",
+          "sha256": "38b4f5ad747b42886af8e4ec3f9320ba2492e3257bf9bb85f48e15957716a05d"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/SecondOrderFunction.java",
+          "sha256": "bb756adad7898339bc3ed9651dfa6bf96951cf35b83ddd4ebe5765e80a51944a"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/SoundFunction.java",
+          "sha256": "a3a9e065370bc0de78278f1dc17fda1cbeafe44e68a198367b0bb7d2aa996f05"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/Sync.java",
+          "sha256": "9efabe35a66273f3e5808305cefd1056f20329fead7fa2c838af9d11f371ee9b"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/functions/ysm/TextureName.java",
+          "sha256": "59681e9020915a108d5632a0a5bdb60374166ecc6499196b912c293df16b1205"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/MolangEventDispatcher.java",
+          "sha256": "e668fd45e2cfaf02834ff46fea67c48a11d453237a47bedd8936d525ecdf9ec2"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/MolangWatchRegistry.java",
+          "sha256": "3e5f55379dc6048dd810463c75e0bb57955d8af183817bfffb2876ddcbf33c43"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/PhysicsManager.java",
+          "sha256": "82873f1a47cce1ed57ca9e4487fec1eeb7c6d7060b252a96d14c7309df390e2b"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/struct/RoamingStruct.java",
+          "sha256": "4b616145d25f179cbf73020825a452bc44b16c98b62f5b166e9910a3ad8f54ae"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/struct/RoamingSyncBatch.java",
+          "sha256": "7dcef9a8c33f1cb4d4b3347eb361e504ad21d7dfbd7fa6adef01a1fd82989cfa"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/struct/Vec3fStruct.java",
+          "sha256": "3e4d3324782ce29e824c00cc0588f3b2885e67fd3cabca5294d2592edc980df1"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/TLMBinding.java",
+          "sha256": "1b17bc6b17831716b742cddbd274c40ccddc1d00a8545d12809abfbc4c514f1c"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java",
+          "sha256": "71e73aecfc473ee4a995dc71461cc0727458c431cf87738339bbc2e563feb6fa"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/bettercombat/BetterCombatBinding.java",
+          "sha256": "c7bfd6eb156fc356a81e8bcf02e364cae8c17c7c36c834bc0345704377e4f9fb"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/carryon/CarryOnBinding.java",
+          "sha256": "42a7be6cf19f43a1ff430f62a7becdc9a52b172739885e77249e0183446572b1"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/curios/CuriosBinding.java",
+          "sha256": "df3eff5cb189d2caaa34ecb962beac663183a5fe5bbdc6cd87ae0bf5b27597f3"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/gun/tacz/TacBinding.java",
+          "sha256": "13dd015f262c54110fbfa4b878e7d44fac755de538af6774d23c1016fba040ea"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/immersivemelodies/ImmersiveMelodiesBinding.java",
+          "sha256": "ea34779f7e7e06ad70b1749378efb18b2cf8ea6198db1331ace9fc87c506973c"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/ironsspellbooks/SpellbookBinding.java",
+          "sha256": "7158164bcbe168a23cb56b6c92e68006cc6045d5af9266032f63ee8615dafbe2"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/parcool/ParcoolBinding.java",
+          "sha256": "4a60832b0c2f3f6bfd34d0ec08f4589cd09a7e369d03b35537c774d67de099e3"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/sbackpack/BackpackBinding.java",
+          "sha256": "8546916fa79cc85ea1d24bbe03df184327e0c9b3b14b263b7763c9eb38e031fb"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/slashblade/SlashBladeBinding.java",
+          "sha256": "9cbcb4f81896e571ed2f907d3aec1db73d0f9498cecccdd7d915c87a92f0de17"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/swem/SwemBinding.java",
+          "sha256": "dc7b1ff975da0333cc81c255573fe91649fe0cb2ee7f141a612ff4256a314b1b"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+          "sha256": "f7cb609a708ff35c1420b2995b837f4ab282f0bc3fa0db8d2a650f35c548ffd2"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/binding/CloseVariable.java",
+          "sha256": "69cf43485d7f730e475a2dba5125aba7a172713d0b4f2d613ae582d86e19a550"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/binding/ContextBinding.java",
+          "sha256": "c69d4fbc085ff322d0a83a01fb09226a3321b688ab248543ed9561281b5906a7"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/binding/PrimaryBinding.java",
+          "sha256": "308f4c53a8e7c9de1a747ee891d27616c9fc912263d4097251e55c715fd1bb55"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/binding/ResetVariable.java",
+          "sha256": "5f86ee70dfe347d3599fd3656a02fb7214761b8b8825b03c20e31b55777363b4"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/binding/variable/ControllerVariableBinding.java",
+          "sha256": "64f41da6e1a56a8f53ed5bb54fa4c8b69127b53bade6bff7ec102509d3876a1e"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/binding/variable/ForeignVariableBinding.java",
+          "sha256": "95edd3f4bcd52ade384b84f104e0509168ee448b0bf850fb8920b06def86a570"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/binding/variable/ScopedVariableBinding.java",
+          "sha256": "620b467213d6253e3a4051e6038db5296abf69090e585827ee6d205bab1cbb97"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/binding/variable/TempVariableRegistry.java",
+          "sha256": "1fc194d992bfec2b4320b60a51d12747434a0c89880747b44c2e83ace7f3cfba"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Abs.java",
+          "sha256": "59fd2dd87f228221f6824b71d8871559933dcd3b393ab097f2df5c65d10a8c3e"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/ACos.java",
+          "sha256": "bd3a03e6f7219ed0fc559fddf01ee87cb94cd9e3647046b2599ff1f87d7d0346"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/ASin.java",
+          "sha256": "0bd536719ab0811c99f0605b62538a084f384c6de3a19db97c5bd7811e6907b3"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Atan.java",
+          "sha256": "25f94b8164dbc27ef0eef2e55d8e8b7a0abfb5003a50300fc84778ebe7539e37"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/ATan2.java",
+          "sha256": "a6f6775cafdb6c4425c079781b91acb4b6700e397436f1b48f3fa10bc4c3336f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Ceil.java",
+          "sha256": "52f611990450f49ea58e64adcb12c1fc1b1e43c14513d4121b80e7ce84b020da"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Clamp.java",
+          "sha256": "9d448596ab7cf03ace89343bd7391e4855b2997e3d09bb8e914822443a75aacc"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Cos.java",
+          "sha256": "f37f6e17642425ca3fb755a82297633cccde906fdc51d459486b756b78da2927"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/DieRoll.java",
+          "sha256": "70c3b41c737f7389c25a1a781ab6a0fa4fb45db6f39953447776d9219d565d97"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/DieRollInteger.java",
+          "sha256": "d583165c21defe131d54fed28f8628e449f0a011c1c9d7371a77686a02462851"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Exp.java",
+          "sha256": "a8610e8e691326f72bce82dbe8b388898cde444b2cf459bdaea48a48ea0e8be8"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Floor.java",
+          "sha256": "b91cf1f7943e527cd32ef82c0d9fb526e012b2e5474b9c03be6e6f95aba1f83f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/HermitBlend.java",
+          "sha256": "2ca49a63c2d51021b5a54740ac3243c4383775b37002a29e055d7e13df56765e"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Lerp.java",
+          "sha256": "0d1032f9771c047c81caf90c6331903cc3b97816a083d9a14d737f5e09a27307"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/LerpRotate.java",
+          "sha256": "747174f0a483989cf77003b24a9a17a2ba6c29fc4fa5242115f474a4091c097c"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Ln.java",
+          "sha256": "159f622f70b1a52be91c19b6edc2f87aa30e6deec72349944c1a384bcaae48f1"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Max.java",
+          "sha256": "8854b4f288f6ad762d57eb29385dc30eb7cebed6d8f0f090093f33750bf61cbf"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Min.java",
+          "sha256": "6c41a0ab04a47553772d8198862e3eda5daff528b38c26ffa7ddb480d66dc20f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/MinAngle.java",
+          "sha256": "87a41f83d8e1f3d17777a616b8a17df81c958b75006ab335d5b6f883e4bd6008"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Mod.java",
+          "sha256": "a53a495716e260e364dfa49bed30fafe80a2527cf5d7fcf04fe664bcfc0a4ce1"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Pow.java",
+          "sha256": "e7c921a9282437cd0db59f22baa54f74eae45f482b15382a466b8dfd4baedb83"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Random.java",
+          "sha256": "e511d38eceadc6b222df345a9b92d7194a29a018b895433d0009237d8f1abcb0"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/RandomInteger.java",
+          "sha256": "7be7570936ec35c02fcd270e0e4a0c7f4a4cc09930f870648104ec0d46f383f6"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Round.java",
+          "sha256": "0571d03f93ec81fed7e296e6aa8df416689d7d107748d3643485457fa5896dc9"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Sin.java",
+          "sha256": "39aa9796c60c00799be5cd6b3cd3375aa354c377731763593dd8a42bde66a288"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Sqrt.java",
+          "sha256": "bada08705d1cb347436d4501ea3c8b93f7fff75aaa3ac2a677c9c5a2ac45843f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/math/Trunc.java",
+          "sha256": "e0336ee63c7d3b85d30b33752aeef20c9c2b1aa102849f874a28b102e066eaa0"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java",
+          "sha256": "808798a62a2213975f2598b49ae5eea5e03396ae2b545a26892bb682f2a0eff0"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/BiomeHasAllTags.java",
+          "sha256": "2be9e4aa661068f1ee2bfaea4dbfc32a1e349c0e5d60baedbf0c5a6e972d4c88"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/BiomeHasAnyTag.java",
+          "sha256": "b4ffd01864db0a2ebb87df6ddaefab5cd3eff66ce4b5141a4ca61247a47cd96f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/DebugOut.java",
+          "sha256": "8861a6c09c051daf3f0e9d9a911fcb3d41226446b1368010a3ed0f3d569c65ba"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/EquipmentItemAnyTag.java",
+          "sha256": "fbb4c588e9a596b5dd08540a279a3289418af6948d47634d2d0b205ac11a80b8"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/EquippedItemAllTags.java",
+          "sha256": "661898cae04c3e09bc248a248092841aeeb2485c97b2bc8097d12fb25d2a55ef"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/IsItemNameAny.java",
+          "sha256": "e491e71df8d4fbd6475e0f003586f14a82ff71c31f27f0534d8693f4423c3073"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/MaxDurability.java",
+          "sha256": "f3985c79085334fb32e3176dd752b7e45f13e46c14ccb155281e2660956b66f9"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/Position.java",
+          "sha256": "856a5dded46ef6b225fdcbcbdcf5771a403307974a44d436ff905afc679fbe93"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/PositionDelta.java",
+          "sha256": "a744885d9b07edfc0396a7b7c2a3344a7e83416e92480cfdf41f5252dd977f0e"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/RelativeBlockHasAllTags.java",
+          "sha256": "8e2180c3e2960d75201250d4357ab7f28621f16e64c2be752da18162c6c814c5"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/RelativeBlockHasAnyTag.java",
+          "sha256": "e760b1af9290f8f417485e9b80a89ad250db25f9a89947420ed2020a5d3d0ef5"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/RemainingDurability.java",
+          "sha256": "7bd61cbef3070f564e3177f48328fc5cdc09adbfaac23ed98bdec1bbc05d2654"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/query/RotationToCamera.java",
+          "sha256": "527c6f2374fede009ecf077dde18e97ebcc9db0c9f1332175d5ede3aeee1adf2"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java",
+          "sha256": "ce0dfebd55e4885c48e3eb9754e93ae512453a92639d28129f127e34d929c8da"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/context/AnimationContext.java",
+          "sha256": "792f766c0954b6bfb316cecf8f7315ad7ff595f46b2c07146470323f9355cb0a"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/context/IContext.java",
+          "sha256": "060142c8d28cb1c556dfde60cf3d6bb23dc21f7fce3d276b898d97544e783e12"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/blocks/AbstractBlockFunction.java",
+          "sha256": "c18ee5fb1aed16ca983914f7ddeb1dce6a705e194e8a438f7ad376520283c913"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/blocks/BlockFunction.java",
+          "sha256": "16191b9e2c8c2be99b9dac516cab3a197236faffebe148fb0a2b7613f1a20e4f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/ContextFunction.java",
+          "sha256": "ee6ebc5d2b1180d721e1682f34b40c7365b9f6d5ecca8f7aa28d8daf9992f896"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/entity/AbstractArrowEntityFunction.java",
+          "sha256": "0afdc984b160678975866306183f07b2f4e2667842c6232560a5a009e371ee67"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/entity/AbstractClientPlayerFunction.java",
+          "sha256": "ab400ff651982ef388e17ac6e7d7c700cd0c85e9ad07e1ca4097dc851e1ce36d"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/entity/AbstractProjectileFunction.java",
+          "sha256": "b0acacb3022d24d7d123b0bdf565bc181bb181d6c9cb8d9a4209dea732efdae0"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/entity/ArrowEntityFunction.java",
+          "sha256": "a83e9f00a61cc863f7e1409375519222de16fbafc46d37af6f11ad7ee3d41b3b"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/entity/EntityFunction.java",
+          "sha256": "962f5b430ee2c5d367d445d6a07175b80b43720d90e851c8ee71908070b51657"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/entity/LivingEntityFunction.java",
+          "sha256": "6e045c7ddac9140cbb51ba1d0dcb441205315e31477fb2c69e96d0986e896b6b"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/entity/LocalPlayerEntityFunction.java",
+          "sha256": "a3d2d7686c5b772a08c8d4b49642c565ab3c40e3d6c6c42fb58b4cb5557b9fcd"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/entity/MobEntityFunction.java",
+          "sha256": "2c9bad767ba26300294222b96d5f3050b4321f43f301ad36fd63121d2d0298b6"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/entity/TamableEntityFunction.java",
+          "sha256": "9b5aeee1f8a2197aab05aaacb7fee4a76421851ceb6658ef7d6962b61c35c4dd"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/item/ItemFunction.java",
+          "sha256": "97248f706d91d9a1a28baa4105aba1c95e34fdb9f21062772907f2be8c1905e3"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/funciton/item/ItemStackFunction.java",
+          "sha256": "c447daf22b3684a2d664f4304c51962cf0829b72a39597df29a7504c1a46f00c"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/MolangParser.java",
+          "sha256": "33462a0b4432f0c04acf8a9d502ba9881c961cc2b06ba8d1d62c214a7ea2e519"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/storage/IControllerVariableStorage.java",
+          "sha256": "bd4fed0bcc5cc24cd616c32eb17c17fb74ddb018f8054c31d28257ca10ff13d8"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/storage/IForeignVariableStorage.java",
+          "sha256": "022128fb425472d371c0ad461d565363e708b8796b5601bfd769e51159dda7de"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/storage/IScopedVariableStorage.java",
+          "sha256": "c62012f5b857a7742be7206a8291c6691171b9b1781e3c8218552c82fbbf4ee9"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/storage/ITempVariableStorage.java",
+          "sha256": "1a27ac67576bd79a27457b9040d4a9905c65ce4e66ca2fe7d04974ee292f69e1"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/storage/TempVariableStorage.java",
+          "sha256": "89ea05e92f15124cca7ce1e36937890b5fdfce79ef37fe0421d8ea885a32a3ea"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/storage/VariableStorage.java",
+          "sha256": "d5930b9a8b15810d3b3072a49020b911aa2c8b78b2db57a44b6cbb2948563b2b"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/util/PooledStringHashMap.java",
+          "sha256": "6fb8a20cac327befdf4c1dc7038b88a789621de180755babd689e8738df3d96f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/util/PooledStringHashSet.java",
+          "sha256": "8865ec1dfb9e5f8e89c9f12722f00c373a55651be2ebc529a7c1513307d1139f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/util/StringPool.java",
+          "sha256": "302e21fb5d2543bfb72b25b4acd51db9baba49838e501fd28166526fe9ee5a5a"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/value/FloatValue.java",
+          "sha256": "e9ac6ec2d10828f97a94093f901ebf99b9d6ef4ad7cc9f90872b6c5a42889724"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/value/IValue.java",
+          "sha256": "7afcd77e3dfb541a21db545129c2a95cf96772b6419f4df1b45e36f2e01b5b65"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/value/MolangValue.java",
+          "sha256": "277479e46f5dc54b9c3bec75f40902fd6688b04cb8769154f4883b5003f16d1e"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/value/RotationValue.java",
+          "sha256": "3b0ac91114a385c3a7aec0dc6b60f6e492eeeaa0d41ea1808061922737fae97d"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/block/BlockBehaviorVariable.java",
+          "sha256": "d3d923085176b5b23b2e7771852a71edb472c83efef7b43b83eb8a42d852c699"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/block/BlockStateVariable.java",
+          "sha256": "4f5adc7a804d6d935b96dbb54a5eee9347b3be3f0dc75e205270f0b91fbb3a02"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/block/BlockVariable.java",
+          "sha256": "8722c70c70407e739c01ddc19b923707c5d1c4345d6b0b2fbdfef48009cd43ae"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/ContextVariable.java",
+          "sha256": "f805fba8963c871b0f9b93c36e7acd24f4f62b39067f6a5087e38b576d0f3d3c"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/AbstractArrowEntityVariable.java",
+          "sha256": "491d989c83bccb04b98207bef0021374a1bedc4cde2f48a51abb620b3ba73e7a"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/ArrowEntityVariable.java",
+          "sha256": "12be5d84286bc05fa2afc2616bfb2e2d14952de33ed5317aaff90e86985b2c67"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/ClientPlayerEntityVariable.java",
+          "sha256": "a6b8a6955d7abb9f4d11a8678ae43034128eb7273a298e1087deadafee8b922f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/EntityVariable.java",
+          "sha256": "ceb58d7bedcb35e5fe75106b391c1224aec7015f9ec13f8d8b0fd71db2ef9e2f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/FishingHookEntityVariable.java",
+          "sha256": "387af1bf7cca2079f524a5bdf46bdd956d467256772f318a131c8a6f9afe77a5"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/LivingEntityVariable.java",
+          "sha256": "aef950f549522e37ffb318d58ea4f84b620a64f604b6a0310cf234d3f1c34c64"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/LocalPlayerEntityVariable.java",
+          "sha256": "af44a9c76e8fae2378c11611111c09b7b0711f5e274bf4ade4a0d129d65a543d"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/MobEntityVariable.java",
+          "sha256": "18d5c026122d51ae3a678fc4bbb0c3e598f604a044d1127e85cb9c7f19815ef0"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/PlayerEntityVariable.java",
+          "sha256": "d2480cc0c2f002d1c215f09cc191fe098ce7e501bc705872ef4cc3a653ee3d66"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/ProjectileEntityVariable.java",
+          "sha256": "70c20793dca99145cd8f0cb73cd55b7932c137ef465539bd6d3a664fe8545887"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/TamableEntityVariable.java",
+          "sha256": "a210d5ffdb5532b8e04fc72b78db5915cf3a9d2c9dc6778612ef36c2edeaa805"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/entity/ThrowableProjectileEntityVariable.java",
+          "sha256": "b3ab3ba8402d23df40df4dda44c3d714eeedd7d72cedebfa79243197b62471ea"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/item/ItemStackVariable.java",
+          "sha256": "7bfc2c0d76d0afa2e8a9353fd94f0c1619bc81040c247ddebbbdea567f8b8e7e"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/item/ItemVariable.java",
+          "sha256": "e9d3ee55d71d199d98dbac843fe07a60d559b67a4645c0f116162e5396a7e0a0"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/IValueEvaluator.java",
+          "sha256": "39a1e8e66440d96a0daa0bd369e5daa6afce0c62082bad9e0bcbcc7c5513e3ef"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/geckolib3/core/molang/variable/LambdaVariable.java",
+          "sha256": "98d4b1940a70d0836173dd5e5de40e6c62b8e3ee76d49afc086e8ed6b17cd3af"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/lexer/Characters.java",
+          "sha256": "b4abd8c5ff0cb4144b841365ac75f8b56bbcc058e6b90bdac51e446a6e10cd0c"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/lexer/Cursor.java",
+          "sha256": "67b6c1a158b0d3a9037e03889b93a4bddf73bca0fe6bc82fbd3e8fea7322a8cb"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/lexer/MolangLexer.java",
+          "sha256": "bb0f8039c5c18a72e4f1afe63e145502180fe1c90ebe44bd26ad02c1de2d110f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/lexer/MolangLexerImpl.java",
+          "sha256": "47777273f0fa1aaf6899d2dc042adecf463e10229be8f7c12303babf8a2e749e"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/lexer/Token.java",
+          "sha256": "101ead13f53fbe4f87f40ea4b7130241874d403b221c82e2125ce76f19fffc17"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/lexer/TokenKind.java",
+          "sha256": "b067988c6a55e9fa72bc5b34ad16917e84c62fa402066ae14285ddb41f90b1f6"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/MolangEngine.java",
+          "sha256": "c13769af0515a49a3266b42edf558e0447a33d70bf3b9da382beda23fdf32ec9"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/MolangEngineImpl.java",
+          "sha256": "e86ba52bc80000f40f1e373ad708f817d8997ec361455d2fcdd8f3bad371d623"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/AssignableVariableExpression.java",
+          "sha256": "6aaa39a793e8ab0d2203924e42000b8149c4603fa1f000b350ec8a8a45bff852"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/BinaryExpression.java",
+          "sha256": "d421ee49b423e2d826f838495d1f69974e3b2a2132108bb21aa02a02910993a9"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/BinaryOperationExpression.java",
+          "sha256": "921800e43ffbd199886847f72c0b6c4c17be16a4b9bdd4ad84e9f42712904943"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/CallExpression.java",
+          "sha256": "0830863f2fd69fa12835db226de0ec3ef0dfff332476d3953c668ecfdd888e60"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/ExecutionScopeExpression.java",
+          "sha256": "c6687febcef107a39b297799774d27b86efa0d3d8351b1837f2b415b3d9f78ad"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/Expression.java",
+          "sha256": "cfb0b1c25ed3fb26677dbe1fc247ac811b85f14b65fd2443ff177b57d67c85b1"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/ExpressionVisitor.java",
+          "sha256": "92d94ecee049eeed532dc30962a1cd25a2f4549ff0c3382c1ce66178c229b5ce"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/FloatExpression.java",
+          "sha256": "6163eb65c267515d12adb304413218b30bf1ef8e723a62e712bcd000148bd68c"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/IdentifierExpression.java",
+          "sha256": "d24d5710f39fd18dd68217efb349bb333e7a80742cb267ebbf9a9271475ae2b0"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/StatementExpression.java",
+          "sha256": "235ae7dcddf18a513a66e755844589d4f9413219c013e7aded76f9e2e6047f73"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/StringExpression.java",
+          "sha256": "6cbf57b4a5dfd843d4fe9de1b6c479d5143b12b7c1b87f68ee796175bc2dc9a7"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/StructAccessExpression.java",
+          "sha256": "19028094b5d524c6bdcdee438cf21af8b752863cf4de649aca1dbc891760ddb8"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/TernaryConditionalExpression.java",
+          "sha256": "b8cf62d0080393eedec4c1a16be40cb9258216d64fe21e020efc0b268b325d76"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/UnaryExpression.java",
+          "sha256": "7b98854d4288c377c5e483a3df3b8671918db772f35501013c879e193a5a8d9f"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ast/VariableExpression.java",
+          "sha256": "93337516df3bdfe430c68ffb65f60a7d7af6319c72557d6c42e3598aa3cb9d99"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/MolangParser.java",
+          "sha256": "0147e4cc1488d1922c3ab8cde40a3fa8c9ba2cce73c5b720a32c11ba408d7b83"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/MolangParserImpl.java",
+          "sha256": "34baf98e8a4081b49417fcd03fe9d2889be36a36c6605199c65ddbaae66b6963"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/parser/ParseException.java",
+          "sha256": "7645c523266e72b6f0a0c8eb921025a3c88eac3ca66aedf21a9ba94d34301c56"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/AssignableVariable.java",
+          "sha256": "ea954edb9c4e43b08b798ca5a961adf9ceca6566892086e3461ed8c67ccadb1d"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/binding/ObjectBinding.java",
+          "sha256": "128bf24622b8176e5edcea4b7da53ef3b0cb8347f1adf21b1f51741f0a8c8ca9"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/binding/StandardBindings.java",
+          "sha256": "c43e47234f431633b5e3b5b982446e632da9613418af896028142393804d404a"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/binding/ValueConversions.java",
+          "sha256": "d6a9f08f7eda62c33d534ecd0528cbce48d96cd4e1af72c3f115819285914f74"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/ExecutionContext.java",
+          "sha256": "dbfcdc2e150bac6e5471a749b804f1d1bb5ec83138a63b4b5bd6acc4b4130211"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/ExpressionEvaluator.java",
+          "sha256": "34a1b8c62e4dd343344607a84a643a71a3d8c2e4c93364c519d21256baaa8ec2"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/ExpressionEvaluatorImpl.java",
+          "sha256": "8beccafeb377c588b1cdcbcf870e2509d2066e517814c5b27239251844d0b9f2"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/Function.java",
+          "sha256": "5a328cb5a064e1293c7619febcd8afb1b552585fedf046a7a05895d4cdb86281"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/HashMapStruct.java",
+          "sha256": "b50487da6470b4532a3292009dcf358452ca2be2bc95cff59ca5cae8a9020557"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/Int2FloatOpenHashMapStruct.java",
+          "sha256": "1b32f8a49d713aa5aa6a17866d8898783fca000e76917d72ccdff37b8cfdfe1c"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/Struct.java",
+          "sha256": "f174ee4addfa27c2ddbf5535bc6386acd9c9711adea3e10fd4c9cf3d11d6f8e4"
+        },
+        {
+          "path": "com/elfmcys/yesstevemodel/molang/runtime/Variable.java",
+          "sha256": "5ddf71b7abe0e76289294e6f7457fdfd18b3096086108f886a061c221d064436"
+        }
+      ]
+    },
+    "dev": {
+      "declared_version": "3.0-dev-forge+mc1.20.1",
+      "commit": null,
+      "root_digest": "394505de853f6e662968dc7fb23e25170aab01e4cb83a13bef3d046f223049b1",
+      "files": [
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java",
+          "sha256": "06420520dbd12cc44e253aeaca554b689cfbd3248cb76661d2d25da95ae91bb6"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/CustomMolangParser.java",
+          "sha256": "e95ac5d0d614d3f0ffb3aab4190ee13d35a6925daa28ec1c45e212ed7778faf4"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/ArmorCheck.java",
+          "sha256": "d3e4df0ee1005770d67f363f921e04a56d76849d3ee582b68c688bb3bfdc30d7"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/BoneAbsolutePivot.java",
+          "sha256": "a0ce067de66bf1265fde2c98c1d789b6eda71be581da930779561f84ffac210d"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/BoneParamFunction.java",
+          "sha256": "86c61842305f6aff957cfe48cce9601ce7ae21d5f21117e58c8b8efeea5d49f3"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/BonePosition.java",
+          "sha256": "10fa43b3dd39edb78b2ba46f7990dad65115439a4b6920fb86dfb869ccc62215"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/BoneRenderFunction.java",
+          "sha256": "23d5c0e5b078971d92a56bd372fb82735adebe255b57d1a161233480dddfc442"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/BoneRotation.java",
+          "sha256": "5131f026713adcee94341bb239fc3ddf75080d33e4b8c8ee04573861ef930e8f"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/BoneScale.java",
+          "sha256": "7a630437d82dafe132d5d98aac6c7c6adcf0107c987779ec28c183551016fdd5"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/Defer.java",
+          "sha256": "f3c387c2c3f7a03d6bc2b25aa468b54b3b98fa3c4bc58e5b048e5762ddb8910e"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/DumpEquippedItem.java",
+          "sha256": "8b659d90c0ffb3d015cf6e995328dcc5b9a5399b427cdd07f004111fb5257a37"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/DumpRelativeBlock.java",
+          "sha256": "ef51c0564a67864ac51fe60e0ce1525c8bf6d8b4645f3bbe030eff6db236b508"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/EffectLevel.java",
+          "sha256": "a60a43f5b2cd4d20b9faff510e5033186f8b2373f40a46fb73463dd91496b6e2"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/EquippedEnchantmentLevel.java",
+          "sha256": "d03f2fc7e210afe91d4780934005282f1c22ae1ee6893627d980849462fc5fd1"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/FirstOrderFunction.java",
+          "sha256": "b2b733e7578ea9b9787f1aff3e84e205cae02392a9380fe91e940825e1a29072"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/HandItemCheck.java",
+          "sha256": "a4b783d973a6741bd518f2ba0f0e10e331a1ac3a0174a49842434ca964540ef1"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/IndicateReload.java",
+          "sha256": "a330581a4654cadd6ba5c3346f17a6b6d85770a9293de2f3b135bae10b0e4dcd"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/InputCheck.java",
+          "sha256": "ca5efeea12948408af2e9abdb11f146471c22166a069bee2353c71d4f09f08ad"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/ModVersion.java",
+          "sha256": "f0721cf9b33d20d66d44dc6e58ce80ee1a09fb7be2943b849e86f385f6c10069"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/ParticleFunction.java",
+          "sha256": "b433ce4be696f28d3e7356f6022d81faafcd29699a99abad2a38e822b054a85f"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/PerlinNoiseFunction.java",
+          "sha256": "eb713e5b955db1e747825e1d36a7b2a086b3d42d2317e085d6665cf0ef114ab6"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/physics/FirstOrder.java",
+          "sha256": "75a05e12563929f8e5647faf45955bfeb2d62fe46106b42a7467843c56ae69fd"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/physics/IPhysics.java",
+          "sha256": "41eac479ef5a0a16a26a17b0478f1c8ee030f1b740c163615753622690af6916"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/physics/SecondOrder.java",
+          "sha256": "ea6b42a2eb07f9006f78f115c607e603cd7935308dceb689dce40d7b4265546f"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/RelativeBlockName.java",
+          "sha256": "f029f1550f5bd9b0e904f3ca949326dee2bb37e230be074f1486c7c02cc40593"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/RelativeBlockNameAny.java",
+          "sha256": "299c827cecae7b1ae7fff76622fc1dce5a57b1a16482a15e348edcbc0042ed54"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/ResetController.java",
+          "sha256": "a1645b2ea1b157709a5a50812d2bb2a6db6f82207d670009104dba53a2b5562f"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/RideCheck.java",
+          "sha256": "34a88d92e0589784f24338dfc5fdda41ff2ab74cf08eb30984fc00b007b143d5"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/Rot2Camera.java",
+          "sha256": "cad2b4c0c11119f548e0a047cb2dc04e1b7272b5171d3b769c6aca16bdce652b"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/SecondOrderFunction.java",
+          "sha256": "5fb3bc140447327d0e439e722763a801c0d618957bf9a7794c70cafafd2f11cf"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/SetAnimation.java",
+          "sha256": "c1f9b91eb2ed2ea1ed369c62b16f4b6f02cfc8ec27dc9faf7a903fc509b67cb8"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/SetBeginningTransitionLength.java",
+          "sha256": "9325b84fced09fc0b9591e7f59591c7c713ecfb346007be3e4ac61e0d0c94ac0"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/SoundFunction.java",
+          "sha256": "ff607013f3cad323678030a889fd2f8a18b9c151c19ecbb721e47b23f84bc9e3"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/functions/Sync.java",
+          "sha256": "ba1565dcec587a71c967921571a0f565b655463cdec0e5cf3211be139d24a711"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/MolangEventWrapper.java",
+          "sha256": "82e6b06d94afca53c461835be0383ecab05367f0ba1989ef71d7c54a550139f9"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/PhysicsManager.java",
+          "sha256": "7cf86a143510f69c04658700d8e7662b55bb12f6dac966a459c72f64dadb3216"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/roaming/LocalRoamingStruct.java",
+          "sha256": "13bd349d7172bbd38b9157cbd12ee2a972942e0e900e789feeaa40d60dd45f60"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/roaming/RemoteRoamingStruct.java",
+          "sha256": "73dc303cab0c10e34cc9685722a741dfa1fe688c8bf49a1c01db10c9c3662c2e"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/roaming/VariableChanges.java",
+          "sha256": "692da936c1021c1f5a092c64f83b3a798a6c2474f3e10faeeb8cf6bad3f7a0d8"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/struct/Vec3fStruct.java",
+          "sha256": "4fcebdc7783d73ef4273f2a4ed0ffeaf7821a752993da406f1c050aa9b90b687"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/TLMBinding.java",
+          "sha256": "a4749cf5d2fb86aa2d830f9f6278e87913f1e1ec64b1303ef5b2c9a31e5044ad"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/UserFunctionArgument.java",
+          "sha256": "6a1904404c51646778505b90a79d769cc81f4f77706c7f21cb82a124004389c9"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/UserFunctionBinding.java",
+          "sha256": "9e9124e5cb083d8ea571bdead4f98eee4d4a5a73c885a9644b5470aac4ce67b0"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/variable/FirstPersonModHideVariable.java",
+          "sha256": "ced064c267bd783b3a22c22e44a5f79035983ea01d586a77daa0db31c3076877"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/variable/LadderFacingVariable.java",
+          "sha256": "6b4a2eb1b68bc8edf769651a404474cbcc68c1cfd8f8c949dc6558848a4c9eb9"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/variable/MoveInputVariable.java",
+          "sha256": "8dbef7e757df2d4aac89154e64a3f9c71a574647f9ef87724a5350ee114d8600"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/variable/TextureNameVariable.java",
+          "sha256": "ac5ba4e648d950c4ffa5d8e1dfbbfb58a129447f1746fa5526b60e5cadbe797c"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/animation/molang/YSMBinding.java",
+          "sha256": "8e696c7233c0aae7fe614cb95e2b33b45560ca6955c29277c5c0a7e56eb31489"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/compat/backpack/sophisticated/SophisticatedCtrlBinding.java",
+          "sha256": "57f10d0f34490b48808c99d301004d8da1f6da23c66befe3e05ffa7f7d7b8e5a"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/compat/carryon/CarryOnCtrlBinding.java",
+          "sha256": "4dfd8a9a494f95438fe993e1efbfaeb707c264eb5945d94ea732e8ffceac1dd8"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/compat/parcool/ParCoolCtrlBinding.java",
+          "sha256": "a457b6a041d920692d2d86c4ef863f07dab7cbfffdd082ef5898a7c618ad5732"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/compat/slashblade/SlashBladeBinding.java",
+          "sha256": "4fa9832160143a04c723f36f885cf8faec93b748c835afacf42a7ae6c5837f21"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/compat/swem/SwemCtrlBinding.java",
+          "sha256": "82114814a9c551fa433530aade67f4f852f9970d86a60ef95767daa11aef6c31"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/compat/tacz/TacCtrlBinding.java",
+          "sha256": "aa61aab12d563e7bd10d8108038d175a889cc467e58785165860e19b994b92b9"
+        },
+        {
+          "path": "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/molang/TLMBindingInner.java",
+          "sha256": "c78538eef4df83a95d502649ed45ae1e5a59727367d4499f797f2c29e1972d96"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/binding/ContextBinding.java",
+          "sha256": "9d5339ac43025c4de2ce70f9cbfbb93efd2d2b2255a06d25df6b68b7956c1fcb"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/binding/PrimaryBinding.java",
+          "sha256": "e1cbef737f0ebf3038ab004c4f8a82b844d20191326b6d260e39eb8aa1856b26"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/binding/ScopedObject.java",
+          "sha256": "7b5437fc4ab6fb40fbaf8e518c30573923d93d1c166ae4277480cff813dc2118"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/binding/TransientObject.java",
+          "sha256": "23545ae843abbe90515d1da15fc0aefcbfe65c7a4b96920f509172dd9b594fb9"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/binding/variable/ContextVariableBinding.java",
+          "sha256": "e652d0fbc2ad7f0722a5fd7afee1ff51b8d8d1b711da78ede0d050a233ebbc9b"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/binding/variable/ForeignVariableBinding.java",
+          "sha256": "b4cd746c925c00548b6e05a6782242536693b7ddcfe8a604036ef0abf1cdde21"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/binding/variable/ScopedVariableBinding.java",
+          "sha256": "4aad7123c30a5c14eb3ec453dfc03abd62cdda9e141db6a74317ef5fa932b09f"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/binding/variable/TempVariableBinding.java",
+          "sha256": "82813c6b9e659598792bb1654bc44b1ba168c8796e0296ac13d83af7b0cfc3e4"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Abs.java",
+          "sha256": "732a6702cfce57f46714952d361d650e2a8d16bc906b9b9c8f76ae9512ac4d0a"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/ACos.java",
+          "sha256": "44ad3086b74011e6175defb612d5b2857498427aeb733f9f3212ef0d9774d4f9"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/ASin.java",
+          "sha256": "1623aa71b886f9b6c4b1ce96fee7f42ccc4e1abb5e2d73aff6935ab2e498f214"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Atan.java",
+          "sha256": "f67bb186cc772c0497ad031bcb3c6c2bd3e7ce1eac1244f9940bc3f776db8285"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/ATan2.java",
+          "sha256": "ccca41674a2b1a60a70aa3b815d3b041a8b6fd6d35057ce389d0497fbe3329e5"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Ceil.java",
+          "sha256": "8cdfc0617e6e1f4d7175e2d7e1480f8c7e305902e28ddd1ce3735de01a5acde4"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Clamp.java",
+          "sha256": "3be1d6eac32cd33ba6b2762205cdebf2aa16da306c1d0da6e9c8fc946e0a6189"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Cos.java",
+          "sha256": "43eabe8a837085de2c3e45e37c734135887d1e492d7d3552a0a2be8027bb52bf"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/DieRoll.java",
+          "sha256": "607feded164e27f88bdf232e3ab5fbbe70bdcdd5a242337b4eb72bc4abc741e4"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/DieRollInteger.java",
+          "sha256": "0c2e2c8d83fbaef57841d7f5680fa524081ebc73522c10b7241ad046ba5a14e3"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Exp.java",
+          "sha256": "9518aecf8f4ffc9f0f43b5e8045d35698b3cfeec8415209ab2702530ef3be6af"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Floor.java",
+          "sha256": "ef06538c5eeda722e0ca97f446efb19053805bd105d62643cb803465c33f190f"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/HermitBlend.java",
+          "sha256": "7fb4f58b632fcbe866ecba49437b21aa0755fe2414fad138c69f4cb7f27df611"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Lerp.java",
+          "sha256": "7c7891dfa6e5a9c5351334a162b352727a503604de19b3b04608765ce6f6acbf"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/LerpRotate.java",
+          "sha256": "55ec6f949f08f2cfd7b8fe4138dab90113a18d66cf347d46af5a6ad11ee3a087"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Ln.java",
+          "sha256": "d48b8839e8af3f98641d19104e31f0100978ec3dcdfec5b90cf209105c75dba0"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Max.java",
+          "sha256": "05acf6f4c3368fde1c1aa3e218bfb44e03aaf55abfc4eb3b3876a4bde0583995"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Min.java",
+          "sha256": "afd07fb3986ddd61d8454b2b21fa0b988c2bcd27a2b08ada163c82de58538e4b"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/MinAngle.java",
+          "sha256": "abc3c4d43a31d9e7ec5cd9db9e5361658063893bd08a7c2b54d17b3d797e657d"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Mod.java",
+          "sha256": "12bc93b612f865638524ee7e3ab2c9f8dea52d4f7ecb81a0b85495a44e1dad7b"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Pow.java",
+          "sha256": "23901d171daa4d9184e5c1580d986ae31cce9cba2c01fac9127f9b43880f3cde"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Random.java",
+          "sha256": "536593cd1ca1680a5bc8b2ad3cc6a3ef6ef74409aad8b6cc9d8c358cc56e63ff"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/RandomInteger.java",
+          "sha256": "86831dd3b2a8d90ccd1e857f17bd8be25070b6634412e53c4dc1bca5fb99a4bd"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Round.java",
+          "sha256": "a3a206de825edb0e7b2d8a266ede89ef68d195a57045817891c1469e95adc7dd"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Sin.java",
+          "sha256": "d707feca189d079a6869ccee6dadd90d76b986866fac589a9e768ed4fd9da7e9"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Sqrt.java",
+          "sha256": "d48cf874c76f89c02994c1da7a16ba76eeeb5cb82156ec806f0ff8c23673cafa"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/math/Trunc.java",
+          "sha256": "453e69be8f748c894df8678c0a77ad40f5f49812d722d16a7cafe638cc2af2ff"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/MathBinding.java",
+          "sha256": "d175bfe8673fce9b7914059bee421470fa9234e43100131c9235a36ac81083f1"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/BiomeHasAllTags.java",
+          "sha256": "2f15ba3d65fc5348d232419f06a1db965b5c4a23f2330e49075879aff1046833"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/BiomeHasAnyTag.java",
+          "sha256": "feb3531918e6acba4a9b1f609c2e8574e5f2e4fc3e74eb313edf25f58e22979a"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/DebugOutput.java",
+          "sha256": "bd16fb28606de75f96e20f2c921f27129aa777b4e68ae22875f1ab8c519673d9"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/EquippedItemAllTags.java",
+          "sha256": "ba6e01a6c293b0d667ba98d2a0b83d94d1607ec7e5eb57b43feb01843d72f97e"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/EquippedItemAnyTags.java",
+          "sha256": "f97e3499530e15e6738200407dc21c45179d76e589d5b0f91fffa34a3dff12ae"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/ItemMaxDurability.java",
+          "sha256": "f3341fcc888c5e1c7f14902bba4a0fd06aff91b10338e1e8cbe72795ffe8daa2"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/ItemNameAny.java",
+          "sha256": "99057da9c49606c20a4838ee80ce2f6ee99a83f453c99fee91b199a66c22801c"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/ItemRemainingDurability.java",
+          "sha256": "4e049ab0807063a260081f7df516a719f2642eb343de43b49699df7323a44842"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/Position.java",
+          "sha256": "0fdcda469cc6d63f2410974ecc1252bc818ec7e45f79ddb09b31fb1ecdbc57c7"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/PositionDelta.java",
+          "sha256": "6121c81feac7d20a1cc830addbd9bcf2823a06ae1235f3511bb20596d567134f"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/RelativeBlockHasAllTags.java",
+          "sha256": "fcaf9dd38ebe4506f74b4e41ff043c3954d739ed3f4a5d9eef1d57be6592939a"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/query/RelativeBlockHasAnyTag.java",
+          "sha256": "63ee353f59ea3162be40eaa670d76e0531637fac54c06376c3ef436343a5b664"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/builtin/QueryBinding.java",
+          "sha256": "c13090a97fd4de90a6d68f6e74a9351a7e8580ad3aa1100cd8a7ea85f7dedcf8"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/context/AnimationContext.java",
+          "sha256": "8bfae0a66ae58c375f0673cee844092e9b1b5fa7a4eccdcd1142a00133dd7b83"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/context/ControllerContext.java",
+          "sha256": "7f819541baeaab355f3ee9019c539f1691ed683a23c4231d3bb074100209966c"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/context/DebugSource.java",
+          "sha256": "1decdaf1b842f43acea853f818d17e215ac504b0a931915a338c40f3430151ec"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/context/IContext.java",
+          "sha256": "347dbc90adc88241be76eb2665de27d1e20f1e8d7967d02fcb0b9f7d8b94011f"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/context/MolangContext.java",
+          "sha256": "a115d69c3ccee4c67dd79bd2d30a245ebbdb0761344cff63c003fe728d703a0d"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/blocks/AbstractBlockFunction.java",
+          "sha256": "2efb553a72d5485c97cf9d8fbfc1964a45bf5989961e2229185e24e1022003cf"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/blocks/BlockFunction.java",
+          "sha256": "bf04356dc152dca1cbfbd1909afcff57b88c1c6bdb7d5c92cd2f36b32a8c00bd"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/ContextFunction.java",
+          "sha256": "e5d053ab10272154dfff3577bed5edd83307e800dcf247579bdef52225e33ba0"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/entity/AbstractArrowEntityFunction.java",
+          "sha256": "f26719aaff43601bbb0a96cb43e733b309fdb277c990ce8c0b2b6a9faa2ab706"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/entity/ArrowEntityFunction.java",
+          "sha256": "5639b4c74a061ae3b64428a5f2ce823130c0e0731f1abdeda37c495d9940d141"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/entity/EntityFunction.java",
+          "sha256": "5a7e260e0cc8964f728bd9a737808d5d417b13bd510b9ad6874eb55d1ca07e79"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/entity/LivingEntityFunction.java",
+          "sha256": "c992f1e5f1aef151782f363ffb8aebf1eedc6e6f6e3e52a847ea4df1503e1914"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/entity/LocalPlayerEntityFunction.java",
+          "sha256": "163ec3f32e959b63d79e23c0bdd6f74aa669e09e35abfd5f4ddad8b152cf90c5"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/entity/MobEntityFunction.java",
+          "sha256": "3bbae9d6d04fcd8dab2f2d4ae0d7bf986a613e8a3c77f99f913ff4305687f4ed"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/entity/PlayerEntityFunction.java",
+          "sha256": "a295cf82151a2bfa1819821ea78a1e291ad8e47d84cdc7fee235bef6e24daddf"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/entity/ProjectileEntityFunction.java",
+          "sha256": "22f7a16fceb72626962baffb4d821b9bc6972ab4189ec9777b74eb951735131e"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/entity/TamableEntityFunction.java",
+          "sha256": "a3558043b26183c23a32d7c4045c1196b92c46bb204764de7ce6058f251aea26"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/item/ItemFunction.java",
+          "sha256": "cbeade1497536968c91dd34ce40b01cd48d4a9a5c96c8346ea3f952653e1289d"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/function/item/ItemStackFunction.java",
+          "sha256": "38b350e4fcaa989baccf932605f130cc05fab0818e8df37e136c4cd95e0184a6"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/MolangParser.java",
+          "sha256": "aae7f04267ac22f3c2e87301ee694dc075667dfd3d989d6e12c4da552a12a7bd"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/storage/IContextVariableStorage.java",
+          "sha256": "4555cf45f01225984b2a26b731e4928e6ba506ae747d34096f5798f590a586d0"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/storage/IForeignVariableStorage.java",
+          "sha256": "86b7076f5725746f00aa1e1618272b21e646dd34545e83199bc429d5262119fc"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/storage/IScopedVariableStorage.java",
+          "sha256": "1bf8038317446d2432c27dec1ee9ba7131c238041ac890e6d816d765564f380c"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/storage/ITempVariableStorage.java",
+          "sha256": "2b2bdb0719373f55d35a346a548e664150a6cf5329feaff084992a1495e1ab2b"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/storage/MolangMemory.java",
+          "sha256": "27e174442d8367542047101ba54e9e849ab8fc61438b06f277021896b059249b"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/storage/StackMemory.java",
+          "sha256": "ec488e2c8b702d0dc9750c078c1e01ab177962b727fc07f4059a75671ba79361"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/util/PooledStringHashMap.java",
+          "sha256": "4c057cfbee72cdfca11d0b8a230dacbd53b26355a657e0f9cabc85b90e979ff5"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/util/PooledStringHashSet.java",
+          "sha256": "b66a53ee6e53355bfe46ea71356f9ea1bc3433893845c1f4c5782b220fdd83d5"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/util/StringPool.java",
+          "sha256": "e1117ffc16e9139c1da7bb36ecbe9662c7971e5a604e1c9ca0e0f63cf25badc3"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/value/FloatValue.java",
+          "sha256": "13d40173a6a1098e238c98d7bb8e6040ea633d5a05ffbcdc22acdb50fa0bb1f2"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/value/IValue.java",
+          "sha256": "1bcb22439f5f248ff558d708e46c9ce818fbb47f0cc5cbc9f8042353a0300d44"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/value/MolangValue.java",
+          "sha256": "cb3822efecf152d804294ccac5b707a981494eab349317f23ffd158e61dfe5d7"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/value/RotationValue.java",
+          "sha256": "abec140fe3d916d28dca63d419aeb0ed30f153bd0f1ce1b16dafabb837530f32"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/block/AbstractBlockVariable.java",
+          "sha256": "e2fc6ad075f9c319a3e6e4189c14dbd9b138a198175b2b960556c40200510110"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/block/BlockStateVariable.java",
+          "sha256": "81544bd070383f40b9ac1b8948b2a91dea99e7f147046afeaff94a353128ca46"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/block/BlockVariable.java",
+          "sha256": "ff6df11b13d742ab666235c53e4c5e6e58fed2510c1a38fe80b70e1479845c35"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/ContextVariable.java",
+          "sha256": "6a08ff3b07c5d7a8bdf293e42e9790469cb229f95afb774222e731fab394bc0c"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/AbstractArrowVariable.java",
+          "sha256": "ef5e7a644f2ada9834989a69fcb4ac560ff5739454063eb7999afae88324421f"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/ArrowVariable.java",
+          "sha256": "eb53e71d5c575c58f6c5d441f3fa0ee76d345c08e748737ed6acbbbdafb91cbd"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/ClientPlayerVariable.java",
+          "sha256": "211e8878ef148cb08ae3191e7f2f737f4914a4fdb2c178c60d9f92a9699f4bfc"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/EntityVariable.java",
+          "sha256": "34b9a12618eebddb97b8a6d2ecee4b4bd35bd4f4f86eb7c1d730fca9c10863ef"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/FishingHookVariable.java",
+          "sha256": "0fe64db125cd43df9be4b648a5eee23f25ff40128910934d6a046d047ffe5813"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/LivingEntityVariable.java",
+          "sha256": "8ab385e3ec68e4b6e028dcb5d27bbd97ba25f5e25863fee9613010332ed8a87f"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/LocalPlayerVariable.java",
+          "sha256": "cb4f3f36b675a9f6f8da800a45d1a48fff6ef3e01d19d1a520d822cca29a3701"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/MobEntityVariable.java",
+          "sha256": "f9f02d8a45f78f1f15083e5b196993dab6279d00e5e37c8e834adc0afc3ff9a6"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/PlayerVariable.java",
+          "sha256": "dba8171c0f6776c0868233c6bd48930f421191987037050b51f16f0cd5117528"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/ProjectileVariable.java",
+          "sha256": "7accfd2be280463848cb1d68d4cda20fd3e12b9d0832050b7188eb0bbdac8a3b"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/TamableEntityVariable.java",
+          "sha256": "1a3982f10ad979e2f88d8a8ef05cf527ded01cc2527de7ac3a8ef5ae8901579e"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/entity/ThrowableItemProjectileVariable.java",
+          "sha256": "89e3482fb67362633ba856df3fe88aad70d587894d415ab2c261298eac82a782"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/item/ItemStackVariable.java",
+          "sha256": "77735f680b356387642125ae7cb98c8f7767846a17b3b37bbad2c90eb956a9c6"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/item/ItemVariable.java",
+          "sha256": "68a6fe8638b8e04df648079a6145595ff5124fd8cd41ca788e7cfc97c9be366e"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/IValueEvaluator.java",
+          "sha256": "dfacd60ceac0e85b1a7318e4e33e03ed3218c35848e20ea24d6f53657be37067"
+        },
+        {
+          "path": "com/elfmcys/ysm/geckolib3/core/molang/variable/LambdaVariable.java",
+          "sha256": "0e400c85acb42b27a8e9d17f42f52eda6ef64b2fbac01c0850e4fd98bdf00855"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/lexer/Characters.java",
+          "sha256": "8e6662eb5fc8378e96fb60df2ade6b896713eae42b91ed93dae1d3675c6b13f0"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/lexer/Cursor.java",
+          "sha256": "fe1c94a9f69439304670d6ea874c77f740a1b02ebe0148ae6651c003f99836c8"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/lexer/MolangLexer.java",
+          "sha256": "b18d20680ba1e41d2c3e9560aed8a09706b44c833bac6921b1ba7aa215587d3d"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/lexer/MolangLexerImpl.java",
+          "sha256": "256cb74f91b54ab81ae9abd20a9bf6e97ab6c1c1bec96d3c842640eec9060aed"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/lexer/Token.java",
+          "sha256": "21b86030dfe01e51426f88b23a67757aefcd99ef1ee76b357e2e8331544cf668"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/lexer/TokenKind.java",
+          "sha256": "7e5b7d7111a2f7dea487c1fc37a07c821cf78b5813c43430a2228ff2f9a15ab1"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/MolangEngine.java",
+          "sha256": "3a5d7748dfc490ba29cce25ac546fc39a173a876551aea0d726551e3a0264061"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/MolangEngineImpl.java",
+          "sha256": "6c55f775be82b0c4af81a485fa9b0469ed0663adf4c02056bbec3663d7d6fd19"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/ArrayAccessExpression.java",
+          "sha256": "d8db27824cd08723ea316cc917858ebf506283aa60fc66a534e853437797345c"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/AssignableVariableExpression.java",
+          "sha256": "9e079291d72e9a3a885655c9c806723be44e66b4b45de3f789b397a3a3b4394b"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/BinaryExpression.java",
+          "sha256": "99a7e5aa2a9fc21eff3eec9f7cc0fa523d94c3c83fd508f3966a83fece4089e4"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/CallExpression.java",
+          "sha256": "de58d7151fe12bd38500a6f363217a2e2b053c2f2b37f5213b5fd9a3885c8b5b"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/ExecutionScopeExpression.java",
+          "sha256": "084abeabcef00c61ab606e7877aa635e6d95bc65821ebc3858e339787c123f94"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/Expression.java",
+          "sha256": "66f9bad423184a6bf05406008ee45279f985628d0fe07a2918268de0f0690bc3"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/ExpressionVisitor.java",
+          "sha256": "2265d7276a6210a53516774c8a1f33ef7eccca8cfbd88c9880abc20a8d930c49"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/FloatExpression.java",
+          "sha256": "09f03036278f7aa901c3130d65b7205d6afa3523f0ae28279f646ab77287f7ea"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/IdentifierExpression.java",
+          "sha256": "41ffa423d4baed088e501420f24cfb4f785e02adf2db40f81e57a3d320876d28"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/StatementExpression.java",
+          "sha256": "75b74e2605a8e5d0dcad8d2c731849f86434789ca73a9f967f75c85af9892692"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/StringExpression.java",
+          "sha256": "09c8dc6c4387e41322036ba65949474f0ed4731b9270a67cd4e7230012c1d2ac"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/StructAccessExpression.java",
+          "sha256": "13c08fcd3dbbfdcdbe0bb4355fefff4972ef7cc8e915663ca7607fbf7bafcfe5"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/TernaryConditionalExpression.java",
+          "sha256": "fa8e870074924f5e64cfa62d5a06991b3c7ac24672957f12c6492c5c0633b9cf"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/UnaryExpression.java",
+          "sha256": "0f101d6d3f31c976bf100bea2bc705cd5bd50c91a3d78e81663302c52e2f348f"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ast/VariableExpression.java",
+          "sha256": "d877a45d076709f18dfa3286b6bd946c8e0d4c50a2c525eb24d90d2abeb7113c"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/MolangParser.java",
+          "sha256": "bfc5c1adc785a48c35f9b734dd481b089c73d0740dbec641d6c87898edd9f3c2"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/MolangParserImpl.java",
+          "sha256": "a0409e40dd79b9e212986f8e101e5807bf9a88f2deb6a0dd131e5415f1ea7151"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/parser/ParseException.java",
+          "sha256": "e587eb07fade8ce26301387a3e47b45f899de8a97645678c9d34883773d0e291"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/AssignableVariable.java",
+          "sha256": "96fedec3b459481d1958bf4d492d33a0d41bfc0532ed0bcf352b5c04294d3328"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/binding/ObjectBinding.java",
+          "sha256": "e4117a5364c99f7f0316941f01a8c20c7817f8920e148a5543dcf96447ddea7f"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/binding/StandardBindings.java",
+          "sha256": "30760161cc81079780e7003f724f58eba95cf0edb18bb44ed2b0bbb3ccb14af6"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/binding/ValueConversions.java",
+          "sha256": "e60b2f023b073098d4e88d7d9faa321425dfe1536d6c5baddc53b90951579525"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/ExecutionContext.java",
+          "sha256": "6092a2ec8d4d2fdc977da2265e1487bc43cc5ff34873aa69999018f49f17a750"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/ExpressionEvaluator.java",
+          "sha256": "7db0d765c345c54e7b583550a53a0c87929e8b1e3fb5028b84e4108494b3788d"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/ExpressionEvaluatorImpl.java",
+          "sha256": "38c1040c83b40974326865c629557535b53fac2bfd15f47c2373ad33244b8cce"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/Function.java",
+          "sha256": "09ccb78b6c2600077bd45f5229e6fa27e7ae55e28febdf8535725328129202c2"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/HashMapStruct.java",
+          "sha256": "32e15ca1bca352c36bb68f56df8ef391410034b67109c19157f3cdc51b9a4c77"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/Struct.java",
+          "sha256": "85da65192d40d44f8e5220d3658abcb257107a133f3e3a0356bc73db4949fe0c"
+        },
+        {
+          "path": "com/elfmcys/ysm/molang/runtime/Variable.java",
+          "sha256": "57be372199982fd6dc17df8f21e25bb505f3b55f9059a296973d957de9d35fcd"
+        }
+      ]
+    }
+  },
+  "stable_keys": [
+    "ctrl.armor",
+    "ctrl.attacked",
+    "ctrl.climb",
+    "ctrl.climbing",
+    "ctrl.death",
+    "ctrl.elytra_fly",
+    "ctrl.fly",
+    "ctrl.hold",
+    "ctrl.hold_on_last_frame",
+    "ctrl.idle",
+    "ctrl.indicate_reload",
+    "ctrl.jump",
+    "ctrl.ladder_down",
+    "ctrl.ladder_stillness",
+    "ctrl.ladder_up",
+    "ctrl.loop",
+    "ctrl.play_once",
+    "ctrl.playing_extra_animation",
+    "ctrl.reset",
+    "ctrl.ride",
+    "ctrl.riptide",
+    "ctrl.run",
+    "ctrl.set_animation",
+    "ctrl.set_beginning_transition_length",
+    "ctrl.sleep",
+    "ctrl.sneak",
+    "ctrl.sneaking",
+    "ctrl.state_bypass",
+    "ctrl.state_continue",
+    "ctrl.state_pause",
+    "ctrl.state_stop",
+    "ctrl.swim",
+    "ctrl.swim_stand",
+    "ctrl.swing",
+    "ctrl.use",
+    "ctrl.walk",
+    "math.abs",
+    "math.acos",
+    "math.asin",
+    "math.atan",
+    "math.atan2",
+    "math.ceil",
+    "math.clamp",
+    "math.cos",
+    "math.die_roll",
+    "math.die_roll_integer",
+    "math.e",
+    "math.exp",
+    "math.floor",
+    "math.hermite",
+    "math.hermite_blend",
+    "math.lerp",
+    "math.lerprotate",
+    "math.ln",
+    "math.max",
+    "math.min",
+    "math.min_angle",
+    "math.mod",
+    "math.pi",
+    "math.pow",
+    "math.random",
+    "math.random_integer",
+    "math.randomi",
+    "math.roll",
+    "math.rolli",
+    "math.round",
+    "math.sin",
+    "math.sqrt",
+    "math.trunc",
+    "query.actor_count",
+    "query.all_animations_finished",
+    "query.anim_time",
+    "query.any_animation_finished",
+    "query.biome_has_all_tags",
+    "query.biome_has_any_tag",
+    "query.body_x_rotation",
+    "query.body_y_rotation",
+    "query.cape_flap_amount",
+    "query.cardinal_facing_2d",
+    "query.debug_output",
+    "query.delta_time",
+    "query.distance_from_camera",
+    "query.equipment_count",
+    "query.equipped_item_all_tags",
+    "query.equipped_item_any_tag",
+    "query.eye_target_x_rotation",
+    "query.eye_target_y_rotation",
+    "query.ground_speed",
+    "query.has_cape",
+    "query.has_rider",
+    "query.head_x_rotation",
+    "query.head_y_rotation",
+    "query.health",
+    "query.hurt_time",
+    "query.is_eating",
+    "query.is_first_person",
+    "query.is_in_water",
+    "query.is_in_water_or_rain",
+    "query.is_item_name_any",
+    "query.is_jumping",
+    "query.is_on_fire",
+    "query.is_on_ground",
+    "query.is_playing_dead",
+    "query.is_riding",
+    "query.is_sleeping",
+    "query.is_sneaking",
+    "query.is_spectator",
+    "query.is_sprinting",
+    "query.is_swimming",
+    "query.is_using_item",
+    "query.item_in_use_duration",
+    "query.item_max_use_duration",
+    "query.item_remaining_use_duration",
+    "query.life_time",
+    "query.max_durability",
+    "query.max_health",
+    "query.modified_distance_moved",
+    "query.moon_phase",
+    "query.player_level",
+    "query.position",
+    "query.position_delta",
+    "query.relative_block_has_all_tags",
+    "query.relative_block_has_any_tag",
+    "query.remaining_durability",
+    "query.rotation_to_camera",
+    "query.time_of_day",
+    "query.time_stamp",
+    "query.vertical_speed",
+    "query.walk_distance",
+    "query.yaw_speed",
+    "root.args",
+    "root.c",
+    "root.context",
+    "root.ctrl",
+    "root.fn",
+    "root.for_each",
+    "root.loop",
+    "root.math",
+    "root.q",
+    "root.query",
+    "root.t",
+    "root.temp",
+    "root.tlm",
+    "root.v",
+    "root.variable",
+    "root.ysm",
+    "tlm.attacked",
+    "tlm.death",
+    "tlm.idle",
+    "tlm.jump",
+    "tlm.ladder_down",
+    "tlm.ladder_stillness",
+    "tlm.ladder_up",
+    "tlm.run",
+    "tlm.sit",
+    "tlm.sleep",
+    "tlm.swim",
+    "tlm.swim_stand",
+    "tlm.walk",
+    "ysm.abs_particle",
+    "ysm.air_supply",
+    "ysm.armor_value",
+    "ysm.arrow_count",
+    "ysm.attack_damage",
+    "ysm.attack_knockback",
+    "ysm.attack_speed",
+    "ysm.attack_time",
+    "ysm.bcombat_attack_animation",
+    "ysm.biome_category",
+    "ysm.block_light",
+    "ysm.block_reach",
+    "ysm.bone_pivot_abs",
+    "ysm.bone_pos",
+    "ysm.bone_rot",
+    "ysm.bone_scale",
+    "ysm.carryon_is_princess",
+    "ysm.carryon_type",
+    "ysm.delta_movement_length",
+    "ysm.dimension_name",
+    "ysm.dump_biome",
+    "ysm.dump_curios",
+    "ysm.dump_effects",
+    "ysm.dump_equipped_item",
+    "ysm.dump_mods",
+    "ysm.dump_relative_block",
+    "ysm.effect_level",
+    "ysm.elytra_rot_x",
+    "ysm.elytra_rot_y",
+    "ysm.elytra_rot_z",
+    "ysm.entity_gravity",
+    "ysm.entity_reach",
+    "ysm.entity_type",
+    "ysm.equipped_enchantment_level",
+    "ysm.eye_in_water",
+    "ysm.first_order",
+    "ysm.first_person_mod_hide",
+    "ysm.food_level",
+    "ysm.fps",
+    "ysm.frozen_ticks",
+    "ysm.ground_speed2",
+    "ysm.has_any_curios",
+    "ysm.has_any_curios_with_all_tags",
+    "ysm.has_any_curios_with_any_tag",
+    "ysm.has_boots",
+    "ysm.has_chest_plate",
+    "ysm.has_elytra",
+    "ysm.has_helmet",
+    "ysm.has_left_shoulder_parrot",
+    "ysm.has_leggings",
+    "ysm.has_mainhand",
+    "ysm.has_offhand",
+    "ysm.has_right_shoulder_parrot",
+    "ysm.has_sophisticated_backpack",
+    "ysm.head_pitch",
+    "ysm.head_yaw",
+    "ysm.hit_target_id",
+    "ysm.hit_target_type",
+    "ysm.hooked_in",
+    "ysm.hurt_time",
+    "ysm.im_current",
+    "ysm.im_delta",
+    "ysm.im_pitch",
+    "ysm.im_time",
+    "ysm.im_volume",
+    "ysm.in_ground",
+    "ysm.in_shield_block_cooldown",
+    "ysm.input_horizontal",
+    "ysm.input_vertical",
+    "ysm.is_biting",
+    "ysm.is_close_eyes",
+    "ysm.is_fishing",
+    "ysm.is_maid",
+    "ysm.is_open_air",
+    "ysm.is_passenger",
+    "ysm.is_player",
+    "ysm.is_riptide",
+    "ysm.is_sleep",
+    "ysm.is_sneak",
+    "ysm.is_spectral_arrow",
+    "ysm.iss_animation",
+    "ysm.keyboard",
+    "ysm.knockback_resistance",
+    "ysm.ladder_facing",
+    "ysm.left_shoulder_parrot_variant",
+    "ysm.luck",
+    "ysm.mainhand_charged_crossbow",
+    "ysm.mod_version",
+    "ysm.mouse",
+    "ysm.movement_speed",
+    "ysm.nametag_distance",
+    "ysm.offhand_charged_crossbow",
+    "ysm.on_ground_time",
+    "ysm.on_ladder",
+    "ysm.parcool_state",
+    "ysm.particle",
+    "ysm.perlin_noise",
+    "ysm.person_view",
+    "ysm.play_sound",
+    "ysm.projectile_owner",
+    "ysm.relative_block_name",
+    "ysm.relative_block_name_any",
+    "ysm.rendering_in_inventory",
+    "ysm.rendering_in_paperdoll",
+    "ysm.right_shoulder_parrot_variant",
+    "ysm.second_order",
+    "ysm.shoot_item_id",
+    "ysm.sky_light",
+    "ysm.slashblade_animation",
+    "ysm.step_height_addition",
+    "ysm.stinger_count",
+    "ysm.stop_all_sounds",
+    "ysm.stop_sound",
+    "ysm.swem_is_ride",
+    "ysm.swem_state",
+    "ysm.swim_speed",
+    "ysm.swing_time",
+    "ysm.swinging",
+    "ysm.swinging_arm",
+    "ysm.tac_fire_mode",
+    "ysm.tac_gun_id",
+    "ysm.tac_gun_type",
+    "ysm.tac_hold_gun",
+    "ysm.tac_is_aim",
+    "ysm.tac_is_draw",
+    "ysm.tac_is_fire",
+    "ysm.tac_is_melee",
+    "ysm.tac_is_reload",
+    "ysm.texture_name",
+    "ysm.throwable_item",
+    "ysm.time_delta",
+    "ysm.weather",
+    "ysm.xxa",
+    "ysm.yya",
+    "ysm.zza"
+  ],
+  "entries": [
+    {
+      "namespace": "ctrl",
+      "name": "armor",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "attacked",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "climb",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "climbing",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "death",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "elytra_fly",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "fly",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "hold",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "hold_on_last_frame",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "idle",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "indicate_reload",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "jump",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "ladder_down",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "ladder_stillness",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "ladder_up",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "loop",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "play_once",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "playing_extra_animation",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "reset",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "ride",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "riptide",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "run",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "set_animation",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "set_beginning_transition_length",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "sleep",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "sneak",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "sneaking",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "state_bypass",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "state_continue",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "state_pause",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "state_stop",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "swim",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "swim_stand",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "swing",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "use",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "ctrl",
+      "name": "walk",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/CtrlBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "abs",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "acos",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "asin",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "atan",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "atan2",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "ceil",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "clamp",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "cos",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "die_roll",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "die_roll_integer",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "e",
+      "kind": "variable",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "exp",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "floor",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "hermite",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "hermite_blend",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "lerp",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "lerprotate",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "ln",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "max",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "min",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "min_angle",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "mod",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "pi",
+      "kind": "variable",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "pow",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "random",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "random_integer",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "randomi",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "roll",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "rolli",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "round",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "sin",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "sqrt",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "math",
+      "name": "trunc",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/MathBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "actor_count",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "all_animations_finished",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "anim_time",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "any_animation_finished",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "biome_has_all_tags",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "biome_has_any_tag",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "body_x_rotation",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "body_y_rotation",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "cape_flap_amount",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "cardinal_facing_2d",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "debug_output",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "delta_time",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "distance_from_camera",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "equipment_count",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "equipped_item_all_tags",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "equipped_item_any_tag",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "eye_target_x_rotation",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "eye_target_y_rotation",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "ground_speed",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "has_cape",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "has_rider",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "head_x_rotation",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "head_y_rotation",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "health",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "hurt_time",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_eating",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_first_person",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_in_water",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_in_water_or_rain",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_item_name_any",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_jumping",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_on_fire",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_on_ground",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_playing_dead",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_riding",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_sleeping",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_sneaking",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_spectator",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_sprinting",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_swimming",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "is_using_item",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "item_in_use_duration",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "item_max_use_duration",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "item_remaining_use_duration",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "life_time",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "max_durability",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "max_health",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "modified_distance_moved",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "moon_phase",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "player_level",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "position",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "position_delta",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "relative_block_has_all_tags",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "relative_block_has_any_tag",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "remaining_durability",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "rotation_to_camera",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "time_of_day",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "time_stamp",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "vertical_speed",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "walk_distance",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "query",
+      "name": "yaw_speed",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/geckolib3/core/molang/builtin/QueryBinding.java"
+      ]
+    },
+    {
+      "namespace": "root",
+      "name": "args",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "c",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "context",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "ctrl",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "fn",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "for_each",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "loop",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "math",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "q",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "query",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "t",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "temp",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "tlm",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "v",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "variable",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "root",
+      "name": "ysm",
+      "kind": "namespace",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": []
+    },
+    {
+      "namespace": "tlm",
+      "name": "activity",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "attacked",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "backpack_type",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "death",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "favorability_level",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "favorability_point",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "game_statue",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "gomoku_rank",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "gomoku_win_count",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "has_backpack",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "idle",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "is_begging",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "is_entity",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "is_garage_kit",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "is_sitting",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "is_statue",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "jump",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "ladder_down",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "ladder_stillness",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "ladder_up",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "run",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "schedule",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "show_item",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "sit",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "sleep",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "swim",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "swim_stand",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "task_id",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/MaidBinding.java",
+        "com/elfmcys/yesstevemodel/client/compat/touhoulittlemaid/TouhouLittleMaidCompat.java"
+      ]
+    },
+    {
+      "namespace": "tlm",
+      "name": "walk",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/ysm/client/compat/touhoulittlemaid/client/animation/GeoMaidAnimatedRegister.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "abs_particle",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "air_supply",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "armor_value",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "arrow_count",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "attack_damage",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "attack_knockback",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "attack_speed",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "attack_time",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "bcombat_attack_animation",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/bettercombat/BetterCombatBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "biome_category",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "block_light",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "block_reach",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "bone_color",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "bone_glow",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "bone_pivot_abs",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "bone_pos",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "bone_rot",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "bone_scale",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "bone_transparency",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "carryon_is_princess",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/carryon/CarryOnBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "carryon_type",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/carryon/CarryOnBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "defer",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "delta_movement_length",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "dimension_name",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "dump_biome",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "dump_curios",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/curios/CuriosBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "dump_effects",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "dump_equipped_item",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "dump_mods",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "dump_relative_block",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "effect_level",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "elytra_rot_x",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "elytra_rot_y",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "elytra_rot_z",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "entity_gravity",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "entity_reach",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "entity_type",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "equipped_enchantment_level",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "eye_in_water",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "first_order",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "first_person_mod_hide",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "food_level",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "fps",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "frozen_ticks",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "ground_speed2",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_any_curios",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/curios/CuriosBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_any_curios_with_all_tags",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/curios/CuriosBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_any_curios_with_any_tag",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/curios/CuriosBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_boots",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_chest_plate",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_elytra",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_helmet",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_left_shoulder_parrot",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_leggings",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_mainhand",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_offhand",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_right_shoulder_parrot",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "has_sophisticated_backpack",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/sbackpack/BackpackBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "head_pitch",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "head_yaw",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "hit_target_id",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "hit_target_type",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "hooked_in",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "hurt_time",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "im_current",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/immersivemelodies/ImmersiveMelodiesBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "im_delta",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/immersivemelodies/ImmersiveMelodiesBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "im_pitch",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/immersivemelodies/ImmersiveMelodiesBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "im_time",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/immersivemelodies/ImmersiveMelodiesBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "im_volume",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/immersivemelodies/ImmersiveMelodiesBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "in_ground",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "in_shield_block_cooldown",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "input_horizontal",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "input_vertical",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_biting",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_close_eyes",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_fishing",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_maid",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_open_air",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_passenger",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_player",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_riptide",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_sleep",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_sneak",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "is_spectral_arrow",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "iss_animation",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/ironsspellbooks/SpellbookBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "keyboard",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "knockback_resistance",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "ladder_facing",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "left_shoulder_parrot_variant",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "luck",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "mainhand_charged_crossbow",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "mod_version",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "mouse",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "movement_speed",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "nametag_distance",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "offhand_charged_crossbow",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "on_ground_time",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "on_ladder",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "parcool_state",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/parcool/ParcoolBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "particle",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "perlin_noise",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "person_view",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "play_sound",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "projectile_owner",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "relative_block_name",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "relative_block_name_any",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "rendering_in_inventory",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "rendering_in_paperdoll",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "right_shoulder_parrot_variant",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "second_order",
+      "kind": "function",
+      "runtime_only": false,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "shoot_item_id",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "sky_light",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "slashblade_animation",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/slashblade/SlashBladeBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "step_height_addition",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "stinger_count",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "stop_all_sounds",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "stop_sound",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "swem_is_ride",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/swem/SwemBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "swem_state",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/swem/SwemBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "swim_speed",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "swing_time",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "swinging",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "swinging_arm",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "sync",
+      "kind": "function",
+      "runtime_only": true,
+      "experimental": true,
+      "source_files": [
+        "com/elfmcys/ysm/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "tac_fire_mode",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/gun/tacz/TacBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "tac_gun_id",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/gun/tacz/TacBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "tac_gun_type",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/gun/tacz/TacBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "tac_hold_gun",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/gun/tacz/TacBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "tac_is_aim",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/gun/tacz/TacBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "tac_is_draw",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/gun/tacz/TacBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "tac_is_fire",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/gun/tacz/TacBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "tac_is_melee",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/gun/tacz/TacBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "tac_is_reload",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/compat/gun/tacz/TacBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "texture_name",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "throwable_item",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "time_delta",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "weather",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "xxa",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "yya",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    },
+    {
+      "namespace": "ysm",
+      "name": "zza",
+      "kind": "variable",
+      "runtime_only": true,
+      "experimental": false,
+      "source_files": [
+        "com/elfmcys/yesstevemodel/client/animation/molang/YSMBinding.java"
+      ]
+    }
+  ]
+}

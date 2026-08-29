@@ -5,10 +5,12 @@ import {
   createInternalTool,
   createToolGroup,
   createToolGroupParameters,
+  groupedToolOutputSchema,
   type ToolSpec,
 } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
 import { ysmToolDocs } from "@/server/tools/ysm";
+import { ysmMolangReadToolDocs } from "@/server/tools/ysm-molang";
 import {
   mergeWorkingIntoBaseline,
   openYsmWorkflowTabs,
@@ -60,16 +62,17 @@ export const workflowToolDocs: ToolSpec[] = [
   },
 ];
 
-const ysmReadOperations = [ysmToolDocs[1], workflowToolDocs[1]];
+const ysmReadOperations = [ysmToolDocs[1], workflowToolDocs[1], ...ysmMolangReadToolDocs];
 const ysmWorkflowEditOperations = [workflowToolDocs[0], workflowToolDocs[2]];
 
 export const workflowPublicToolDocs: ToolSpec[] = [
   {
     name: "inspect_ysm",
     description:
-      "Reports plugin workspace bindings or the protected YSM three-tab workflow through one read-only command.action.",
+      "Reports YSM workspace/workflow state and provides source-backed Molang discovery, parsing, validation, simulation, and preview through one read-only command.action. All Molang actions are experimental.",
     annotations: { title: "Inspect YSM", readOnlyHint: true },
     parameters: createToolGroupParameters(ysmReadOperations),
+    outputSchema: groupedToolOutputSchema,
     status: STATUS_STABLE,
   },
   {

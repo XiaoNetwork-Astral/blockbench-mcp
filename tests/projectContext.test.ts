@@ -209,12 +209,22 @@ describe("per-session project routing", () => {
       position: [1, 2, 3],
       target: [4, 5, 6],
       projection: "perspective",
+      fov: 55,
+      viewport: [1200, 900],
     });
     setSessionCameraState("b", "project", {
       position: [7, 8, 9],
       projection: "orthographic",
     });
     expect(getSessionCameraState("a", "project")?.position).toEqual([1, 2, 3]);
+    const camera = getSessionCameraState("a", "project")!;
+    camera.position[0] = 99;
+    camera.viewport![0] = 64;
+    expect(getSessionCameraState("a", "project")).toMatchObject({
+      position: [1, 2, 3],
+      fov: 55,
+      viewport: [1200, 900],
+    });
     expect(getSessionCameraState("b", "project")?.position).toEqual([7, 8, 9]);
   });
 });

@@ -33,6 +33,7 @@ export interface ToolSpec {
     openWorldHint?: boolean;
   };
   parameters: z.ZodType;
+  outputSchema?: z.AnyZodObject;
   status: StatusType;
 }
 
@@ -123,6 +124,7 @@ interface ToolRegistrar {
       title: string;
       description: string;
       inputSchema: Record<string, z.ZodType>;
+      outputSchema?: Record<string, z.ZodType>;
       annotations?: ToolDefinition["annotations"];
     },
     callback: (args: unknown, extra: unknown) => Promise<unknown>
@@ -260,6 +262,9 @@ function registerToolDefinition(
       title: toolDef.title,
       description: toolDef.description,
       inputSchema: toolDef.inputSchema,
+      outputSchema: toolDef.outputSchema
+        ? extractShape(toolDef.outputSchema as z.ZodType)
+        : undefined,
       annotations: toolDef.annotations,
     },
     (args, extra) =>
@@ -276,6 +281,15 @@ type ToolGroupOption = z.ZodObject<{
   action: z.ZodLiteral<string>;
   input: z.ZodTypeAny;
 }>;
+
+/** Versioned structured-output envelope used by grouped public tools. */
+export const groupedToolOutputSchema = z
+  .object({
+    schema_version: z.literal("1"),
+    action: z.string().min(1),
+    result: z.unknown(),
+  })
+  .strict();
 
 /**
  * Builds a compact command envelope from existing precise operation schemas.
@@ -352,6 +366,7 @@ export function createTool<T extends z.ZodType>(
       readOnlyHint?: boolean;
     };
     parameters: T;
+    outputSchema?: z.AnyZodObject;
     execute: (args: z.infer<T>, context: ToolContext) => Promise<ToolResult>;
     resolveMutationToolName?: (args: z.infer<T>) => string;
   },
@@ -369,6 +384,7 @@ export function createTool<T extends z.ZodType>(
     title: tool.annotations?.title ?? tool.description,
     description: tool.description,
     inputSchema,
+    outputSchema: tool.outputSchema,
     execute: tool.execute,
     resolveMutationToolName: tool.resolveMutationToolName as
       | ((args: Record<string, unknown>) => string)
@@ -439,11 +455,40 @@ export function createToolGroup(
       description: spec.description,
       annotations: spec.annotations,
       parameters: spec.parameters,
+      outputSchema: spec.outputSchema,
       async execute(args, context) {
         const command = (args as {
           command: { action: string; input: Record<string, unknown> };
         }).command;
-        return toolDefinitions[command.action].execute(command.input, context);
+        const result = await toolDefinitions[command.action].execute(command.input, context);
+        if (!spec.outputSchema) return result;
+
+        let structuredResult: unknown = null;
+        if (typeof result === "string") {
+          try {
+            structuredResult = JSON.parse(result);
+          } catch {
+            structuredResult = { text: result };
+          }
+          return {
+            content: [{ type: "text", text: result }],
+            structuredContent: {
+              schema_version: "1",
+              action: command.action,
+              result: structuredResult,
+            },
+          };
+        }
+
+        structuredResult = result.structuredContent ?? null;
+        return {
+          ...result,
+          structuredContent: {
+            schema_version: "1",
+            action: command.action,
+            result: structuredResult,
+          },
+        };
       },
       resolveMutationToolName(args) {
         return (args as { command: { action: string } }).command.action;

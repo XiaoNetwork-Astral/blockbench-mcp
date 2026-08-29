@@ -2,9 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   applySessionPreviewVisibilityToClone,
   clearAllPreviewVisibilityStates,
+  getSessionPreviewAnimationState,
   getSessionPreviewVisibilityState,
   resolvePreviewBoneVisibility,
   setSessionPreviewVisibilityState,
+  setSessionPreviewAnimationState,
 } from "@/lib/previewState";
 
 interface FakeBone {
@@ -18,6 +20,25 @@ afterEach(() => {
 });
 
 describe("session-scoped preview visibility", () => {
+  test("stores animation samples independently without touching editor globals", () => {
+    setSessionPreviewAnimationState("session-a", "project", {
+      animationId: "walk",
+      time: 0.75,
+    });
+    setSessionPreviewAnimationState("session-b", "project", {
+      animationId: null,
+      time: null,
+    });
+    expect(getSessionPreviewAnimationState("session-a", "project")).toEqual({
+      animationId: "walk",
+      time: 0.75,
+    });
+    expect(getSessionPreviewAnimationState("session-b", "project")).toEqual({
+      animationId: null,
+      time: null,
+    });
+  });
+
   test("keeps filters independent by session and clears them with empty arrays", () => {
     setSessionPreviewVisibilityState("session-a", "project", {
       hiddenBoneIds: ["body"],

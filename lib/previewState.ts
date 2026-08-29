@@ -7,6 +7,11 @@ export interface McpPreviewVisibilityState {
   isolatedBoneIds: string[];
 }
 
+export interface McpPreviewAnimationState {
+  animationId: string | null;
+  time: number | null;
+}
+
 interface PreviewBoneLike {
   uuid: string;
   parent?: unknown;
@@ -17,6 +22,10 @@ const DEFAULT_SESSION_KEY = "__default_mcp_session__";
 const previewVisibilityStates = new Map<
   string,
   Map<string, McpPreviewVisibilityState>
+>();
+const previewAnimationStates = new Map<
+  string,
+  Map<string, McpPreviewAnimationState>
 >();
 
 function sessionKey(sessionId?: string): string {
@@ -70,6 +79,31 @@ export function setSessionPreviewVisibilityState(
   perProject.set(projectId, normalized);
 }
 
+export function setSessionPreviewAnimationState(
+  sessionId: string | undefined,
+  projectId: string,
+  state: McpPreviewAnimationState
+): void {
+  const key = sessionKey(sessionId);
+  let perProject = previewAnimationStates.get(key);
+  if (!perProject) {
+    perProject = new Map();
+    previewAnimationStates.set(key, perProject);
+  }
+  perProject.set(projectId, {
+    animationId: state.animationId,
+    time: state.animationId ? state.time ?? 0 : null,
+  });
+}
+
+export function getSessionPreviewAnimationState(
+  sessionId: string | undefined,
+  projectId: string
+): McpPreviewAnimationState | null {
+  const state = previewAnimationStates.get(sessionKey(sessionId))?.get(projectId);
+  return state ? { ...state } : null;
+}
+
 export function getSessionPreviewVisibilityState(
   sessionId: string | undefined,
   projectId: string
@@ -79,17 +113,24 @@ export function getSessionPreviewVisibilityState(
 }
 
 export function clearSessionPreviewVisibilityState(sessionId?: string): void {
-  previewVisibilityStates.delete(sessionKey(sessionId));
+  const key = sessionKey(sessionId);
+  previewVisibilityStates.delete(key);
+  previewAnimationStates.delete(key);
 }
 
 export function clearAllPreviewVisibilityStates(): void {
   previewVisibilityStates.clear();
+  previewAnimationStates.clear();
 }
 
 export function forgetProjectPreviewVisibilityState(projectId: string): void {
   for (const [key, perProject] of previewVisibilityStates) {
     perProject.delete(projectId);
     if (perProject.size === 0) previewVisibilityStates.delete(key);
+  }
+  for (const [key, perProject] of previewAnimationStates) {
+    perProject.delete(projectId);
+    if (perProject.size === 0) previewAnimationStates.delete(key);
   }
 }
 

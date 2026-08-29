@@ -23,6 +23,7 @@ import { registerExactTextureTools } from "./tools/exact-texture";
 import { registerYsmTools } from "./tools/ysm";
 import { registerWorkflowTools } from "./tools/workflow";
 import { registerSpatialTools } from "./tools/spatial";
+import { registerValidationTools } from "./tools/validation";
 import { getInitialPluginWorkspaceRoot } from "@/lib/pluginWorkspace";
 
 // Optional plugin integrations. Each function performs its own runtime check.
@@ -50,6 +51,7 @@ const registrationFunctions = [
   registerPaintTools,
   registerProjectTools,
   registerSpatialTools,
+  registerValidationTools,
   registerTextureTools,
   registerUVTools,
   registerValidatorResources,

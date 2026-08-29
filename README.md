@@ -7,9 +7,11 @@ This repository is derived from Jason J. Gardner's `blockbench-mcp-plugin` and i
 ## Features
 
 - Modeling, texturing, UVs, animation, materials, projects, and import/export.
-- 36 core tools; three YSM tools are added after configuring the plugin workspace, and two experimental tools are added when the Hytale plugin is installed.
+- 37 core tools; three YSM tools are added after configuring the plugin workspace, and two experimental tools are added when the Hytale plugin is installed.
 - Tools are grouped by domain and read/write boundaries, with public names consistently using `inspect_*`, `edit_*`, `create_*`, `import_*`, and `export_*`.
 - Each MCP session binds to its working project independently; background modeling and offscreen screenshots do not switch away from the tab the user is viewing.
+- Experimental model validation actions provide transformed contact analysis, typed UV checks, session-scoped in-memory snapshots (the latest eight per session), repeatable camera/debug passes, occluder evidence, and native-animation pose sweeps.
+- Optional YSM actions discover JSONC sidecars, inventory and validate source-backed Molang, run deterministic simulations, preview clone-only pose mappings, and perform hash-guarded one-file edits that dry-run by default.
 - Projects can be explicitly made read-only for everyone, or unsaved content can be discarded and the project closed within an explicitly defined scope.
 - The local MCP server listens on `127.0.0.1` by default and uses Bearer authentication.
 - Per-project operation records, Undo/Redo, and Collection organization that does not change the bone hierarchy.
@@ -42,4 +44,4 @@ See [llms-install.md](llms-install.md) for client connection examples. Run `bun 
 
 ## License
 
-The project uses the `GPL-3.0-only` license; see [LICENSE](LICENSE) for details. Attribution to the original author, Jason J. Gardner, is retained.
+The project uses the `GPL-3.0-only` license; see [LICENSE](LICENSE) for details. Attribution to the original author, Jason J. Gardner, is retained. Bundled dependency and compatibility-source notices are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

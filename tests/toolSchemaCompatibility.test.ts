@@ -44,6 +44,10 @@ import { paintPublicToolDocs, paintToolDocs } from "@/server/tools/paint";
 import { previewOperationDocs } from "@/server/tools/preview";
 import { projectPublicToolDocs, projectToolDocs } from "@/server/tools/project";
 import { spatialPublicToolDocs, spatialToolDocs } from "@/server/tools/spatial";
+import {
+  validationOperationDocs,
+  validationPublicToolDoc,
+} from "@/server/tools/validation";
 import { texturePublicToolDocs, textureToolDocs } from "@/server/tools/texture";
 import { uvPublicToolDocs, uvToolDocs } from "@/server/tools/uv";
 import {
@@ -51,6 +55,10 @@ import {
   workflowToolDocs,
 } from "@/server/tools/workflow";
 import { ysmPublicToolDocs, ysmToolDocs } from "@/server/tools/ysm";
+import {
+  ysmMolangEditToolDoc,
+  ysmMolangReadToolDocs,
+} from "@/server/tools/ysm-molang";
 
 const corePublicToolDocs = [
   ...animationPublicToolDocs,
@@ -68,6 +76,7 @@ const corePublicToolDocs = [
   ...paintPublicToolDocs,
   ...projectPublicToolDocs,
   ...spatialPublicToolDocs,
+  validationPublicToolDoc,
   ...texturePublicToolDocs,
   ...uvPublicToolDocs,
 ];
@@ -97,6 +106,9 @@ const groupedLegacyToolDocs = [
   ...uvToolDocs,
   ...workflowToolDocs,
   ...ysmToolDocs,
+  ...ysmMolangReadToolDocs,
+  ysmMolangEditToolDoc,
+  ...validationOperationDocs,
 ];
 
 const groupedPublicToolDocs = [
@@ -112,6 +124,7 @@ const groupedPublicToolDocs = [
   ...paintPublicToolDocs,
   ...projectPublicToolDocs,
   ...spatialPublicToolDocs,
+  validationPublicToolDoc,
   ...texturePublicToolDocs,
   ...uvPublicToolDocs,
   ...workflowPublicToolDocs,
@@ -156,6 +169,7 @@ const expectedCorePublicToolNames = [
   "inspect_elements",
   "inspect_export_formats",
   "inspect_geometry",
+  "inspect_model_validation",
   "inspect_history",
   "inspect_material_instances",
   "inspect_materials",
@@ -190,13 +204,13 @@ function findActionLiterals(value: unknown): string[] {
 }
 
 describe("Blockbench MCP schema compatibility", () => {
-  test("all 36 core public tools avoid unsupported draft-07 tuple items", () => {
+  test("all 37 core public tools avoid unsupported draft-07 tuple items", () => {
     const failures = corePublicToolDocs.flatMap((tool) => {
       const schema = zodToJsonSchema(tool.parameters, { $refStrategy: "root" });
       return findTupleItems(schema).map((path) => `${tool.name}: ${path}`);
     });
 
-    expect(corePublicToolDocs).toHaveLength(36);
+    expect(corePublicToolDocs).toHaveLength(37);
     expect(failures).toEqual([]);
   });
 
@@ -340,10 +354,10 @@ describe("Blockbench MCP schema compatibility", () => {
       !category.endsWith("(optional)")
     );
 
-    expect(core).toHaveLength(36);
+    expect(core).toHaveLength(37);
     expect(optional).toHaveLength(5);
-    expect(documented).toHaveLength(41);
-    expect(new Set(documented.map(({ name }) => name)).size).toBe(41);
+    expect(documented).toHaveLength(42);
+    expect(new Set(documented.map(({ name }) => name)).size).toBe(42);
     expect(optional.map(({ name }) => name).sort()).toEqual([
       ...optionalYsmPublicToolDocs,
       ...hytalePublicToolDocs,

@@ -11,14 +11,14 @@
     <nav class="sidebar">
       <div class="sidebar-brand">
         <h1>Blockbench MCP</h1>
-        <p>v1.7.0-blockbench.37 — API Reference</p>
+        <p>v1.7.0-blockbench.40 — API Reference</p>
       </div>
 
       <input id="search" type="text" placeholder="Search tools..." class="search-input" />
 
       <div class="nav-group">
         <p class="nav-heading">Overview</p>
-        <a href="#tools" class="nav-link">Tools <span class="count">(41)</span></a>
+        <a href="#tools" class="nav-link">Tools <span class="count">(42)</span></a>
         <a href="#prompts" class="nav-link">Prompts <span class="count">(5)</span></a>
         <a href="#resources" class="nav-link">Resources <span class="count">(12)</span></a>
       </div>
@@ -41,6 +41,7 @@
         <a href="#cat-project" class="nav-link">Project <span class="count">(2)</span></a>
         <a href="#cat-textures" class="nav-link">Textures <span class="count">(4)</span></a>
         <a href="#cat-spatial-inspection" class="nav-link">Spatial Inspection <span class="count">(1)</span></a>
+        <a href="#cat-model-validation" class="nav-link">Model Validation <span class="count">(1)</span></a>
         <a href="#cat-uv-mapping" class="nav-link">UV Mapping <span class="count">(1)</span></a>
         <a href="#cat-ysm-workspace-optional" class="nav-link">YSM Workspace (optional) <span class="count">(1)</span></a>
         <a href="#cat-ysm-workflow-optional" class="nav-link">YSM Workflow (optional) <span class="count">(2)</span></a>
@@ -51,9 +52,9 @@
     <main class="main">
       <header class="page-header">
         <h1>Blockbench MCP Plugin</h1>
-        <p class="subtitle">API Reference — v1.7.0-blockbench.37</p>
+        <p class="subtitle">API Reference — v1.7.0-blockbench.40</p>
         <nav class="stats">
-          <a href="#tools"><strong>41</strong> tools (31 stable, 10 experimental)</a>
+          <a href="#tools"><strong>42</strong> tools (31 stable, 11 experimental)</a>
           <a href="#prompts"><strong>5</strong> prompts</a>
           <a href="#resources"><strong>12</strong> resources</a>
         </nav>
@@ -306,7 +307,7 @@
         </div>
       </div>
       <p class="card-title">Inspect Blockbench</p>
-      <p class="card-desc">Captures either the rendered 3D viewport or the complete Blockbench window through one command.action.</p>
+      <p class="card-desc">Captures the rendered viewport or complete Blockbench window, or returns the effective offscreen camera, through one command.action. The get_camera_state action is experimental.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -319,9 +320,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object</td>
+      <td class="col-type">object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: capture_viewport, capture_blockbench_ui.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: capture_viewport, capture_blockbench_ui, get_camera_state.</td>
     </tr></tbody>
     </table>
       </div>
@@ -331,7 +332,7 @@
         <h3 class="card-name">edit_camera</h3>
         <div class="card-badges">
           <span class="badge badge-experimental">experimental</span>
-          <span class="badge badge-destructive">destructive</span>
+
         </div>
       </div>
       <p class="card-title">Edit Camera</p>
@@ -349,7 +350,7 @@
       <tbody><tr>
       <td class="col-name">position</td>
       <td class="col-type">number[]</td>
-      <td><span class="param-required">required</span></td>
+      <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Camera position. <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
     </tr><tr>
       <td class="col-name">target</td>
@@ -371,6 +372,21 @@
       <td class="col-type">number</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Orthographic zoom. Defaults to 0.5. <span class="param-meta">[max: 100]</span></td>
+    </tr><tr>
+      <td class="col-name">fov</td>
+      <td class="col-type">number</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Perspective vertical field of view in degrees. <span class="param-meta">[min: 1, max: 179]</span></td>
+    </tr><tr>
+      <td class="col-name">viewport</td>
+      <td class="col-type">integer[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Stored offscreen viewport [width, height], with width &lt;= 1600 and height &lt;= 1200. <span class="param-meta">[minItems: 2, maxItems: 2]</span></td>
+    </tr><tr>
+      <td class="col-name">auto_fit</td>
+      <td class="col-type">object</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"></td>
     </tr></tbody>
     </table>
       </div>
@@ -1247,6 +1263,38 @@
       </div>
     </div>
         </section>
+<section id="cat-model-validation" class="category-section">
+          <h3 class="category-title">Model Validation</h3>
+          <div id="tool-inspect_model_validation" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">inspect_model_validation</h3>
+        <div class="card-badges">
+          <span class="badge badge-experimental">experimental</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">Inspect Model Validation</p>
+      <p class="card-desc">Runs reproducible, read-only contact, UV, snapshot, camera-evidence, and pose-sweep validation through one command.action.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">command</td>
+      <td class="col-type">object | object | object | object | object | object</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: analyze_model_contacts, inspect_uv_integrity, create_validation_snapshot, diff_validation_snapshot, capture_validation_views, sweep_animation_validation.</td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+        </section>
 <section id="cat-uv-mapping" class="category-section">
           <h3 class="category-title">UV Mapping</h3>
           <div id="tool-edit_mesh_uv" class="card tool-card">
@@ -1290,7 +1338,7 @@
         </div>
       </div>
       <p class="card-title">Edit YSM Workspace</p>
-      <p class="card-desc">Configures the plugin workspace and binds, saves, or unbinds YSM projects through one command.action.</p>
+      <p class="card-desc">Configures the plugin workspace, binds/saves projects, or performs guarded targeted Molang edits through one command.action. The ysm_edit_molang_expressions action is experimental.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1303,9 +1351,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object | object | object</td>
+      <td class="col-type">object | object | object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: ysm_set_workspace, ysm_bind_project, ysm_save_project, ysm_unbind_project.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: ysm_set_workspace, ysm_bind_project, ysm_save_project, ysm_unbind_project, ysm_edit_molang_expressions.</td>
     </tr></tbody>
     </table>
       </div>
@@ -1322,7 +1370,7 @@
         </div>
       </div>
       <p class="card-title">Inspect YSM</p>
-      <p class="card-desc">Reports plugin workspace bindings or the protected YSM three-tab workflow through one read-only command.action.</p>
+      <p class="card-desc">Reports YSM workspace/workflow state and provides source-backed Molang discovery, parsing, validation, simulation, and preview through one read-only command.action. All Molang actions are experimental.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -1335,9 +1383,9 @@
       </thead>
       <tbody><tr>
       <td class="col-name">command</td>
-      <td class="col-type">object | object</td>
+      <td class="col-type">object | object | object | object | object | object | object | object | object</td>
       <td><span class="param-required">required</span></td>
-      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: ysm_workspace_status, ysm_workflow_status.</td>
+      <td class="col-desc">Select one action and provide only that action's input object. Supported actions: ysm_workspace_status, ysm_workflow_status, ysm_discover_documents, ysm_list_molang_expressions, ysm_get_molang_catalog, ysm_parse_molang, ysm_validate_molang, ysm_simulate_molang, ysm_preview_molang.</td>
     </tr></tbody>
     </table>
       </div>
@@ -1635,7 +1683,7 @@
       </section>
 
       <footer class="page-footer">
-        Generated 2026-08-28T02:53:24.770Z from Zod schemas
+        Generated 2026-08-29T10:50:31.740Z from Zod schemas
       </footer>
     </main>
   </div>

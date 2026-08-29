@@ -15,6 +15,14 @@ export interface YsmBinding {
   bbmodelSha256: string | null;
   sourceSha256: string;
   textureSha256: string | null;
+  /** Optional manifest and source hashes added by the blockbench.38 Molang surface. */
+  manifest?: string | null;
+  manifestSha256?: string | null;
+  molangDocuments?: Array<{
+    path: string;
+    kind: "manifest" | "animation" | "controller" | "function";
+    sha256: string;
+  }>;
   projectName: string;
   projectUuid: string;
   projectSavePath: string | null;

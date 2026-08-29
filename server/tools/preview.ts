@@ -5,7 +5,10 @@ import { createInternalTool, type ToolSpec } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
 import { resolveOpenProject } from "@/lib/projectContext";
 import { resolveUniqueReference } from "@/lib/modelSafety";
-import { setSessionPreviewVisibilityState } from "@/lib/previewState";
+import {
+  setSessionPreviewAnimationState,
+  setSessionPreviewVisibilityState,
+} from "@/lib/previewState";
 
 export const setPreviewStateParameters = z.object({
   project: z
@@ -40,7 +43,7 @@ export const previewOperationDocs: ToolSpec[] = [
   {
     name: "set_preview_state",
     description:
-      "Applies an animation/time and stores a session-scoped bone filter for offscreen screenshots. Bone filtering never changes the user's visible viewport or Outliner visibility and is cleared by passing empty visibility arrays.",
+      "Stores an animation/time and bone filter for this session's cloned offscreen screenshots. It never changes the user's visible pose, viewport, or Outliner visibility.",
     annotations: {
       title: "Edit Preview",
       destructiveHint: false,
@@ -85,7 +88,6 @@ export function registerPreviewOperation() {
         );
       }
       const apply = () => {
-        Animator.showDefaultPose?.();
         let selectedAnimation: _Animation | null = null;
         if (animation) {
           selectedAnimation = resolveUniqueReference(
@@ -94,9 +96,6 @@ export function registerPreviewOperation() {
             "Animation",
             "inspect_animation"
           );
-          selectedAnimation.select();
-          Timeline.setTime(time);
-          Animator.preview();
         }
 
         const hideEntries = hide_bones.map((reference) => [reference, resolveOptionalGroup(reference)] as const);
@@ -110,7 +109,10 @@ export function registerPreviewOperation() {
           shownBoneIds: [...show].map((group) => group.uuid),
           isolatedBoneIds: [...only].map((group) => group.uuid),
         });
-        Canvas.updateAll();
+        setSessionPreviewAnimationState(context.sessionId, target.uuid, {
+          animationId: selectedAnimation?.uuid ?? null,
+          time: selectedAnimation ? time : null,
+        });
 
         return JSON.stringify(
           {
@@ -123,7 +125,7 @@ export function registerPreviewOperation() {
               persists_until_reset: true,
               visible_editor_state_changed: false,
               reset:
-                "Call set_preview_state again for this project with empty hide_bones, show_bones, and only_bones arrays.",
+                "Call set_preview_state again for this project without animation and with empty visibility arrays.",
             },
             visibility: {
               hidden_bones: [...hide].map((group) => ({ name: group.name, uuid: group.uuid })),

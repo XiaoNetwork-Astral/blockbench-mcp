@@ -22,6 +22,7 @@ import { historyPublicToolDocs as historyToolDocs } from "../server/tools/histor
 import { exportToolDocs } from "../server/tools/export";
 import { workflowPublicToolDocs as workflowToolDocs } from "../server/tools/workflow";
 import { ysmPublicToolDocs as ysmToolDocs } from "../server/tools/ysm";
+import { validationPublicToolDoc } from "../server/tools/validation";
 
 export interface CategoryGroup {
   category: string;
@@ -45,6 +46,7 @@ export const toolManifest: CategoryGroup[] = [
   { category: "Project", tools: projectToolDocs },
   { category: "Textures", tools: textureToolDocs },
   { category: "Spatial Inspection", tools: spatialToolDocs },
+  { category: "Model Validation", tools: [validationPublicToolDoc] },
   { category: "UV Mapping", tools: uvToolDocs },
   { category: "YSM Workspace (optional)", tools: ysmToolDocs },
   { category: "YSM Workflow (optional)", tools: workflowToolDocs },

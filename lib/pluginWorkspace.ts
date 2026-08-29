@@ -143,10 +143,55 @@ export function readWorkspaceText(relativePath: string): string {
   return fs.readFileSync(resolvePluginWorkspacePath(relativePath), "utf8");
 }
 
+export function readWorkspaceBytes(relativePath: string): Uint8Array {
+  const fs = requireWorkspace();
+  return fs.readFileSync(resolvePluginWorkspacePath(relativePath));
+}
+
 export function workspaceFileExists(relativePath: string): boolean {
   const fs = requireWorkspace();
   const absolutePath = resolvePluginWorkspacePath(relativePath);
   return fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile();
+}
+
+export function workspaceDirectoryExists(relativePath: string): boolean {
+  const fs = requireWorkspace();
+  const absolutePath = resolvePluginWorkspacePath(relativePath);
+  return fs.existsSync(absolutePath) && fs.statSync(absolutePath).isDirectory();
+}
+
+export function listWorkspaceFiles(
+  relativeDirectory: string,
+  options: { extension?: string; limit?: number } = {}
+): { files: string[]; truncated: boolean } {
+  const fs = requireWorkspace();
+  const start = resolvePluginWorkspacePath(relativeDirectory);
+  if (!fs.existsSync(start) || !fs.statSync(start).isDirectory()) {
+    return { files: [], truncated: false };
+  }
+  const limit = Math.max(1, Math.min(options.limit ?? 512, 4096));
+  const extension = options.extension?.toLocaleLowerCase();
+  const files: string[] = [];
+  let truncated = false;
+  const visit = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      if (files.length >= limit) {
+        truncated = true;
+        return;
+      }
+      const absolute = PathModule.join(directory, entry.name);
+      if (!isInsideWorkspace(absolute)) continue;
+      if (entry.isDirectory()) {
+        visit(absolute);
+      } else if (entry.isFile() && (!extension || entry.name.toLocaleLowerCase().endsWith(extension))) {
+        const relative = relativePluginWorkspacePath(absolute);
+        if (relative) files.push(relative);
+      }
+    }
+  };
+  visit(start);
+  files.sort((a, b) => a.localeCompare(b));
+  return { files, truncated };
 }
 
 function crypto(): CryptoModule {
@@ -165,13 +210,21 @@ export function sha256WorkspaceFile(relativePath: string): string {
     .digest("hex");
 }
 
+export function sha256WorkspaceValue(value: string | Uint8Array): string {
+  return crypto().createHash("sha256").update(value).digest("hex");
+}
+
 function atomicWrite(relativePath: string, value: string | Uint8Array): void {
   const fs = requireWorkspace();
   const absolutePath = resolvePluginWorkspacePath(relativePath);
   fs.mkdirSync(PathModule.dirname(absolutePath), { recursive: true });
   const temporary = `${absolutePath}.tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  fs.writeFileSync(temporary, value);
-  fs.renameSync(temporary, absolutePath);
+  try {
+    fs.writeFileSync(temporary, value);
+    fs.renameSync(temporary, absolutePath);
+  } finally {
+    if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+  }
 }
 
 export function atomicWriteWorkspaceJson(

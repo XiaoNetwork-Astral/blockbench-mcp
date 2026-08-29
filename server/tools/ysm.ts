@@ -5,6 +5,7 @@ import {
   createInternalTool,
   createToolGroup,
   createToolGroupParameters,
+  groupedToolOutputSchema,
   type ToolContext,
   type ToolSpec,
 } from "@/lib/factories";
@@ -43,6 +44,11 @@ import {
   assertExternalWriteAllowed,
   normalizeExternalPath,
 } from "@/lib/textureSafety";
+import {
+  registerYsmMolangOperations,
+  ysmMolangEditToolDoc,
+} from "@/server/tools/ysm-molang";
+import { discoverYsmDocuments } from "@/lib/ysmMolangDocuments";
 
 export const ysmSetWorkspaceParameters = z.object({
   path: z
@@ -59,6 +65,10 @@ export const ysmBindProjectParameters = z.object({
     .optional()
     .describe("Project UUID, exact name, or exact save path. Defaults to this MCP session's working project."),
   geometry: z.string().describe("Workspace-relative YSM geometry JSON path."),
+  manifest: z
+    .string()
+    .optional()
+    .describe("Workspace-relative YSM manifest. Defaults to ysm.json beside the models/textures directories when present."),
   geometry_identifier: z.string().optional(),
   texture: z
     .string()
@@ -139,19 +149,21 @@ export const ysmWorkspaceEditOperations = [
   ysmToolDocs[2],
   ysmToolDocs[3],
   ysmToolDocs[4],
+  ysmMolangEditToolDoc,
 ];
 
 export const ysmPublicToolDocs: ToolSpec[] = [
   {
     name: "edit_ysm_workspace",
     description:
-      "Configures the plugin workspace and binds, saves, or unbinds YSM projects through one command.action.",
+      "Configures the plugin workspace, binds/saves projects, or performs guarded targeted Molang edits through one command.action. The ysm_edit_molang_expressions action is experimental.",
     annotations: {
       title: "Edit YSM Workspace",
       destructiveHint: true,
       openWorldHint: true,
     },
     parameters: createToolGroupParameters(ysmWorkspaceEditOperations),
+    outputSchema: groupedToolOutputSchema,
     status: STATUS_STABLE,
   },
 ];
@@ -175,6 +187,93 @@ function inferTexturePath(geometry: string): string | null {
   const characterRoot = PathModule.dirname(PathModule.dirname(geometry));
   const candidate = slashPath(PathModule.join(characterRoot, "textures", "default.png"));
   return workspaceFileExists(candidate) ? candidate : null;
+}
+
+function inferManifestPath(geometry: string): string | null {
+  const characterRoot = PathModule.dirname(PathModule.dirname(geometry));
+  const candidate = slashPath(PathModule.join(characterRoot, "ysm.json"));
+  return workspaceFileExists(candidate) ? candidate : null;
+}
+
+type TrackedMolangDocument = NonNullable<YsmBinding["molangDocuments"]>[number];
+
+function bindingMolangDocuments(manifest: string | null): {
+  manifestSha256: string | null;
+  documents: TrackedMolangDocument[];
+  diagnostics: unknown[];
+} {
+  if (!manifest) return { manifestSha256: null, documents: [], diagnostics: [] };
+  const discovery = discoverYsmDocuments(manifest);
+  const documents = discovery.documents.flatMap((document): TrackedMolangDocument[] => {
+    if (
+      !document.exists
+      || !document.sha256
+      || !["manifest", "animation", "controller", "function"].includes(document.kind)
+    ) return [];
+    return [{
+      path: document.path,
+      kind: document.kind as TrackedMolangDocument["kind"],
+      sha256: document.sha256,
+    }];
+  });
+  return {
+    manifestSha256: discovery.manifest.sha256,
+    documents,
+    diagnostics: discovery.diagnostics,
+  };
+}
+
+function bindingMolangStatus(binding: YsmBinding) {
+  if (!binding.manifest) {
+    return {
+      tracked: false,
+      changed: false,
+      added: [],
+      removed: [],
+      modified: [],
+      note: "This binding predates manifest tracking or was created without a discoverable YSM manifest.",
+    };
+  }
+  try {
+    const current = bindingMolangDocuments(binding.manifest);
+    const stored = new Map((binding.molangDocuments ?? []).map((item) => [item.path, item]));
+    const currentByPath = new Map(current.documents.map((item) => [item.path, item]));
+    const added = current.documents.filter((item) => !stored.has(item.path));
+    const removed = [...stored.values()].filter((item) => !currentByPath.has(item.path));
+    const modified = current.documents.flatMap((item) => {
+      const previous = stored.get(item.path);
+      return previous && previous.sha256 !== item.sha256
+        ? [{ path: item.path, before_sha256: previous.sha256, current_sha256: item.sha256 }]
+        : [];
+    });
+    const manifestChanged = Boolean(
+      binding.manifestSha256 && binding.manifestSha256 !== current.manifestSha256
+    );
+    return {
+      tracked: true,
+      changed: manifestChanged || added.length > 0 || removed.length > 0 || modified.length > 0,
+      manifest: binding.manifest,
+      manifest_sha256: {
+        bound: binding.manifestSha256 ?? null,
+        current: current.manifestSha256,
+        changed: manifestChanged,
+      },
+      added,
+      removed,
+      modified,
+      diagnostics: current.diagnostics,
+    };
+  } catch (error) {
+    return {
+      tracked: true,
+      changed: true,
+      manifest: binding.manifest,
+      error: error instanceof Error ? error.message : String(error),
+      added: [],
+      removed: binding.molangDocuments ?? [],
+      modified: [],
+    };
+  }
 }
 
 function projectCubeCount(project: ModelProject): number {
@@ -256,6 +355,7 @@ function dataUrlBytes(dataUrl: string): Uint8Array {
 }
 
 export function registerYsmTools() {
+  registerYsmMolangOperations();
   createInternalTool(ysmToolDocs[0].name, {
     ...ysmToolDocs[0],
     async execute({ path }) {
@@ -284,6 +384,9 @@ export function registerYsmTools() {
           open_projects: ModelProject.all.map((project) => ({
             ...describeProject(project),
             ysm_binding: getYsmBinding(project),
+            molang_sidecars: getYsmBinding(project)
+              ? bindingMolangStatus(getYsmBinding(project)!)
+              : null,
           })),
           stored_bindings: listYsmBindings(),
         },
@@ -298,6 +401,7 @@ export function registerYsmTools() {
     async execute({
       project: projectReference,
       geometry,
+      manifest,
       geometry_identifier,
       texture,
       bbmodel,
@@ -339,6 +443,11 @@ export function registerYsmTools() {
       const boundTexture = texturePath
         ? findBoundTexture(project, texturePath)
         : null;
+      const manifestPath = manifest ?? inferManifestPath(geometry);
+      if (manifestPath && !workspaceFileExists(manifestPath)) {
+        throw new Error(`YSM manifest does not exist inside the plugin workspace: ${manifestPath}`);
+      }
+      const molang = bindingMolangDocuments(manifestPath);
       const binding: YsmBinding = {
         geometry,
         geometryIdentifier: selected.identifier,
@@ -347,6 +456,9 @@ export function registerYsmTools() {
         bbmodel: bbmodelPath,
         sourceSha256: sha256WorkspaceFile(geometry),
         textureSha256: texturePath ? sha256WorkspaceFile(texturePath) : null,
+        manifest: manifestPath,
+        manifestSha256: molang.manifestSha256,
+        molangDocuments: molang.documents,
         bbmodelSha256: bbmodelPath ? sha256WorkspaceFile(bbmodelPath) : null,
         projectName: project.name,
         projectUuid: project.uuid,
@@ -354,7 +466,13 @@ export function registerYsmTools() {
         updatedAt: new Date().toISOString(),
       };
       setYsmBinding(project, binding);
-      return JSON.stringify({ project: describeProject(project), binding, source_counts: counts, live_counts: liveCounts }, null, 2);
+      return JSON.stringify({
+        project: describeProject(project),
+        binding,
+        molang_diagnostics: molang.diagnostics,
+        source_counts: counts,
+        live_counts: liveCounts,
+      }, null, 2);
     },
   }, ysmToolDocs[2].status);
 
@@ -374,6 +492,7 @@ export function registerYsmTools() {
           `Project "${project.name}" has no YSM binding. Use edit_ysm_workspace with command.action "ysm_bind_project" first.`
         );
       }
+      const molangSidecars = bindingMolangStatus(binding);
 
       const currentSourceHash = sha256WorkspaceFile(binding.geometry);
       const expectedSourceHash = expected_source_sha256 ?? binding.sourceSha256;
@@ -482,6 +601,11 @@ export function registerYsmTools() {
           bbmodel: binding.bbmodel
             ? { path: binding.bbmodel, sha256: updated.bbmodelSha256, saved: projectText !== null }
             : null,
+          molang_sidecars: {
+            ...molangSidecars,
+            saved_by_this_action: false,
+            note: "Geometry/texture/.bbmodel save never rewrites Molang sidecars.",
+          },
         },
         null,
         2

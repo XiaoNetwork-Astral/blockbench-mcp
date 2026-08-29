@@ -3,7 +3,8 @@ import { mkdir, copyFile, rename, rm, stat } from "node:fs/promises";
 import { resolve, join, normalize, sep } from "node:path";
 import { log, c, isCleanMode, isProduction, isWatchMode } from "./utils";
 import { blockbenchCompatPlugin, textFileLoaderPlugin } from "./plugins";
-import { PLUGIN_FILENAME, VERSION } from "../lib/constants";
+import { verifyBlockbenchPluginArtifact } from "./artifact-verifier";
+import { PLUGIN_FILENAME, PLUGIN_ID, VERSION } from "../lib/constants";
 
 const OUTPUT_DIR = "./dist";
 // Normalized output dir name for path comparison (strips "./" prefix)
@@ -116,12 +117,15 @@ let process = requireNativeModule('process');`;
     // The SDK bundle contains two empty SSE `data: ` lines. Removing the
     // insignificant trailing space keeps the tracked distributable clean.
     const normalizedContent = pluginContent.replace(/^data: $/gm, "data:");
-    await Bun.write(
-      pluginFile,
-      normalizedContent.startsWith(banner)
-        ? normalizedContent
-        : banner + normalizedContent
-    );
+    const finalContent = normalizedContent.startsWith(banner)
+      ? normalizedContent
+      : banner + normalizedContent;
+    await Bun.write(pluginFile, finalContent);
+    verifyBlockbenchPluginArtifact(finalContent, {
+      id: PLUGIN_ID,
+      version: VERSION,
+    });
+    log.step(`Verified standalone registration for ${c.cyan}${PLUGIN_ID}${c.reset}`);
   }
 
   // Rename the sourcemap file
@@ -142,6 +146,13 @@ let process = requireNativeModule('process');`;
   if (await Bun.file(readmeSource).exists()) {
     await copyFile(readmeSource, readmeDest);
     log.step(`Copied ${c.cyan}about.md${c.reset}`);
+  }
+
+  const noticesSource = resolve("./THIRD_PARTY_NOTICES.md");
+  const noticesDest = join(OUTPUT_DIR, "THIRD_PARTY_NOTICES.md");
+  if (await Bun.file(noticesSource).exists()) {
+    await copyFile(noticesSource, noticesDest);
+    log.step(`Copied ${c.cyan}THIRD_PARTY_NOTICES.md${c.reset}`);
   }
 
   return true;

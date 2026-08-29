@@ -3,13 +3,15 @@
 - Repository: https://github.com/XiaoNetwork-Astral/blockbench-mcp
 - Upstream: https://github.com/jasonjgardner/blockbench-mcp-plugin
 - License: GPL-3.0-only
-- Version: 1.7.0-blockbench.37
+- Version: 1.7.0-blockbench.40
 - Artifact: `dist/blockbench_mcp.js`
 - Default MCP URL: `http://127.0.0.1:3000/bb-mcp`
 
 ## Interface
 
-- 36 core tools, 3 optional YSM tools, and 2 optional Hytale tools.
+- 37 core tools, 3 optional YSM tools, and 2 optional Hytale tools.
+- `inspect_model_validation` provides experimental transformed-contact, UV-integrity, snapshot/diff (the latest eight in-memory snapshots per session), repeatable view/debug-pass, visibility, and native-animation sweep actions.
+- Optional YSM grouped tools provide source-backed Molang discovery, parsing, semantic/runtime validation, deterministic simulation, clone-only preview, and hash-guarded JSONC editing.
 - Public names use `inspect_*`, `edit_*`, `create_*`, `import_*`, and `export_*`.
 - Grouped operations use `{ "command": { "action": "<action>", "input": { ... } } }` and retain action-specific schemas.
 - Each MCP session binds its own working project independently from the foreground Blockbench tab.

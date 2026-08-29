@@ -5,6 +5,11 @@ import {
   clearSessionPreviewVisibilityState,
   forgetProjectPreviewVisibilityState,
 } from "@/lib/previewState";
+import {
+  clearAllValidationSnapshots,
+  clearSessionValidationSnapshots,
+  forgetProjectValidationSnapshots,
+} from "@/lib/validationSnapshots";
 
 export interface McpCameraState {
   position: [number, number, number];
@@ -12,6 +17,8 @@ export interface McpCameraState {
   rotation?: [number, number, number];
   projection: "orthographic" | "perspective";
   zoom?: number;
+  fov?: number;
+  viewport?: [number, number];
 }
 
 const DEFAULT_SESSION_KEY = "__default_mcp_session__";
@@ -126,12 +133,14 @@ export function clearSessionProjectState(sessionId?: string): void {
   workingProjectIds.delete(key);
   cameraStates.delete(key);
   clearSessionPreviewVisibilityState(sessionId);
+  clearSessionValidationSnapshots(sessionId);
 }
 
 export function clearAllProjectSessionState(): void {
   workingProjectIds.clear();
   cameraStates.clear();
   clearAllPreviewVisibilityStates();
+  clearAllValidationSnapshots();
 }
 
 export function forgetProjectState(projectId: string): void {
@@ -142,6 +151,7 @@ export function forgetProjectState(projectId: string): void {
     perProject.delete(projectId);
   }
   forgetProjectPreviewVisibilityState(projectId);
+  forgetProjectValidationSnapshots(projectId);
 }
 
 export function setSessionCameraState(
@@ -160,6 +170,7 @@ export function setSessionCameraState(
     position: [...state.position],
     target: state.target ? [...state.target] : undefined,
     rotation: state.rotation ? [...state.rotation] : undefined,
+    viewport: state.viewport ? [...state.viewport] : undefined,
   });
 }
 
@@ -174,6 +185,7 @@ export function getSessionCameraState(
     position: [...state.position],
     target: state.target ? [...state.target] : undefined,
     rotation: state.rotation ? [...state.rotation] : undefined,
+    viewport: state.viewport ? [...state.viewport] : undefined,
   };
 }
 
@@ -459,8 +471,8 @@ export function runInProjectContext<T>(project: ModelProject, callback: () => T)
     }
     restoreCanvas();
     if (runtime.Prop) {
-      runtime.Prop.file_name = snapshot.propFileName;
-      runtime.Prop.file_name_alt = snapshot.propFileNameAlt;
+      if (snapshot.propFileName !== undefined) runtime.Prop.file_name = snapshot.propFileName;
+      if (snapshot.propFileNameAlt !== undefined) runtime.Prop.file_name_alt = snapshot.propFileNameAlt;
     }
     if (runtimeDocument && snapshot.documentTitle !== undefined) {
       runtimeDocument.title = snapshot.documentTitle;
@@ -493,6 +505,14 @@ export const PROJECT_CONTEXT_BYPASS_OPERATIONS = new Set([
   "ysm_open_workflow_tabs",
   "ysm_workflow_status",
   "ysm_merge_working_into_baseline",
+  "ysm_discover_documents",
+  "ysm_list_molang_expressions",
+  "ysm_get_molang_catalog",
+  "ysm_parse_molang",
+  "ysm_validate_molang",
+  "ysm_simulate_molang",
+  "ysm_preview_molang",
+  "ysm_edit_molang_expressions",
 ]);
 
 /** Operations that still require Blockbench's visible paint/display UI. */

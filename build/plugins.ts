@@ -89,6 +89,17 @@ export const textFileLoaderPlugin: BunPlugin = {
 export const blockbenchCompatPlugin: BunPlugin = {
   name: "blockbench-compat",
   setup(build) {
+    // Bun's Node/CommonJS resolver prefers jsonc-parser's UMD `main` entry.
+    // That wrapper delegates its relative imports to the runtime `require`,
+    // leaving ./impl/* files outside the single-file Blockbench bundle. Resolve
+    // the package to its ESM implementation so Bun can statically include every
+    // parser module in the distributable.
+    build.onResolve({ filter: /^jsonc-parser$/ }, () => {
+      return {
+        path: resolve("node_modules/jsonc-parser/lib/esm/main.js"),
+      };
+    });
+
     build.onResolve({ filter: /^process$/ }, (args) => {
       return { path: args.path, namespace: "blockbench-compat" };
     });

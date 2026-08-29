@@ -1,3 +1,4 @@
+import type * as Three from "three";
 import {
   getForegroundProject,
   getSessionCameraState,
@@ -7,7 +8,16 @@ import {
   type McpCameraState,
 } from "@/lib/projectContext";
 import { resolveUniqueReference } from "@/lib/modelSafety";
-import { applySessionPreviewVisibilityToClone } from "@/lib/previewState";
+import {
+  applySessionPreviewVisibilityToClone,
+  getSessionPreviewAnimationState,
+} from "@/lib/previewState";
+
+type ThreeApi = typeof import("three");
+
+function getThreeApi(): ThreeApi {
+  return (globalThis as typeof globalThis & { THREE: ThreeApi }).THREE;
+}
 
 /**
  * Helper function to create properly formatted image content for MCP responses.
@@ -444,6 +454,7 @@ interface StoredPreviewState {
   target?: number[];
   orthographic?: boolean;
   zoom?: number;
+  fov?: number;
 }
 
 function tuple3(value: number[] | undefined): [number, number, number] | undefined {
@@ -452,12 +463,13 @@ function tuple3(value: number[] | undefined): [number, number, number] | undefin
 }
 
 function fittedCameraState(project: ModelProject): McpCameraState {
-  const box = new THREE.Box3().setFromObject(project.model_3d);
-  const center = new THREE.Vector3(0, project.format?.block_size ? project.format.block_size * 0.75 : 12, 0);
+  const THREE_API = getThreeApi();
+  const box = new THREE_API.Box3().setFromObject(project.model_3d);
+  const center = new THREE_API.Vector3(0, project.format?.block_size ? project.format.block_size * 0.75 : 12, 0);
   let extent = project.format?.block_size || 16;
   if (!box.isEmpty()) {
     box.getCenter(center);
-    const size = box.getSize(new THREE.Vector3());
+    const size = box.getSize(new THREE_API.Vector3());
     extent = Math.max(size.x, size.y, size.z, 1);
   }
   return {
@@ -471,12 +483,16 @@ function fittedCameraState(project: ModelProject): McpCameraState {
   };
 }
 
-function cameraStateForProject(
+export function getEffectiveCameraState(
   project: ModelProject,
-  sessionId?: string
+  sessionId?: string,
+  viewport?: [number, number]
 ): McpCameraState {
   const sessionState = getSessionCameraState(sessionId, project.uuid);
-  if (sessionState) return sessionState;
+  if (sessionState) return {
+    ...sessionState,
+    viewport: viewport ?? sessionState.viewport ?? [800, 600],
+  };
 
   if (project === getForegroundProject() && Preview.selected) {
     const preview = Preview.selected;
@@ -485,6 +501,8 @@ function cameraStateForProject(
       target: preview.controls.target.toArray() as [number, number, number],
       projection: preview.isOrtho ? "orthographic" : "perspective",
       zoom: preview.isOrtho ? preview.camOrtho.zoom : undefined,
+      fov: preview.isOrtho ? undefined : preview.camPers.fov,
+      viewport: viewport ?? [800, 600],
     };
   }
 
@@ -498,19 +516,357 @@ function cameraStateForProject(
       target: tuple3(stored?.target),
       projection: stored?.orthographic ? "orthographic" : "perspective",
       zoom: stored?.zoom,
+      fov: stored?.fov,
+      viewport: viewport ?? [800, 600],
     };
   }
-  return fittedCameraState(project);
+  return { ...fittedCameraState(project), viewport: viewport ?? [800, 600] };
 }
 
-function targetFromCameraState(state: McpCameraState): THREE.Vector3 {
-  if (state.target) return new THREE.Vector3().fromArray(state.target);
-  const position = new THREE.Vector3().fromArray(state.position);
-  if (!state.rotation) return new THREE.Vector3(0, 0, 0);
+function targetFromCameraState(state: McpCameraState): Three.Vector3 {
+  const THREE_API = getThreeApi();
+  if (state.target) return new THREE_API.Vector3().fromArray(state.target);
+  const position = new THREE_API.Vector3().fromArray(state.position);
+  if (!state.rotation) return new THREE_API.Vector3(0, 0, 0);
   const radians = state.rotation.map((degrees) => (degrees * Math.PI) / 180);
-  return new THREE.Vector3(0, 0, 16)
-    .applyEuler(new THREE.Euler(radians[0], radians[1], radians[2], "ZYX"))
+  return new THREE_API.Vector3(0, 0, 16)
+    .applyEuler(new THREE_API.Euler(radians[0], radians[1], radians[2], "ZYX"))
     .add(position);
+}
+
+interface ObjectTransformSnapshot {
+  node: Three.Object3D;
+  position: Three.Vector3;
+  quaternion: Three.Quaternion;
+  scale: Three.Vector3;
+  visible: boolean;
+  matrixAutoUpdate: boolean;
+}
+
+export function withTemporaryAnimationPose<T>(
+  project: ModelProject,
+  animationId: string | null,
+  time: number | null,
+  callback: () => T
+): T {
+  return runInProjectContext(project, () => {
+    const transforms: ObjectTransformSnapshot[] = [];
+    project.model_3d.traverse((node) => transforms.push({
+      node,
+      position: node.position.clone(),
+      quaternion: node.quaternion.clone(),
+      scale: node.scale.clone(),
+      visible: node.visible,
+      matrixAutoUpdate: node.matrixAutoUpdate,
+    }));
+    const selectedFlags = project.animations.map((animation) => animation.selected);
+    const animationGlobal = (globalThis as typeof globalThis & {
+      Animation: { selected: _Animation | null };
+    }).Animation;
+    const selectedAnimation = animationGlobal.selected;
+    const timelineTime = Timeline.time;
+    try {
+      Animator.showDefaultPose?.();
+      if (animationId) {
+        const matches = project.animations.filter((animation) => animation.uuid === animationId);
+        if (matches.length !== 1) {
+          throw new Error(
+            `Preview animation '${animationId}' is no longer present exactly once.`
+          );
+        }
+        animationGlobal.selected = matches[0];
+        Timeline.setTime(time ?? 0);
+        Animator.preview();
+      }
+      project.model_3d.updateMatrixWorld(true);
+      return callback();
+    } finally {
+      project.animations.forEach((animation, index) => {
+        animation.selected = selectedFlags[index] ?? false;
+      });
+      animationGlobal.selected = selectedAnimation;
+      Timeline.time = timelineTime;
+      for (const snapshot of transforms) {
+        snapshot.node.position.copy(snapshot.position);
+        snapshot.node.quaternion.copy(snapshot.quaternion);
+        snapshot.node.scale.copy(snapshot.scale);
+        snapshot.node.visible = snapshot.visible;
+        snapshot.node.matrixAutoUpdate = snapshot.matrixAutoUpdate;
+        snapshot.node.updateMatrix();
+      }
+      project.model_3d.updateMatrixWorld(true);
+    }
+  });
+}
+
+function cloneProjectModelForSession(
+  project: ModelProject,
+  sessionId?: string
+): Three.Object3D {
+  const previewState = getSessionPreviewAnimationState(sessionId, project.uuid);
+  if (!previewState) return project.model_3d.clone(true);
+  return withTemporaryAnimationPose(
+    project,
+    previewState.animationId,
+    previewState.time,
+    () => project.model_3d.clone(true)
+  );
+}
+
+export type OffscreenRenderPass =
+  | "color"
+  | "depth"
+  | "element_id"
+  | "face_normal"
+  | "wireframe"
+  | "xray"
+  | "backface"
+  | "unlit";
+
+export interface OffscreenRenderOptions {
+  pass?: OffscreenRenderPass;
+  includedNodeIds?: string[];
+  idNodeIds?: string[];
+  cloneTransforms?: Array<{
+    nodeId: string;
+    channel: "rotation" | "position" | "scale";
+    axis: "x" | "y" | "z";
+    value: number;
+    mode?: "add" | "replace";
+  }>;
+}
+
+export interface OffscreenRenderResult {
+  data_url: string;
+  rgba: Uint8Array | null;
+  id_legend: Array<{ uuid: string; name: string; rgb: [number, number, number] }>;
+}
+
+function renderProjectOffscreenDetailed(
+  project: ModelProject,
+  state: McpCameraState,
+  width: number,
+  height: number,
+  sessionId?: string,
+  options: OffscreenRenderOptions = {}
+): OffscreenRenderResult {
+  const preview = Screencam.NoAAPreview as Preview & {
+    resize(width: number, height: number): void;
+  };
+  if (!preview?.renderer) {
+    throw new Error("Blockbench's offscreen viewport renderer is unavailable.");
+  }
+  const previous = {
+    isOrtho: preview.isOrtho,
+    width: preview.canvas.width,
+    height: preview.canvas.height,
+    target: preview.controls.target.clone(),
+    orthoPosition: preview.camOrtho.position.clone(),
+    orthoQuaternion: preview.camOrtho.quaternion.clone(),
+    orthoZoom: preview.camOrtho.zoom,
+    perspectivePosition: preview.camPers.position.clone(),
+    perspectiveQuaternion: preview.camPers.quaternion.clone(),
+    perspectiveAspect: preview.camPers.aspect,
+    perspectiveFov: preview.camPers.fov,
+    outputEncoding: preview.renderer.outputEncoding,
+  };
+  const THREE_API = getThreeApi();
+  const createdMaterials: Three.Material[] = [];
+  try {
+    preview.isOrtho = state.projection === "orthographic";
+    preview.resize(width, height);
+    const camera = preview.camera;
+    camera.position.fromArray(state.position);
+    const target = targetFromCameraState(state);
+    preview.controls.target.copy(target);
+    preview.controls.object = camera;
+    camera.lookAt(target);
+    if (preview.isOrtho) {
+      preview.camOrtho.zoom = state.zoom ?? 0.5;
+      preview.camOrtho.updateProjectionMatrix();
+    } else {
+      preview.camPers.aspect = width / height;
+      preview.camPers.fov = state.fov ?? preview.camPers.fov;
+      preview.camPers.updateProjectionMatrix();
+    }
+    camera.updateMatrixWorld(true);
+
+    const renderScene = new THREE_API.Scene();
+    const modelClone = cloneProjectModelForSession(project, sessionId);
+    const sourceNodes: Three.Object3D[] = [];
+    const clonedNodes: Three.Object3D[] = [];
+    project.model_3d.traverse((node) => sourceNodes.push(node));
+    modelClone.traverse((node) => clonedNodes.push(node));
+    const sourceToClone = new Map<Three.Object3D, Three.Object3D>();
+    for (let index = 0; index < Math.min(sourceNodes.length, clonedNodes.length); index += 1) {
+      sourceToClone.set(sourceNodes[index], clonedNodes[index]);
+    }
+    if (options.includedNodeIds) {
+      const included = new Set(options.includedNodeIds);
+      const allNodes = [...project.groups, ...project.elements] as Array<Group | OutlinerElement>;
+      const byId = new Map(allNodes.map((node) => [node.uuid, node]));
+      const includeWithRelations = new Set<string>();
+      const includeDescendants = (node: Group | OutlinerElement): void => {
+        includeWithRelations.add(node.uuid);
+        const children = (node as Group & { children?: Array<Group | OutlinerElement> }).children;
+        if (Array.isArray(children)) children.forEach(includeDescendants);
+      };
+      for (const id of included) {
+        const node = byId.get(id);
+        if (!node) continue;
+        includeDescendants(node);
+        let parent = node.parent;
+        while (parent && parent !== "root") {
+          includeWithRelations.add(parent.uuid);
+          parent = parent.parent;
+        }
+      }
+      for (const node of allNodes) {
+        const clone = sourceToClone.get(node.scene_object);
+        if (clone && !includeWithRelations.has(node.uuid)) clone.visible = false;
+      }
+    } else {
+      applySessionPreviewVisibilityToClone(project, sourceToClone, sessionId);
+    }
+
+    for (const transform of options.cloneTransforms ?? []) {
+      const sourceNode = [...project.groups, ...project.elements]
+        .find((node) => node.uuid === transform.nodeId);
+      const clone = sourceNode ? sourceToClone.get(sourceNode.scene_object) : undefined;
+      if (!sourceNode || !clone) {
+        throw new Error(`Clone transform target '${transform.nodeId}' is no longer present.`);
+      }
+      const axis = transform.axis;
+      const value = transform.channel === "rotation"
+        ? transform.value * Math.PI / 180
+        : transform.value;
+      const vector = transform.channel === "rotation"
+        ? clone.rotation
+        : transform.channel === "position"
+          ? clone.position
+          : clone.scale;
+      if (transform.mode === "replace") vector[axis] = value;
+      else vector[axis] += value;
+      clone.updateMatrix();
+      clone.updateMatrixWorld(true);
+    }
+
+    const pass = options.pass ?? "color";
+    if (pass === "element_id") preview.renderer.outputEncoding = THREE_API.LinearEncoding;
+    const replaceMaterial = (object: Three.Object3D, material: Three.Material): void => {
+      object.traverse((child) => {
+        const mesh = child as Three.Mesh;
+        if (mesh.isMesh) mesh.material = material;
+      });
+    };
+    const newMaterial = (material: Three.Material): Three.Material => {
+      createdMaterials.push(material);
+      return material;
+    };
+    if (pass !== "color" && pass !== "element_id") {
+      modelClone.traverse((node) => {
+        const mesh = node as Three.Mesh;
+        if (!mesh.isMesh) return;
+        let material: Three.Material;
+        if (pass === "depth") {
+          material = newMaterial(new THREE_API.MeshDepthMaterial());
+        } else if (pass === "face_normal" || pass === "backface") {
+          material = newMaterial(new THREE_API.MeshNormalMaterial({
+            side: pass === "backface" ? THREE_API.BackSide : THREE_API.DoubleSide,
+          }));
+        } else {
+          const original = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+          const map = (original as Three.MeshBasicMaterial | undefined)?.map ?? null;
+          material = newMaterial(new THREE_API.MeshBasicMaterial({
+            color: pass === "xray" ? 0x55ccff : 0xffffff,
+            map: pass === "unlit" ? map : null,
+            wireframe: pass === "wireframe",
+            transparent: pass === "xray",
+            opacity: pass === "xray" ? 0.35 : 1,
+            depthTest: pass !== "xray",
+            side: THREE_API.DoubleSide,
+            toneMapped: false,
+          }));
+        }
+        mesh.material = material;
+      });
+    }
+
+    const idLegend: OffscreenRenderResult["id_legend"] = [];
+    if (pass === "element_id") {
+      renderScene.background = new THREE_API.Color(0x000000);
+      const black = newMaterial(new THREE_API.MeshBasicMaterial({ color: 0x000000, toneMapped: false }));
+      replaceMaterial(modelClone, black);
+      const requested = new Set(options.idNodeIds ?? options.includedNodeIds ?? project.elements.map((node) => node.uuid));
+      let colorIndex = 1;
+      for (const node of project.elements) {
+        if (!requested.has(node.uuid)) continue;
+        const clone = sourceToClone.get(node.scene_object);
+        if (!clone) continue;
+        const red = colorIndex & 0xff;
+        const green = (colorIndex >> 8) & 0xff;
+        const blue = (colorIndex >> 16) & 0xff;
+        const color = (red << 16) | (green << 8) | blue;
+        const material = newMaterial(new THREE_API.MeshBasicMaterial({
+          color,
+          side: THREE_API.DoubleSide,
+          toneMapped: false,
+          fog: false,
+        }));
+        replaceMaterial(clone, material);
+        idLegend.push({ uuid: node.uuid, name: node.name, rgb: [red, green, blue] });
+        colorIndex++;
+      }
+    }
+    renderScene.add(modelClone);
+    let lightCount = 0;
+    const canvasScene = (Canvas as typeof Canvas & { scene?: Three.Scene }).scene;
+    canvasScene?.traverse((node) => {
+      if ((node as Three.Light).isLight) {
+        renderScene.add(node.clone());
+        lightCount += 1;
+      }
+    });
+    if (pass === "element_id" || pass === "depth" || pass === "face_normal" || pass === "wireframe" || pass === "xray" || pass === "backface" || pass === "unlit") {
+      for (const child of [...renderScene.children]) {
+        if ((child as Three.Light).isLight) renderScene.remove(child);
+      }
+    } else if (lightCount === 0) {
+      renderScene.add(new THREE_API.AmbientLight(0xffffff, 1.5));
+      const key = new THREE_API.DirectionalLight(0xffffff, 2);
+      key.position.set(-1, 2, -1);
+      renderScene.add(key);
+    }
+    renderScene.updateMatrixWorld(true);
+    preview.renderer.render(renderScene, camera);
+    let rgba: Uint8Array | null = null;
+    if (pass === "element_id") {
+      const context = preview.renderer.getContext();
+      rgba = new Uint8Array(width * height * 4);
+      context.readPixels(0, 0, width, height, context.RGBA, context.UNSIGNED_BYTE, rgba);
+    }
+    return {
+      data_url: preview.canvas.toDataURL("image/png"),
+      rgba,
+      id_legend: idLegend,
+    };
+  } finally {
+    createdMaterials.forEach((material) => material.dispose());
+    preview.isOrtho = previous.isOrtho;
+    preview.resize(previous.width, previous.height);
+    preview.controls.target.copy(previous.target);
+    preview.camOrtho.position.copy(previous.orthoPosition);
+    preview.camOrtho.quaternion.copy(previous.orthoQuaternion);
+    preview.camOrtho.zoom = previous.orthoZoom;
+    preview.camOrtho.updateProjectionMatrix();
+    preview.camPers.position.copy(previous.perspectivePosition);
+    preview.camPers.quaternion.copy(previous.perspectiveQuaternion);
+    preview.camPers.aspect = previous.perspectiveAspect;
+    preview.camPers.fov = previous.perspectiveFov;
+    preview.camPers.updateProjectionMatrix();
+    preview.renderer.outputEncoding = previous.outputEncoding;
+    preview.controls.object = preview.camera;
+  }
 }
 
 function renderProjectOffscreen(
@@ -520,57 +876,19 @@ function renderProjectOffscreen(
   height: number,
   sessionId?: string
 ): string {
-  const preview = Screencam.NoAAPreview;
-  if (!preview?.renderer) {
-    throw new Error("Blockbench's offscreen viewport renderer is unavailable.");
-  }
+  return renderProjectOffscreenDetailed(project, state, width, height, sessionId).data_url;
+}
 
-  preview.isOrtho = state.projection === "orthographic";
-  preview.resize(width, height);
-  const camera = preview.camera;
-  camera.position.fromArray(state.position);
-  const target = targetFromCameraState(state);
-  preview.controls.target.copy(target);
-  preview.controls.object = camera;
-  camera.lookAt(target);
-  if (preview.isOrtho) {
-    preview.camOrtho.zoom = state.zoom ?? 0.5;
-    preview.camOrtho.updateProjectionMatrix();
-  } else {
-    preview.camPers.aspect = width / height;
-    preview.camPers.updateProjectionMatrix();
-  }
-  camera.updateMatrixWorld(true);
-
-  const renderScene = new THREE.Scene();
-  const modelClone = project.model_3d.clone(true);
-  const sourceNodes: THREE.Object3D[] = [];
-  const clonedNodes: THREE.Object3D[] = [];
-  project.model_3d.traverse((node) => sourceNodes.push(node));
-  modelClone.traverse((node) => clonedNodes.push(node));
-  const sourceToClone = new Map<THREE.Object3D, THREE.Object3D>();
-  for (let index = 0; index < Math.min(sourceNodes.length, clonedNodes.length); index += 1) {
-    sourceToClone.set(sourceNodes[index], clonedNodes[index]);
-  }
-  applySessionPreviewVisibilityToClone(project, sourceToClone, sessionId);
-  renderScene.add(modelClone);
-  let lightCount = 0;
-  const canvasScene = (Canvas as typeof Canvas & { scene?: THREE.Scene }).scene;
-  canvasScene?.traverse((node) => {
-    if ((node as THREE.Light).isLight) {
-      renderScene.add(node.clone());
-      lightCount += 1;
-    }
-  });
-  if (lightCount === 0) {
-    renderScene.add(new THREE.AmbientLight(0xffffff, 1.5));
-    const key = new THREE.DirectionalLight(0xffffff, 2);
-    key.position.set(-1, 2, -1);
-    renderScene.add(key);
-  }
-  renderScene.updateMatrixWorld(true);
-  preview.renderer.render(renderScene, camera);
-  return preview.canvas.toDataURL("image/png");
+export async function captureOffscreenValidationPass(
+  project: ModelProject,
+  camera: McpCameraState,
+  width: number,
+  height: number,
+  sessionId: string | undefined,
+  options: OffscreenRenderOptions
+): Promise<OffscreenRenderResult> {
+  await waitForRenderFrames(1);
+  return renderProjectOffscreenDetailed(project, camera, width, height, sessionId, options);
 }
 
 export async function captureScreenshot(
@@ -583,19 +901,20 @@ export async function captureScreenshot(
 ) {
   const target = resolveScreenshotProject(project, sessionId, workingProject);
 
-  runInProjectContext(target, () => Canvas.updateAll());
   await waitForRenderFrames(settleFrames);
-
-  return imageContent(
-    renderProjectOffscreen(
-      target,
-      cameraStateForProject(target, sessionId),
-      width,
-      height,
-      sessionId
+  const camera = getEffectiveCameraState(target, sessionId, [width, height]);
+  return {
+    ...imageContent(
+      renderProjectOffscreen(target, camera, width, height, sessionId),
+      "image/png"
     ),
-    "image/png"
-  );
+    structuredContent: {
+      schema_version: "1",
+      project: { uuid: target.uuid, name: target.name },
+      camera,
+      settle_frames: settleFrames,
+    },
+  };
 }
 
 /**

@@ -1,6 +1,6 @@
 {
-  "version": "1.7.0-blockbench.37",
-  "generatedAt": "2026-08-28T02:53:24.770Z",
+  "version": "1.7.0-blockbench.40",
+  "generatedAt": "2026-08-29T10:50:31.740Z",
   "tools": [
     {
       "name": "create_cube",
@@ -770,7 +770,7 @@
     {
       "name": "inspect_blockbench",
       "title": "Inspect Blockbench",
-      "description": "Captures either the rendered 3D viewport or the complete Blockbench window through one command.action.",
+      "description": "Captures the rendered viewport or complete Blockbench window, or returns the effective offscreen camera, through one command.action. The get_camera_state action is experimental.",
       "status": "stable",
       "category": "Camera & Screenshots",
       "annotations": {
@@ -847,10 +847,35 @@
                       "input"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "get_camera_state"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "project": {
+                            "type": "string",
+                            "description": "Project UUID, exact name, or exact save path.",
+                            "markdownDescription": "Project UUID, exact name, or exact save path."
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: capture_viewport, capture_blockbench_ui.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: capture_viewport, capture_blockbench_ui."
+                "description": "Select one action and provide only that action's input object. Supported actions: capture_viewport, capture_blockbench_ui, get_camera_state.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: capture_viewport, capture_blockbench_ui, get_camera_state."
               }
             },
             "required": [
@@ -869,7 +894,7 @@
       "status": "experimental",
       "category": "Camera & Screenshots",
       "annotations": {
-        "destructiveHint": true
+        "destructiveHint": false
       },
       "parameters": {
         "$ref": "#/definitions/edit_camera",
@@ -922,10 +947,73 @@
                 "maximum": 100,
                 "description": "Orthographic zoom. Defaults to 0.5.",
                 "markdownDescription": "Orthographic zoom. Defaults to 0.5."
+              },
+              "fov": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 179,
+                "description": "Perspective vertical field of view in degrees.",
+                "markdownDescription": "Perspective vertical field of view in degrees."
+              },
+              "viewport": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 64,
+                  "maximum": 1600
+                },
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "Stored offscreen viewport [width, height], with width <= 1600 and height <= 1200.",
+                "markdownDescription": "Stored offscreen viewport [width, height], with width <= 1600 and height <= 1200."
+              },
+              "auto_fit": {
+                "type": "object",
+                "properties": {
+                  "element": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "UUID or unique name to frame.",
+                    "markdownDescription": "UUID or unique name to frame."
+                  },
+                  "context_elements": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "maxItems": 100,
+                    "default": []
+                  },
+                  "frame_occupancy": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 0.95,
+                    "default": 0.8
+                  },
+                  "view_direction": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "description": "World direction from the target toward the camera.",
+                    "markdownDescription": "World direction from the target toward the camera.",
+                    "default": [
+                      -1,
+                      0.75,
+                      -1
+                    ]
+                  }
+                },
+                "required": [
+                  "element"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
-              "position",
               "projection"
             ],
             "additionalProperties": false
@@ -7732,6 +7820,683 @@
       }
     },
     {
+      "name": "inspect_model_validation",
+      "title": "Inspect Model Validation",
+      "description": "Runs reproducible, read-only contact, UV, snapshot, camera-evidence, and pose-sweep validation through one command.action.",
+      "status": "experimental",
+      "category": "Model Validation",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "parameters": {
+        "$ref": "#/definitions/inspect_model_validation",
+        "definitions": {
+          "inspect_model_validation": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "analyze_model_contacts"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "pairs": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "first": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "second": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "expected": {
+                                  "type": "object",
+                                  "properties": {
+                                    "relation": {
+                                      "type": "string",
+                                      "enum": [
+                                        "unspecified",
+                                        "connected",
+                                        "separate",
+                                        "intentionally_embedded"
+                                      ],
+                                      "default": "unspecified"
+                                    },
+                                    "minimum_separation": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1024,
+                                      "default": 0
+                                    },
+                                    "maximum_separation": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1024
+                                    },
+                                    "minimum_penetration": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1024,
+                                      "default": 0
+                                    },
+                                    "maximum_penetration": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1024
+                                    }
+                                  },
+                                  "additionalProperties": false,
+                                  "default": {}
+                                },
+                                "tolerance": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 16,
+                                  "default": 0.001
+                                }
+                              },
+                              "required": [
+                                "first",
+                                "second"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "minItems": 1,
+                            "maxItems": 100
+                          },
+                          "max_triangle_comparisons": {
+                            "type": "integer",
+                            "minimum": 100,
+                            "maximum": 2000000,
+                            "default": 500000
+                          }
+                        },
+                        "required": [
+                          "pairs"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "inspect_uv_integrity"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "elements": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "maxItems": 200,
+                            "default": []
+                          },
+                          "expected_sharing": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "first_face": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "second_face": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "relation": {
+                                  "type": "string",
+                                  "enum": [
+                                    "shared",
+                                    "separate"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "first_face",
+                                "second_face",
+                                "relation"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 500,
+                            "default": []
+                          },
+                          "authorized_pixel_regions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "texture_uuid": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "rectangle": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "minItems": 4,
+                                  "maxItems": 4
+                                }
+                              },
+                              "required": [
+                                "texture_uuid",
+                                "rectangle"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100,
+                            "default": []
+                          },
+                          "texel_density_ratio_warning": {
+                            "type": "number",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 2
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "create_validation_snapshot"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "targets": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "minItems": 1,
+                            "maxItems": 200
+                          },
+                          "neighbors": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "maxItems": 200,
+                            "default": []
+                          },
+                          "include_uv": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "include_textures": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "evidence_labels": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            "maxItems": 100,
+                            "default": []
+                          }
+                        },
+                        "required": [
+                          "targets"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "diff_validation_snapshot"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "snapshot_id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "authorized_pixel_regions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "texture_uuid": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "rectangle": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "minItems": 4,
+                                  "maxItems": 4
+                                }
+                              },
+                              "required": [
+                                "texture_uuid",
+                                "rectangle"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100,
+                            "default": []
+                          }
+                        },
+                        "required": [
+                          "snapshot_id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "capture_validation_views"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "target": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "context_elements": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "maxItems": 100,
+                            "default": []
+                          },
+                          "suite": {
+                            "type": "string",
+                            "enum": [
+                              "near_grazing_far",
+                              "orthographic",
+                              "custom"
+                            ],
+                            "default": "near_grazing_far"
+                          },
+                          "views": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 80
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "near",
+                                    "medium",
+                                    "far",
+                                    "grazing",
+                                    "orthographic",
+                                    "perspective",
+                                    "orbit"
+                                  ]
+                                },
+                                "direction": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "minItems": 3,
+                                  "maxItems": 3
+                                },
+                                "azimuth_degrees": {
+                                  "type": "number"
+                                },
+                                "elevation_degrees": {
+                                  "type": "number",
+                                  "minimum": -89,
+                                  "maximum": 89
+                                },
+                                "frame_occupancy": {
+                                  "type": "number",
+                                  "minimum": 0.1,
+                                  "maximum": 0.95
+                                },
+                                "fov": {
+                                  "type": "number",
+                                  "minimum": 1,
+                                  "maximum": 179
+                                },
+                                "zoom": {
+                                  "type": "number",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 100
+                                },
+                                "passes": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "color",
+                                      "depth",
+                                      "element_id",
+                                      "face_normal",
+                                      "wireframe",
+                                      "xray",
+                                      "backface",
+                                      "unlit"
+                                    ]
+                                  },
+                                  "minItems": 1,
+                                  "maxItems": 8,
+                                  "default": [
+                                    "color",
+                                    "element_id",
+                                    "depth"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "kind"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 24,
+                            "default": []
+                          },
+                          "width": {
+                            "type": "integer",
+                            "minimum": 64,
+                            "maximum": 1600,
+                            "default": 800
+                          },
+                          "height": {
+                            "type": "integer",
+                            "minimum": 64,
+                            "maximum": 1200,
+                            "default": 600
+                          }
+                        },
+                        "required": [
+                          "target"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "sweep_animation_validation"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "animation": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "samples": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "const": "rest"
+                                },
+                                {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              ]
+                            },
+                            "minItems": 1,
+                            "maxItems": 256
+                          },
+                          "include_loop_boundary": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "contacts": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "first": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "second": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "expected": {
+                                  "type": "object",
+                                  "properties": {
+                                    "relation": {
+                                      "type": "string",
+                                      "enum": [
+                                        "unspecified",
+                                        "connected",
+                                        "separate",
+                                        "intentionally_embedded"
+                                      ],
+                                      "default": "unspecified"
+                                    },
+                                    "minimum_separation": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1024,
+                                      "default": 0
+                                    },
+                                    "maximum_separation": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1024
+                                    },
+                                    "minimum_penetration": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1024,
+                                      "default": 0
+                                    },
+                                    "maximum_penetration": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1024
+                                    }
+                                  },
+                                  "additionalProperties": false,
+                                  "default": {}
+                                },
+                                "tolerance": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 16,
+                                  "default": 0.001
+                                }
+                              },
+                              "required": [
+                                "first",
+                                "second"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 50,
+                            "default": []
+                          },
+                          "hierarchy": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "element": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "expected_parent": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "element",
+                                "expected_parent"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100,
+                            "default": []
+                          },
+                          "bounds": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "element": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "minimum": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "minItems": 3,
+                                  "maxItems": 3
+                                },
+                                "maximum": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "minItems": 3,
+                                  "maxItems": 3
+                                }
+                              },
+                              "required": [
+                                "element"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100,
+                            "default": []
+                          },
+                          "envelope_elements": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "maxItems": 100,
+                            "default": []
+                          },
+                          "stop_on_first_failure": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "max_triangle_comparisons": {
+                            "type": "integer",
+                            "minimum": 100,
+                            "maximum": 1000000,
+                            "default": 200000
+                          }
+                        },
+                        "required": [
+                          "animation",
+                          "samples"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "Select one action and provide only that action's input object. Supported actions: analyze_model_contacts, inspect_uv_integrity, create_validation_snapshot, diff_validation_snapshot, capture_validation_views, sweep_animation_validation.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: analyze_model_contacts, inspect_uv_integrity, create_validation_snapshot, diff_validation_snapshot, capture_validation_views, sweep_animation_validation."
+              }
+            },
+            "required": [
+              "command"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
       "name": "edit_mesh_uv",
       "title": "Edit Mesh UV",
       "description": "Sets, automatically generates, or rotates mesh UV coordinates through one command.action.",
@@ -7904,7 +8669,7 @@
     {
       "name": "edit_ysm_workspace",
       "title": "Edit YSM Workspace",
-      "description": "Configures the plugin workspace and binds, saves, or unbinds YSM projects through one command.action.",
+      "description": "Configures the plugin workspace, binds/saves projects, or performs guarded targeted Molang edits through one command.action. The ysm_edit_molang_expressions action is experimental.",
       "status": "stable",
       "category": "YSM Workspace (optional)",
       "annotations": {
@@ -7963,6 +8728,11 @@
                             "type": "string",
                             "description": "Workspace-relative YSM geometry JSON path.",
                             "markdownDescription": "Workspace-relative YSM geometry JSON path."
+                          },
+                          "manifest": {
+                            "type": "string",
+                            "description": "Workspace-relative YSM manifest. Defaults to ysm.json beside the models/textures directories when present.",
+                            "markdownDescription": "Workspace-relative YSM manifest. Defaults to ysm.json beside the models/textures directories when present."
                           },
                           "geometry_identifier": {
                             "type": "string"
@@ -8058,10 +8828,107 @@
                       "input"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "ysm_edit_molang_expressions"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "manifest": {
+                            "type": "string",
+                            "minLength": 1,
+                            "default": "ysm.json"
+                          },
+                          "file": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "expected_file_sha256": {
+                            "type": "string",
+                            "minLength": 64,
+                            "maxLength": 64
+                          },
+                          "dialect": {
+                            "type": "string",
+                            "enum": [
+                              "stable_2_6_5",
+                              "dev_3_0_experimental"
+                            ],
+                            "default": "stable_2_6_5"
+                          },
+                          "dry_run": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "edits": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "operation": {
+                                  "type": "string",
+                                  "enum": [
+                                    "create",
+                                    "replace",
+                                    "remove"
+                                  ]
+                                },
+                                "expression_id": {
+                                  "type": "string",
+                                  "minLength": 64,
+                                  "maxLength": 64
+                                },
+                                "json_pointer": {
+                                  "type": "string"
+                                },
+                                "expected_literal_sha256": {
+                                  "type": "string",
+                                  "minLength": 64,
+                                  "maxLength": 64
+                                },
+                                "value": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 262144
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "operation"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "minItems": 1,
+                            "maxItems": 64
+                          }
+                        },
+                        "required": [
+                          "file",
+                          "expected_file_sha256",
+                          "edits"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: ysm_set_workspace, ysm_bind_project, ysm_save_project, ysm_unbind_project.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: ysm_set_workspace, ysm_bind_project, ysm_save_project, ysm_unbind_project."
+                "description": "Select one action and provide only that action's input object. Supported actions: ysm_set_workspace, ysm_bind_project, ysm_save_project, ysm_unbind_project, ysm_edit_molang_expressions.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: ysm_set_workspace, ysm_bind_project, ysm_save_project, ysm_unbind_project, ysm_edit_molang_expressions."
               }
             },
             "required": [
@@ -8076,7 +8943,7 @@
     {
       "name": "inspect_ysm",
       "title": "Inspect YSM",
-      "description": "Reports plugin workspace bindings or the protected YSM three-tab workflow through one read-only command.action.",
+      "description": "Reports YSM workspace/workflow state and provides source-backed Molang discovery, parsing, validation, simulation, and preview through one read-only command.action. All Molang actions are experimental.",
       "status": "stable",
       "category": "YSM Workflow (optional)",
       "annotations": {
@@ -8127,10 +8994,1137 @@
                       "input"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "ysm_discover_documents"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "manifest": {
+                            "type": "string",
+                            "minLength": 1,
+                            "default": "ysm.json"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "ysm_list_molang_expressions"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "manifest": {
+                            "type": "string",
+                            "minLength": 1,
+                            "default": "ysm.json"
+                          },
+                          "file": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "document_kind": {
+                            "type": "string",
+                            "enum": [
+                              "manifest",
+                              "geometry",
+                              "animation",
+                              "controller",
+                              "function",
+                              "texture",
+                              "other"
+                            ]
+                          },
+                          "expression_kind": {
+                            "type": "string",
+                            "enum": [
+                              "animation_transform",
+                              "animation_weight",
+                              "animation_timing",
+                              "timeline",
+                              "controller_transition",
+                              "controller_script",
+                              "controller_weight",
+                              "function"
+                            ]
+                          },
+                          "bone": {
+                            "type": "string"
+                          },
+                          "cursor": {
+                            "type": "string",
+                            "maxLength": 64,
+                            "description": "Opaque cursor returned by the previous page.",
+                            "markdownDescription": "Opaque cursor returned by the previous page."
+                          },
+                          "limit": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 500,
+                            "default": 100
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "ysm_get_molang_catalog"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "dialect": {
+                            "type": "string",
+                            "enum": [
+                              "stable_2_6_5",
+                              "dev_3_0_experimental"
+                            ],
+                            "default": "stable_2_6_5"
+                          },
+                          "namespace": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "function",
+                              "variable",
+                              "namespace"
+                            ]
+                          },
+                          "runtime_availability": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "standalone",
+                              "runtime_only"
+                            ],
+                            "default": "all"
+                          },
+                          "cursor": {
+                            "type": "string",
+                            "maxLength": 64,
+                            "description": "Opaque cursor returned by the previous page.",
+                            "markdownDescription": "Opaque cursor returned by the previous page."
+                          },
+                          "limit": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 500,
+                            "default": 100
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "ysm_parse_molang"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "expression": {
+                            "type": "string",
+                            "maxLength": 262144
+                          },
+                          "dialect": {
+                            "type": "string",
+                            "enum": [
+                              "stable_2_6_5",
+                              "dev_3_0_experimental"
+                            ],
+                            "default": "stable_2_6_5"
+                          },
+                          "include_tokens": {
+                            "type": "boolean",
+                            "default": true
+                          }
+                        },
+                        "required": [
+                          "expression"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "ysm_validate_molang"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "expression": {
+                            "type": "string",
+                            "maxLength": 262144
+                          },
+                          "manifest": {
+                            "type": "string",
+                            "minLength": 1,
+                            "default": "ysm.json"
+                          },
+                          "expression_id": {
+                            "type": "string",
+                            "minLength": 64,
+                            "maxLength": 64
+                          },
+                          "dialect": {
+                            "type": "string",
+                            "enum": [
+                              "stable_2_6_5",
+                              "dev_3_0_experimental"
+                            ],
+                            "default": "stable_2_6_5"
+                          },
+                          "bindings": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "function_results": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "project": {
+                            "type": "string",
+                            "description": "Optional open project used to validate referenced animation bones.",
+                            "markdownDescription": "Optional open project used to validate referenced animation bones."
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "ysm_simulate_molang"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "expression": {
+                            "type": "string",
+                            "maxLength": 262144
+                          },
+                          "dialect": {
+                            "type": "string",
+                            "enum": [
+                              "stable_2_6_5",
+                              "dev_3_0_experimental"
+                            ],
+                            "default": "stable_2_6_5"
+                          },
+                          "seed": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4294967295,
+                            "default": 1831565813
+                          },
+                          "bindings": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "variables": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "temp": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "context": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "function_results": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "user_functions": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string",
+                              "maxLength": 262144
+                            },
+                            "default": {}
+                          },
+                          "initial_state": {
+                            "type": "object",
+                            "properties": {
+                              "variables": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "type": "array",
+                                      "items": {}
+                                    },
+                                    {
+                                      "type": "object",
+                                      "additionalProperties": {}
+                                    }
+                                  ]
+                                }
+                              },
+                              "temp": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "type": "array",
+                                      "items": {}
+                                    },
+                                    {
+                                      "type": "object",
+                                      "additionalProperties": {}
+                                    }
+                                  ]
+                                }
+                              },
+                              "physics": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "first_order"
+                                        },
+                                        "input": {
+                                          "type": "number"
+                                        },
+                                        "response": {
+                                          "type": "number"
+                                        },
+                                        "last_simulation": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "input",
+                                        "response",
+                                        "last_simulation"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "second_order"
+                                        },
+                                        "input": {
+                                          "type": "number"
+                                        },
+                                        "frequency": {
+                                          "type": "number"
+                                        },
+                                        "coefficient": {
+                                          "type": "number"
+                                        },
+                                        "response": {
+                                          "type": "number"
+                                        },
+                                        "input_function": {
+                                          "type": "number"
+                                        },
+                                        "last_simulation": {
+                                          "type": "number"
+                                        },
+                                        "last_simulation_dot": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "input",
+                                        "frequency",
+                                        "coefficient",
+                                        "response",
+                                        "input_function",
+                                        "last_simulation",
+                                        "last_simulation_dot"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              },
+                              "random_state": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 4294967295
+                              }
+                            },
+                            "required": [
+                              "variables",
+                              "temp",
+                              "physics",
+                              "random_state"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "steps": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "delta_seconds": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 60
+                                },
+                                "bindings": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      },
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      },
+                                      {
+                                        "type": "array",
+                                        "items": {}
+                                      },
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": {}
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "delta_seconds"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "minItems": 1,
+                            "maxItems": 4096
+                          }
+                        },
+                        "required": [
+                          "expression",
+                          "steps"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "const": "ysm_preview_molang"
+                      },
+                      "input": {
+                        "type": "object",
+                        "properties": {
+                          "expression": {
+                            "type": "string",
+                            "maxLength": 262144
+                          },
+                          "dialect": {
+                            "type": "string",
+                            "enum": [
+                              "stable_2_6_5",
+                              "dev_3_0_experimental"
+                            ],
+                            "default": "stable_2_6_5"
+                          },
+                          "seed": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4294967295,
+                            "default": 1831565813
+                          },
+                          "bindings": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "variables": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "temp": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "context": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "function_results": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {}
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "user_functions": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string",
+                              "maxLength": 262144
+                            },
+                            "default": {}
+                          },
+                          "initial_state": {
+                            "type": "object",
+                            "properties": {
+                              "variables": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "type": "array",
+                                      "items": {}
+                                    },
+                                    {
+                                      "type": "object",
+                                      "additionalProperties": {}
+                                    }
+                                  ]
+                                }
+                              },
+                              "temp": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "type": "array",
+                                      "items": {}
+                                    },
+                                    {
+                                      "type": "object",
+                                      "additionalProperties": {}
+                                    }
+                                  ]
+                                }
+                              },
+                              "physics": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "first_order"
+                                        },
+                                        "input": {
+                                          "type": "number"
+                                        },
+                                        "response": {
+                                          "type": "number"
+                                        },
+                                        "last_simulation": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "input",
+                                        "response",
+                                        "last_simulation"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "second_order"
+                                        },
+                                        "input": {
+                                          "type": "number"
+                                        },
+                                        "frequency": {
+                                          "type": "number"
+                                        },
+                                        "coefficient": {
+                                          "type": "number"
+                                        },
+                                        "response": {
+                                          "type": "number"
+                                        },
+                                        "input_function": {
+                                          "type": "number"
+                                        },
+                                        "last_simulation": {
+                                          "type": "number"
+                                        },
+                                        "last_simulation_dot": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "input",
+                                        "frequency",
+                                        "coefficient",
+                                        "response",
+                                        "input_function",
+                                        "last_simulation",
+                                        "last_simulation_dot"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              },
+                              "random_state": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 4294967295
+                              }
+                            },
+                            "required": [
+                              "variables",
+                              "temp",
+                              "physics",
+                              "random_state"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "steps": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "delta_seconds": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 60
+                                },
+                                "bindings": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      },
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      },
+                                      {
+                                        "type": "array",
+                                        "items": {}
+                                      },
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": {}
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "delta_seconds"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "minItems": 1,
+                            "maxItems": 4096
+                          },
+                          "sample_stride": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 256,
+                            "default": 1
+                          },
+                          "pose_mapping": {
+                            "type": "object",
+                            "properties": {
+                              "bone": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "channel": {
+                                "type": "string",
+                                "enum": [
+                                  "rotation",
+                                  "position",
+                                  "scale"
+                                ]
+                              },
+                              "axis": {
+                                "type": "string",
+                                "enum": [
+                                  "x",
+                                  "y",
+                                  "z"
+                                ]
+                              },
+                              "mode": {
+                                "type": "string",
+                                "enum": [
+                                  "add",
+                                  "replace"
+                                ],
+                                "default": "add"
+                              },
+                              "sample_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "bone",
+                              "channel",
+                              "axis"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "project": {
+                            "type": "string",
+                            "description": "Explicit open project UUID, exact name, or save path for visual pose mapping. Trace-only previews do not require a project.",
+                            "markdownDescription": "Explicit open project UUID, exact name, or save path for visual pose mapping. Trace-only previews do not require a project."
+                          },
+                          "width": {
+                            "type": "integer",
+                            "minimum": 64,
+                            "maximum": 1600,
+                            "default": 800
+                          },
+                          "height": {
+                            "type": "integer",
+                            "minimum": 64,
+                            "maximum": 1200,
+                            "default": 600
+                          }
+                        },
+                        "required": [
+                          "expression",
+                          "steps"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "input"
+                    ],
+                    "additionalProperties": false
                   }
                 ],
-                "description": "Select one action and provide only that action's input object. Supported actions: ysm_workspace_status, ysm_workflow_status.",
-                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: ysm_workspace_status, ysm_workflow_status."
+                "description": "Select one action and provide only that action's input object. Supported actions: ysm_workspace_status, ysm_workflow_status, ysm_discover_documents, ysm_list_molang_expressions, ysm_get_molang_catalog, ysm_parse_molang, ysm_validate_molang, ysm_simulate_molang, ysm_preview_molang.",
+                "markdownDescription": "Select one action and provide only that action's input object. Supported actions: ysm_workspace_status, ysm_workflow_status, ysm_discover_documents, ysm_list_molang_expressions, ysm_get_molang_catalog, ysm_parse_molang, ysm_validate_molang, ysm_simulate_molang, ysm_preview_molang."
               }
             },
             "required": [
