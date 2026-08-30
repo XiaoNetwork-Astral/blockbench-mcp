@@ -143,11 +143,6 @@ export function readWorkspaceText(relativePath: string): string {
   return fs.readFileSync(resolvePluginWorkspacePath(relativePath), "utf8");
 }
 
-export function readWorkspaceBytes(relativePath: string): Uint8Array {
-  const fs = requireWorkspace();
-  return fs.readFileSync(resolvePluginWorkspacePath(relativePath));
-}
-
 export function workspaceFileExists(relativePath: string): boolean {
   const fs = requireWorkspace();
   const absolutePath = resolvePluginWorkspacePath(relativePath);

@@ -1,12 +1,9 @@
-import { clientManagerTeardown, showClientManager } from "@/ui/clientManager";
 import type { McpServerRuntimeState } from "@/lib/serverRuntime";
 
 export type McpServerStatus = {
   state: McpServerRuntimeState;
   url: string;
   authenticationEnabled: boolean;
-  connectedClients: number;
-  connectedSessions: number;
 };
 
 export type McpServerControlHandlers = {
@@ -88,8 +85,6 @@ function showStatus(status: McpServerStatus): void {
         statusRow(tl("mcp.server_controls.status_authentication"), authentication, {
           warning: !status.authenticationEnabled,
         }),
-        statusRow(tl("mcp.server_controls.status_clients"), String(status.connectedClients)),
-        statusRow(tl("mcp.server_controls.status_sessions"), String(status.connectedSessions)),
       ].join("")}</div>`,
     ],
     singleButton: true,
@@ -119,17 +114,10 @@ export function serverControlsSetup(handlers: McpServerControlHandlers): void {
     icon: "info",
     click: () => showStatus(handlers.getStatus()),
   });
-  addToolsAction("blockbench_mcp_manage_clients", {
-    name: tl("mcp.server_controls.manage_clients"),
-    description: tl("mcp.server_controls.manage_clients_desc"),
-    icon: "devices",
-    click: () => showClientManager(),
-  });
 }
 
 export function serverControlsTeardown(): void {
   actions.splice(0).forEach((action) => action.delete());
   statusDialog?.delete();
   statusDialog = undefined;
-  clientManagerTeardown();
 }

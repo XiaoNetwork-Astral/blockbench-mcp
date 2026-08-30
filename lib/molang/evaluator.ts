@@ -130,6 +130,44 @@ function normalizeRoot(name: string): string {
   return name;
 }
 
+function normalizeBindingValue(value: MolangValue): MolangValue {
+  if (Array.isArray(value)) return value.map(normalizeBindingValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key.toLowerCase(),
+        normalizeBindingValue(child),
+      ])
+    );
+  }
+  return value;
+}
+
+export function normalizeMolangBindings(
+  bindings: Record<string, MolangValue>
+): Record<string, MolangValue> {
+  const normalized: Record<string, MolangValue> = {};
+  const entries = Object.entries(bindings);
+
+  for (const [name, value] of entries.filter(([name]) => !name.includes("."))) {
+    normalized[normalizeRoot(name.toLowerCase())] = normalizeBindingValue(value);
+  }
+  for (const [name, value] of entries.filter(([name]) => name.includes("."))) {
+    const segments = name.toLowerCase().split(".");
+    segments[0] = normalizeRoot(segments[0]);
+    let current = normalized;
+    for (const segment of segments.slice(0, -1)) {
+      const existing = current[segment];
+      if (!existing || typeof existing !== "object" || Array.isArray(existing)) {
+        current[segment] = {};
+      }
+      current = current[segment] as Record<string, MolangValue>;
+    }
+    current[segments[segments.length - 1]] = normalizeBindingValue(value);
+  }
+  return normalized;
+}
+
 function expressionPath(expression: MolangExpression): string | null {
   if (expression.type === "Identifier") return normalizeRoot(expression.name);
   if (expression.type === "MemberExpression") {
@@ -678,16 +716,17 @@ export function evaluateParsedMolang(
     physics: cloneValue(options.initial_state?.physics ?? {}),
     random_state: seed >>> 0,
   };
+  const bindings = normalizeMolangBindings(options.bindings ?? {});
   const roots: Record<string, MolangValue> = {
-    ...(options.bindings ?? {}),
-    query: cloneValue((options.bindings?.query as Record<string, MolangValue> | undefined) ?? {}),
+    ...bindings,
+    query: cloneValue((bindings.query as Record<string, MolangValue> | undefined) ?? {}),
     variable: state.variables,
     temp: state.temp,
-    context: cloneValue(options.context ?? (options.bindings?.context as Record<string, MolangValue> | undefined) ?? {}),
-    ysm: cloneValue((options.bindings?.ysm as Record<string, MolangValue> | undefined) ?? {}),
-    ctrl: cloneValue((options.bindings?.ctrl as Record<string, MolangValue> | undefined) ?? {}),
-    tlm: cloneValue((options.bindings?.tlm as Record<string, MolangValue> | undefined) ?? {}),
-    args: cloneValue((options.bindings?.args as MolangValue[] | undefined) ?? []),
+    context: cloneValue(options.context ?? (bindings.context as Record<string, MolangValue> | undefined) ?? {}),
+    ysm: cloneValue((bindings.ysm as Record<string, MolangValue> | undefined) ?? {}),
+    ctrl: cloneValue((bindings.ctrl as Record<string, MolangValue> | undefined) ?? {}),
+    tlm: cloneValue((bindings.tlm as Record<string, MolangValue> | undefined) ?? {}),
+    args: cloneValue((bindings.args as MolangValue[] | undefined) ?? []),
   };
   const environment: Environment = {
     dialect: options.dialect ?? "stable_2_6_5",

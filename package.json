@@ -1,7 +1,7 @@
 {
   "name": "blockbench-mcp",
-  "version": "1.7.0-blockbench.40",
-  "description": "Local-first Blockbench MCP plugin with guarded modeling and optional workflow integrations",
+  "version": "2.0.0-blockbench.1",
+  "description": "Local Blockbench MCP server with direct visible-tab modeling, audit history, and YSM/Hytale support",
   "keywords": [
     "Blockbench",
     "MCP"
@@ -38,7 +38,6 @@
   "devDependencies": {
     "@types/bun": "^1.3.8",
     "blockbench-types": "^5.0.6",
-    "tinycolor2": "^1.6.0",
     "typescript": "^5.9.3",
     "zod-to-json-schema": "^3.25.1"
   }

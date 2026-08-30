@@ -24,7 +24,6 @@ import { registerYsmTools } from "./tools/ysm";
 import { registerWorkflowTools } from "./tools/workflow";
 import { registerSpatialTools } from "./tools/spatial";
 import { registerValidationTools } from "./tools/validation";
-import { getInitialPluginWorkspaceRoot } from "@/lib/pluginWorkspace";
 
 // Optional plugin integrations. Each function performs its own runtime check.
 import { registerHytaleTools } from "./tools/hytale";
@@ -62,11 +61,9 @@ for (const register of registrationFunctions) {
   register();
 }
 
-// YSM tools are optional and appear when the plugin workspace is configured.
-if (getInitialPluginWorkspaceRoot()) {
-  registerYsmTools();
-  registerWorkflowTools();
-}
+// YSM tools stay discoverable so ysm_set_workspace can configure first use.
+registerYsmTools();
+registerWorkflowTools();
 
 for (const register of [
   registerHytaleTools,
@@ -74,11 +71,6 @@ for (const register of [
   registerHytalePrompts,
 ]) {
   register();
-}
-
-// Function to get tool count - called at runtime after registration
-export function getToolCount(): number {
-  return Object.keys(tools).length;
 }
 
 export { tools };

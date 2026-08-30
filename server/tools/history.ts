@@ -3,8 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
@@ -96,31 +94,6 @@ export const historyToolDocs: ToolSpec[] = [
     },
     parameters: saveCheckpointParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-];
-
-const historyReadOperations = [historyToolDocs[2]];
-const historyEditOperations = [
-  historyToolDocs[0],
-  historyToolDocs[1],
-  historyToolDocs[3],
-];
-
-export const historyPublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_history",
-    description: "Returns the current Undo/Redo history stack.",
-    annotations: { title: "Inspect History", readOnlyHint: true },
-    parameters: createToolGroupParameters(historyReadOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_history",
-    description:
-      "Undoes, redoes, or inserts a named checkpoint through one command.action.",
-    annotations: { title: "Edit History", destructiveHint: true },
-    parameters: createToolGroupParameters(historyEditOperations),
-    status: STATUS_STABLE,
   },
 ];
 
@@ -272,6 +245,4 @@ export function registerHistoryTools() {
     },
   }, historyToolDocs[3].status);
 
-  createToolGroup(historyPublicToolDocs[0], historyReadOperations);
-  createToolGroup(historyPublicToolDocs[1], historyEditOperations);
 }

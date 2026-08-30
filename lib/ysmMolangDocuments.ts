@@ -14,7 +14,7 @@ import {
   workspaceDirectoryExists,
   workspaceFileExists,
 } from "@/lib/pluginWorkspace";
-import { getMolangCatalogMetadata } from "@/lib/molang/catalog";
+import { getMolangCatalogProvenance } from "@/lib/molang/catalog";
 import type { MolangDiagnostic } from "@/lib/molang/types";
 
 export type YsmDocumentKind =
@@ -44,7 +44,7 @@ export interface YsmDiscoveryResult {
   documents: YsmDiscoveredDocument[];
   diagnostics: MolangDiagnostic[];
   truncated: boolean;
-  provenance: ReturnType<typeof getMolangCatalogMetadata>;
+  provenance: ReturnType<typeof getMolangCatalogProvenance>;
 }
 
 export interface YsmMolangExpression {
@@ -318,7 +318,7 @@ export function discoverYsmDocuments(manifestPath = "ysm.json"): YsmDiscoveryRes
     documents: [...documents.values()].sort((a, b) => a.path.localeCompare(b.path)),
     diagnostics,
     truncated,
-    provenance: getMolangCatalogMetadata(),
+    provenance: getMolangCatalogProvenance(),
   };
 }
 

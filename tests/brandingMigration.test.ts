@@ -45,8 +45,9 @@ describe("Blockbench MCP branding migration", () => {
       "blockbench_mcp.project_roles",
       [LEGACY_PROJECT_ROLES_STORAGE_KEY]
     );
+    expect(migrated).not.toBeNull();
     expect(migrated).toContain("working_copy");
-    expect(values.get("blockbench_mcp.project_roles")).toBe(migrated);
+    expect(values.get("blockbench_mcp.project_roles")).toBe(migrated!);
     expect(values.has(LEGACY_PROJECT_ROLES_STORAGE_KEY)).toBe(false);
   });
 });

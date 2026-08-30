@@ -3,8 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import { findMeshOrThrow, getMeshOrSelected } from "@/lib/util";
@@ -93,41 +91,25 @@ export const uvToolDocs: ToolSpec[] = [
   },
 ];
 
-const meshUvOperations = [...uvToolDocs];
-
-export const uvPublicToolDocs: ToolSpec[] = [
-  {
-    name: "edit_mesh_uv",
-    description:
-      "Sets, automatically generates, or rotates mesh UV coordinates through one command.action.",
-    annotations: { title: "Edit Mesh UV", destructiveHint: true },
-    parameters: createToolGroupParameters(meshUvOperations),
-    status: STATUS_EXPERIMENTAL,
-  },
-];
-
 export function registerUVTools() {
   createInternalTool(
     uvToolDocs[0].name,
     {
       ...uvToolDocs[0],
+      parameters: setMeshUvParametersSchema,
       async execute({ mesh_id, face_key, uv_mapping }) {
         const mesh = findMeshOrThrow(mesh_id);
-
-        Undo.initEdit({
-          elements: [mesh],
-          uv_only: true,
-        });
-
         const face = mesh.faces[face_key];
         if (!face) {
           throw new Error(`Face with key "${face_key}" not found in mesh.`);
         }
 
+        Undo.initEdit({ elements: [mesh] });
+
         // Set UV coordinates for each vertex
         Object.entries(uv_mapping).forEach(([vkey, uv]) => {
           if (face.vertices.includes(vkey)) {
-            face.uv[vkey] = uv;
+            face.uv[vkey] = uv as ArrayVector2;
           }
         });
 
@@ -146,24 +128,33 @@ export function registerUVTools() {
     uvToolDocs[1].name,
     {
       ...uvToolDocs[1],
-      async execute({ mesh_id, mode, faces }) {
+      parameters: autoUvMeshParametersSchema,
+      async execute({ mesh_id, mode, faces }, { project }) {
         const mesh = getMeshOrSelected(mesh_id);
-
-        Undo.initEdit({
-          elements: [mesh],
-          uv_only: true,
-        });
-
-        const selectedFaces = faces || UVEditor.getSelectedFaces(mesh);
+        const target = project!;
+        const selectedFaces = (faces ?? UVEditor.getSelectedFaces(mesh)) as string[];
+        const unknownFaces = selectedFaces.filter((faceKey) => !mesh.faces[faceKey]);
+        if (unknownFaces.length > 0) {
+          throw new Error(`Unknown mesh face keys: ${unknownFaces.join(", ")}.`);
+        }
+        if (selectedFaces.length === 0) {
+          throw new Error("Select at least one mesh face or supply face keys.");
+        }
 
         if (mode === "project") {
-          // Use project from view
-          BarItems.uv_project_from_view.click();
+          mesh.select();
+          const selection = mesh.getSelectedFaces(true);
+          selection.length = 0;
+          selection.push(...selectedFaces);
+          const action = BarItems.uv_project_from_view as Action;
+          if (!action.trigger()) {
+            throw new Error("Blockbench's project-from-view action is unavailable in the current mode.");
+          }
         } else {
+          Undo.initEdit({ elements: [mesh] });
           // Manual UV mapping based on mode
-          selectedFaces.forEach((fkey) => {
+          selectedFaces.forEach((fkey: string) => {
             const face = mesh.faces[fkey];
-            if (!face) return;
 
             if (mode === "unwrap") {
               // Simple planar unwrap
@@ -171,12 +162,12 @@ export function registerUVTools() {
             } else if (mode === "cylinder") {
               // Cylindrical mapping
               const vertices = face.getSortedVertices();
-              vertices.forEach((vkey, i) => {
+              vertices.forEach((vkey) => {
                 const vertex = mesh.vertices[vkey];
                 const angle = Math.atan2(vertex[0], vertex[2]);
                 const u =
-                  ((angle + Math.PI) / (2 * Math.PI)) * Project.texture_width;
-                const v = ((vertex[1] + 8) / 16) * Project.texture_height;
+                  ((angle + Math.PI) / (2 * Math.PI)) * target.texture_width;
+                const v = ((vertex[1] + 8) / 16) * target.texture_height;
                 face.uv[vkey] = [u, v];
               });
             } else if (mode === "sphere") {
@@ -187,21 +178,19 @@ export function registerUVTools() {
                 const length = Math.sqrt(
                   vertex[0] ** 2 + vertex[1] ** 2 + vertex[2] ** 2
                 );
-                const theta = Math.acos(vertex[1] / length);
+                const theta = length === 0 ? Math.PI / 2 : Math.acos(vertex[1] / length);
                 const phi = Math.atan2(vertex[0], vertex[2]);
                 const u =
-                  ((phi + Math.PI) / (2 * Math.PI)) * Project.texture_width;
-                const v = (theta / Math.PI) * Project.texture_height;
+                  ((phi + Math.PI) / (2 * Math.PI)) * target.texture_width;
+                const v = (theta / Math.PI) * target.texture_height;
                 face.uv[vkey] = [u, v];
               });
             }
           });
+          mesh.preview_controller.updateUV(mesh);
+          UVEditor.loadData();
+          Undo.finishEdit("Auto UV mesh");
         }
-
-        mesh.preview_controller.updateUV(mesh);
-        UVEditor.loadData();
-
-        Undo.finishEdit("Auto UV mesh");
 
         return `Applied ${mode} UV mapping to ${selectedFaces.length} faces of mesh "${mesh.name}"`;
       },
@@ -213,13 +202,11 @@ export function registerUVTools() {
     uvToolDocs[2].name,
     {
       ...uvToolDocs[2],
+      parameters: rotateMeshUvParametersSchema,
       async execute({ mesh_id, angle, faces }) {
         const mesh = getMeshOrSelected(mesh_id);
 
-        Undo.initEdit({
-          elements: [mesh],
-          uv_only: true,
-        });
+        Undo.initEdit({ elements: [mesh] });
 
         // Set the face selection before rotating so UVEditor.rotate
         // operates on the caller-specified faces instead of whatever
@@ -242,5 +229,4 @@ export function registerUVTools() {
     uvToolDocs[2].status
   );
 
-  createToolGroup(uvPublicToolDocs[0], meshUvOperations);
 }

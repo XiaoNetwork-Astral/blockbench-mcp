@@ -26,6 +26,18 @@ describe("standalone Blockbench artifact verification", () => {
     ).toThrow("non-native runtime module");
   });
 
+  test("rejects native modules that Blockbench does not expose to plugins", () => {
+    expect(() =>
+      verifyBlockbenchPluginArtifact(
+        `BBPlugin.register("blockbench_mcp", {
+          version: "1.7.0-blockbench.40",
+          onload() { requireNativeModule("http"); }
+        });`,
+        expected
+      )
+    ).toThrow("unsupported Blockbench native module");
+  });
+
   test("rejects stale plugin identity metadata", () => {
     expect(() =>
       verifyBlockbenchPluginArtifact(

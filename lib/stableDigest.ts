@@ -11,10 +11,6 @@ function canonical(value: unknown): string {
   ).join(",")}}`;
 }
 
-export function stableCanonicalJson(value: unknown): string {
-  return canonical(value);
-}
-
 export function stableSha256(value: unknown): string {
   const crypto = requireNativeModule("crypto") as CryptoModule | undefined;
   if (!crypto) throw new Error("Blockbench did not grant access to the crypto module.");

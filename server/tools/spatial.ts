@@ -3,8 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
@@ -222,23 +220,6 @@ export const spatialToolDocs: ToolSpec[] = [
       "Finds overlapping coplanar rendered triangles that can cause Z-fighting. Ordinary volume intersections without coplanar surface overlap are reported separately and are not mislabeled.",
     annotations: { title: "Detect Coplanar Faces", readOnlyHint: true },
     parameters: detectCoplanarFacesParameters,
-    status: STATUS_STABLE,
-  },
-];
-
-const geometryInspectionOperations = [
-  spatialToolDocs[0],
-  spatialToolDocs[1],
-  spatialToolDocs[2],
-];
-
-export const spatialPublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_geometry",
-    description:
-      "Inspects hierarchy/bounds, performs geometry measurements, or detects coplanar face conflicts through one read-only command.action.",
-    annotations: { title: "Inspect Geometry", readOnlyHint: true },
-    parameters: createToolGroupParameters(geometryInspectionOperations),
     status: STATUS_STABLE,
   },
 ];
@@ -752,5 +733,4 @@ export function registerSpatialTools(): void {
     },
   }, spatialToolDocs[2].status);
 
-  createToolGroup(spatialPublicToolDocs[0], geometryInspectionOperations);
 }

@@ -3,8 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
@@ -13,15 +11,15 @@ import {
   isProjectProtected,
   setProjectReadOnly,
 } from "@/lib/projectRoles";
+import { forgetProjectValidationSnapshots } from "@/lib/validationSnapshots";
 import {
-  forgetProjectState,
-  getForegroundProject,
-  getSessionWorkingProjectId,
-  peekSessionWorkingProject,
-  resolveOpenProject,
-  setSessionWorkingProject,
-} from "@/lib/projectContext";
-import { scaleProjectElementUvs } from "@/lib/toolFixes";
+  getVisibleProject,
+  selectProject,
+} from "@/src/blockbench/projects";
+import {
+  scaleProjectElementUvs,
+  type ProjectUvElementTarget,
+} from "@/lib/toolFixes";
 import {
   normalizeLocalBbmodelPath,
   parseBbmodelText,
@@ -34,31 +32,27 @@ export const createProjectParameters = z.object({
     .string()
     .default("bedrock_block")
     .describe("Project format ID from Blockbench's Formats registry."),
-  show: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe("Also show the new tab in Blockbench. By default it becomes the MCP working project without taking the foreground."),
 });
 
 export const getProjectInfoParameters = z.object({});
 
 export const listProjectsParameters = z.object({});
 
-export const setWorkingProjectParameters = z.object({
+export const selectProjectParameters = z.object({
   project: z.string().describe("Project UUID, exact name, or exact save path."),
 });
 
-export const showProjectParameters = setWorkingProjectParameters;
-
-export const setProjectReadOnlyParameters = z.object({
-  project: z
+export const saveProjectParameters = z.object({
+  path: z
     .string()
     .optional()
-    .describe("Project UUID, exact name, or exact save path. Defaults to this session's MCP working project."),
+    .describe("Optional absolute .bbmodel path. Omit it to use the visible project's current save path."),
+});
+
+export const setProjectReadOnlyParameters = z.object({
   read_only: z
     .boolean()
-    .describe("true blocks model editing by both the user and MCP while view navigation remains available; false removes only the explicit read-only flag."),
+    .describe("true blocks model editing and saving while view navigation remains available; false removes the explicit lock."),
 });
 
 export const setProjectTextureResolutionParameters = z.object({
@@ -73,16 +67,7 @@ export const setProjectTextureResolutionParameters = z.object({
     ),
 });
 
-export const closeProjectParameters = z.object({
-  targets: z
-    .union([
-      z.enum(["working", "foreground", "all"]),
-      z.array(z.string().min(1)).min(1),
-    ])
-    .describe(
-      'Use "working", "foreground", "all", or an explicit array of project UUIDs, unique names, or exact save paths.'
-    ),
-});
+export const closeProjectParameters = z.object({});
 
 export const openBbmodelParameters = z.object({
   path: z
@@ -94,36 +79,21 @@ export const openBbmodelParameters = z.object({
     .min(1)
     .optional()
     .describe("Optional tab name override after the project opens."),
-  show: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe("Also show the newly opened tab in Blockbench. It always becomes this MCP session's working project."),
 });
 
 export const duplicateProjectParameters = z.object({
-  project: z
-    .string()
-    .optional()
-    .describe(
-      "Open project UUID, unique name, or exact save path. Defaults to the MCP working project."
-    ),
   name: z
     .string()
     .min(1)
     .optional()
     .describe("Name for the unsaved duplicate tab. Defaults to '<source> copy'."),
-  show: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe("Also show the duplicate in Blockbench. It always becomes this MCP session's working project."),
 });
 
 export const projectToolDocs: ToolSpec[] = [
   {
     name: "create_project",
     description: "Creates a new project with the given name and project type.",
+    project: "none",
     annotations: {
       title: "Create Project",
       destructiveHint: true,
@@ -147,6 +117,7 @@ export const projectToolDocs: ToolSpec[] = [
     name: "list_projects",
     description:
       "Lists every open Blockbench project tab, its active state, persistent workflow role, and whether MCP model mutations are allowed.",
+    project: "none",
     annotations: {
       title: "List Projects",
       readOnlyHint: true,
@@ -155,31 +126,35 @@ export const projectToolDocs: ToolSpec[] = [
     status: STATUS_STABLE,
   },
   {
-    name: "set_working_project",
+    name: "select_project",
     description:
-      "Binds this MCP session to an open project without changing the visible tab. Use this before background work.",
+      "Selects an open project tab in Blockbench by exact UUID, exact save path, or unique exact name.",
+    project: "none",
+    writableProject: false,
     annotations: {
-      title: "Set MCP Working Project",
+      title: "Select Project",
       destructiveHint: false,
     },
-    parameters: setWorkingProjectParameters,
+    parameters: selectProjectParameters,
     status: STATUS_STABLE,
   },
   {
-    name: "show_project",
+    name: "save_project",
     description:
-      "Changes the visible Blockbench tab without changing this MCP session's working project. Use only when the user asks to see that tab.",
+      "Saves the visible project as a portable .bbmodel, using its current save path unless an absolute path is supplied.",
     annotations: {
-      title: "Show Project in Blockbench",
-      destructiveHint: false,
+      title: "Save Project",
+      destructiveHint: true,
+      openWorldHint: true,
     },
-    parameters: showProjectParameters,
+    parameters: saveProjectParameters,
     status: STATUS_STABLE,
   },
   {
     name: "set_project_read_only",
     description:
       "Turns project editing on or off for both the user and MCP while preserving tab switching and camera navigation. Turning it off removes only this explicit lock, not workflow-role protection.",
+    writableProject: false,
     annotations: {
       title: "Set Project Read Only",
       destructiveHint: false,
@@ -190,7 +165,7 @@ export const projectToolDocs: ToolSpec[] = [
   {
     name: "set_project_texture_resolution",
     description:
-      "Sets the MCP working project's texture resolution. Existing UV coordinates are preserved unless modify_uv is explicitly true.",
+      "Sets the visible project's texture resolution. Existing UV coordinates are preserved unless modify_uv is explicitly true.",
     annotations: {
       title: "Set Project Texture Resolution",
       destructiveHint: true,
@@ -199,11 +174,11 @@ export const projectToolDocs: ToolSpec[] = [
     status: STATUS_STABLE,
   },
   {
-    name: "close_projects_without_saving",
+    name: "close_project_without_saving",
     description:
-      "Closes the MCP working project, foreground project, all projects, or explicitly named tabs and explicitly discards unsaved changes.",
+      "Closes the Blockbench tab visible when the call begins and explicitly discards its unsaved changes.",
     annotations: {
-      title: "Close Projects Without Saving",
+      title: "Close Project Without Saving",
       destructiveHint: true,
     },
     parameters: closeProjectParameters,
@@ -213,6 +188,7 @@ export const projectToolDocs: ToolSpec[] = [
     name: "open_bbmodel",
     description:
       "Validates and opens one absolute local .bbmodel file as a new Blockbench project tab. Remote URLs and oversized/invalid JSON are rejected before Blockbench state changes; the result identifies the exact new tab.",
+    project: "none",
     annotations: {
       title: "Open BBModel",
       destructiveHint: true,
@@ -225,46 +201,12 @@ export const projectToolDocs: ToolSpec[] = [
     name: "duplicate_project",
     description:
       "Copies an entire open project—including hierarchy, geometry, textures, UVs, animations, and project metadata—through Blockbench's portable project codec into a new unsaved tab. The source project is not modified.",
+    writableProject: false,
     annotations: {
       title: "Duplicate Project",
       destructiveHint: true,
     },
     parameters: duplicateProjectParameters,
-    status: STATUS_STABLE,
-  },
-];
-
-const projectReadOperations = [projectToolDocs[1], projectToolDocs[2]];
-const projectEditOperations = [
-  projectToolDocs[0],
-  projectToolDocs[3],
-  projectToolDocs[4],
-  projectToolDocs[5],
-  projectToolDocs[6],
-  projectToolDocs[7],
-  projectToolDocs[8],
-  projectToolDocs[9],
-];
-
-export const projectPublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_projects",
-    description:
-      "Lists open tabs with separate foreground/MCP-working markers or returns details for the MCP working project.",
-    annotations: { title: "Inspect Projects", readOnlyHint: true },
-    parameters: createToolGroupParameters(projectReadOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_projects",
-    description:
-      "Creates, binds, configures, closes, opens, duplicates, or explicitly shows projects. Bind with set_working_project for background work; show_project changes the user's visible tab.",
-    annotations: {
-      title: "Edit Projects",
-      destructiveHint: true,
-      openWorldHint: true,
-    },
-    parameters: createToolGroupParameters(projectEditOperations),
     status: STATUS_STABLE,
   },
 ];
@@ -322,10 +264,39 @@ function sameLocalPath(first: string, second: string): boolean {
   return normalize(first) === normalize(second);
 }
 
+async function saveVisibleProject(project: ModelProject, path?: string): Promise<{
+  path: string;
+  bytes: number;
+}> {
+  const targetPath = normalizeLocalBbmodelPath(path ?? project.save_path);
+  const previousPath = project.save_path;
+  project.save_path = targetPath;
+
+  let content: string;
+  try {
+    content = portableBbmodelText(Codecs.project.compile());
+  } catch (error) {
+    project.save_path = previousPath;
+    throw error;
+  }
+
+  await new Promise<void>((resolve) => {
+    Blockbench.writeFile(targetPath, { content }, (writtenPath: string) => {
+      Codecs.project.afterSave(writtenPath);
+      resolve();
+    });
+  });
+
+  return {
+    path: targetPath,
+    bytes: new TextEncoder().encode(content).byteLength,
+  };
+}
+
 export function registerProjectTools() {
   createInternalTool(projectToolDocs[0].name, {
     ...projectToolDocs[0],
-    async execute({ name, format, show }, context) {
+    async execute({ name, format }) {
       const selectedFormat = Formats[format];
       if (!selectedFormat) {
         const available = Object.keys(Formats).sort().slice(0, 30).join(", ");
@@ -333,7 +304,6 @@ export function registerProjectTools() {
           `Project format "${format}" was not found. Available format IDs include: ${available}`
         );
       }
-      const previous = getForegroundProject();
       const created = newProject(selectedFormat);
 
       if (!created || !Project) {
@@ -342,25 +312,21 @@ export function registerProjectTools() {
 
       const createdProject = Project;
       createdProject.name = name;
-      setSessionWorkingProject(context.sessionId, createdProject);
-      if (!show && previous && previous !== createdProject && ModelProject.all.includes(previous)) {
-        previous.select();
-      }
 
       return JSON.stringify({
         created: describeProject(createdProject),
-        mcp_working_project: createdProject.uuid,
-        foreground_project: getForegroundProject()?.uuid ?? null,
+        visible_project: createdProject.uuid,
       }, null, 2);
     },
   }, projectToolDocs[0].status);
 
   createInternalTool(projectToolDocs[1].name, {
     ...projectToolDocs[1],
-    async execute(_args, context) {
-      const format = Format as { id?: string; name?: string; display_name?: string } | undefined;
+    async execute(_args, { project }) {
+      const target = project!;
+      const format = target.format as ModelFormat & { display_name?: string };
 
-      const rootGroups = Outliner.root
+      const rootGroups = target.outliner
         .filter((n): n is Group => n instanceof Group)
         .map((g) => ({
           name: g.name,
@@ -371,27 +337,26 @@ export function registerProjectTools() {
       return JSON.stringify(
         {
           project: {
-            name: Project.name,
-            uuid: Project.uuid,
-            save_path: (Project as { save_path?: string }).save_path ?? null,
-            mcp_working: context.project?.uuid === Project.uuid,
-            foreground: context.foregroundProject?.uuid === Project.uuid,
+            name: target.name,
+            uuid: target.uuid,
+            save_path: target.save_path || null,
+            visible: true,
           },
           format: {
             id: format?.id ?? null,
             name: format?.display_name ?? format?.name ?? null,
           },
           resolution: {
-            texture_width: Project.texture_width ?? null,
-            texture_height: Project.texture_height ?? null,
+            texture_width: target.texture_width,
+            texture_height: target.texture_height,
           },
           counts: {
-            cubes: Cube.all.length,
-            meshes: Mesh.all.length,
-            groups: Group.all.length,
-            textures: Texture.all.length,
-            outliner_elements: Outliner.elements.length,
-            root_nodes: Outliner.root.length,
+            cubes: target.elements.filter((element) => element instanceof Cube).length,
+            meshes: target.elements.filter((element) => element instanceof Mesh).length,
+            groups: target.groups.length,
+            textures: target.textures.length,
+            outliner_elements: target.elements.length,
+            root_nodes: target.outliner.length,
           },
           root_groups: rootGroups,
         },
@@ -403,18 +368,15 @@ export function registerProjectTools() {
 
   createInternalTool(projectToolDocs[2].name, {
     ...projectToolDocs[2],
-    async execute(_args, context) {
-      const foreground = getForegroundProject();
-      const workingId = getSessionWorkingProjectId(context.sessionId);
+    async execute() {
+      const visible = getVisibleProject();
       return JSON.stringify(
         {
-          foreground_project: foreground?.uuid ?? null,
-          mcp_working_project: workingId,
+          visible_project: visible?.uuid ?? null,
           count: ModelProject.all.length,
           projects: ModelProject.all.map((project) => ({
             ...describeProject(project),
-            foreground: project.uuid === foreground?.uuid,
-            mcp_working: project.uuid === workingId,
+            visible: project.uuid === visible?.uuid,
           })),
         },
         null,
@@ -425,12 +387,10 @@ export function registerProjectTools() {
 
   createInternalTool(projectToolDocs[3].name, {
     ...projectToolDocs[3],
-    async execute({ project }, context) {
-      const target = resolveOpenProject(project);
-      setSessionWorkingProject(context.sessionId, target);
+    async execute({ project }) {
+      const target = selectProject(project);
       return JSON.stringify({
-        mcp_working_project: target.uuid,
-        foreground_project: getForegroundProject()?.uuid ?? null,
+        visible_project: target.uuid,
         project: describeProject(target),
       }, null, 2);
     },
@@ -438,29 +398,20 @@ export function registerProjectTools() {
 
   createInternalTool(projectToolDocs[4].name, {
     ...projectToolDocs[4],
-    async execute({ project }) {
-      const target = resolveOpenProject(project);
-      if (!target.selected && !target.select()) {
-        throw new Error(`Blockbench refused to show project "${target.name}".`);
-      }
+    async execute({ path }, { project }) {
+      const target = project!;
+      const saved = await saveVisibleProject(target, path);
       return JSON.stringify({
-        foreground_project: target.uuid,
         project: describeProject(target),
+        ...saved,
       }, null, 2);
     },
   }, projectToolDocs[4].status);
 
   createInternalTool(projectToolDocs[5].name, {
     ...projectToolDocs[5],
-    async execute({ project, read_only }, context) {
-      const target = project
-        ? resolveOpenProject(project)
-        : peekSessionWorkingProject(context.sessionId);
-      if (!target) {
-        throw new Error(
-          'No MCP working project. Use command.action "set_working_project" or provide project explicitly.'
-        );
-      }
+    async execute({ read_only }, { project }) {
+      const target = project!;
       setProjectReadOnly(target, read_only);
       return JSON.stringify({
         project: describeProject(target),
@@ -472,21 +423,22 @@ export function registerProjectTools() {
 
   createInternalTool(projectToolDocs[6].name, {
     ...projectToolDocs[6],
-    async execute({ width, height, modify_uv }) {
-      const previousWidth = Project.texture_width;
-      const previousHeight = Project.texture_height;
+    async execute({ width, height, modify_uv }, { project }) {
+      const target = project!;
+      const previousWidth = target.texture_width;
+      const previousHeight = target.texture_height;
       if (previousWidth === width && previousHeight === height) {
         return JSON.stringify({
-          project: { name: Project.name, uuid: Project.uuid },
-          texture_width: Project.texture_width,
-          texture_height: Project.texture_height,
+          project: { name: target.name, uuid: target.uuid },
+          texture_width: target.texture_width,
+          texture_height: target.texture_height,
           uv_scaled: false,
           changed: false,
         });
       }
 
-      const elements = modify_uv ? [...Outliner.elements] : [];
-      const textures = Format.per_texture_uv_size ? [...Texture.all] : [];
+      const elements = modify_uv ? [...target.elements] : [];
+      const textures = target.format.per_texture_uv_size ? [...target.textures] : [];
       const aspects: UndoAspects = {
         uv_mode: true,
         elements,
@@ -496,13 +448,13 @@ export function registerProjectTools() {
       Undo.initEdit(aspects);
       if (modify_uv) {
         scaleProjectElementUvs(
-          elements,
+          elements as unknown as ProjectUvElementTarget[],
           width / previousWidth,
           height / previousHeight
         );
       }
-      Project.texture_width = width;
-      Project.texture_height = height;
+      target.texture_width = width;
+      target.texture_height = height;
       for (const texture of textures) {
         texture.uv_width = width;
         texture.uv_height = height;
@@ -512,9 +464,9 @@ export function registerProjectTools() {
       if (Outliner.selected.length > 0) UVEditor.loadData();
 
       return JSON.stringify({
-        project: { name: Project.name, uuid: Project.uuid },
-        texture_width: Project.texture_width,
-        texture_height: Project.texture_height,
+        project: { name: target.name, uuid: target.uuid },
+        texture_width: target.texture_width,
+        texture_height: target.texture_height,
         uv_scaled: modify_uv,
         changed: true,
       });
@@ -523,49 +475,23 @@ export function registerProjectTools() {
 
   createInternalTool(projectToolDocs[7].name, {
     ...projectToolDocs[7],
-    async execute({ targets }, context) {
-      let selectedTargets: ModelProject[];
-      if (targets === "all") {
-        selectedTargets = [...ModelProject.all];
-      } else if (targets === "working") {
-        const working = peekSessionWorkingProject(context.sessionId);
-        selectedTargets = working ? [working] : [];
-      } else if (targets === "foreground") {
-        const foreground = getForegroundProject();
-        selectedTargets = foreground ? [foreground] : [];
-      } else {
-        selectedTargets = [...new Map(
-          targets.map((reference: string) => {
-            const project = resolveOpenProject(reference);
-            return [project.uuid, project] as const;
-          })
-        ).values()];
+    async execute(_args, { project }) {
+      const target = project!;
+      const identity = { name: target.name, uuid: target.uuid };
+      if (!(await target.close(true))) {
+        throw new Error(
+          `Blockbench refused to close project "${identity.name}" (${identity.uuid}).`
+        );
       }
+      forgetProjectValidationSnapshots(identity.uuid);
 
-      if (selectedTargets.length === 0) {
-        throw new Error("No matching open projects to close.");
-      }
-
-      const closed: Array<{ name: string; uuid: string }> = [];
-      for (const project of selectedTargets) {
-        const identity = { name: project.name, uuid: project.uuid };
-        if (!(await project.close(true))) {
-          throw new Error(
-            `Blockbench refused to close project "${identity.name}" (${identity.uuid}). ` +
-              `Already closed: ${closed.map((entry) => entry.uuid).join(", ") || "none"}.`
-          );
-        }
-        closed.push(identity);
-        forgetProjectState(identity.uuid);
-      }
-
-      return JSON.stringify({ closed });
+      return JSON.stringify({ closed: identity });
     },
   }, projectToolDocs[7].status);
 
   createInternalTool(projectToolDocs[8].name, {
     ...projectToolDocs[8],
-    async execute({ path, name, show }, context) {
+    async execute({ path, name }) {
       const normalizedPath = normalizeLocalBbmodelPath(path);
       const existingMatches = ModelProject.all.filter((project) =>
         Boolean(project.save_path && sameLocalPath(project.save_path, normalizedPath)) ||
@@ -579,20 +505,16 @@ export function registerProjectTools() {
       }
       const existing = existingMatches[0];
       if (existing) {
-        setSessionWorkingProject(context.sessionId, existing);
-        if (show && !existing.selected) existing.select();
+        if (!existing.selected) existing.select();
         return JSON.stringify({
           source_path: normalizedPath,
           opened: describeProject(existing),
-          shown: existing.selected,
-          mcp_working_project: existing.uuid,
-          foreground_project: getForegroundProject()?.uuid ?? null,
+          visible_project: existing.uuid,
           reused_existing_tab: true,
           ignored_name_override: name ?? null,
         }, null, 2);
       }
       const content = await readLocalBbmodel(normalizedPath);
-      const previous = Project ?? null;
       const before = new Set(ModelProject.all);
       loadModelFile({
         name: normalizedPath.split(/[\\/]/).pop() || "project.bbmodel",
@@ -601,16 +523,12 @@ export function registerProjectTools() {
       }, {});
       const opened = openedProjectSince(before);
       if (name) opened.name = name;
-      setSessionWorkingProject(context.sessionId, opened);
-      if (show) opened.select();
-      else if (previous && ModelProject.all.includes(previous)) previous.select();
+      if (!opened.selected) opened.select();
 
       return JSON.stringify({
         source_path: normalizedPath,
         opened: describeProject(opened),
-        shown: opened.selected,
-        mcp_working_project: opened.uuid,
-        foreground_project: getForegroundProject()?.uuid ?? null,
+        visible_project: opened.uuid,
         reused_existing_tab: false,
       }, null, 2);
     },
@@ -618,22 +536,13 @@ export function registerProjectTools() {
 
   createInternalTool(projectToolDocs[9].name, {
     ...projectToolDocs[9],
-    async execute({ project, name, show }, context) {
-      const source = project
-        ? resolveOpenProject(project)
-        : peekSessionWorkingProject(context.sessionId) ?? getForegroundProject();
-      if (!source) {
-        throw new Error("No MCP working project to duplicate.");
-      }
-      const previous = Project ?? null;
+    async execute({ name }, { project }) {
+      const source = project!;
       if (!Codecs.project || typeof Codecs.project.compile !== "function") {
         throw new Error("Blockbench's portable project codec is unavailable.");
       }
 
-      const compiled = context.runInProject(
-        () => Codecs.project.compile({ bitmaps: true, absolute_paths: false }),
-        source
-      );
+      const compiled = Codecs.project.compile({ bitmaps: true, absolute_paths: false });
       const content = portableBbmodelText(compiled);
 
       const before = new Set(ModelProject.all);
@@ -650,22 +559,15 @@ export function registerProjectTools() {
       duplicate.save_path = "";
       duplicate.export_path = "";
       duplicate.saved = false;
-      setSessionWorkingProject(context.sessionId, duplicate);
-      if (show) duplicate.select();
-      else if (previous && ModelProject.all.includes(previous)) previous.select();
+      if (!duplicate.selected) duplicate.select();
 
       return JSON.stringify({
         source: describeProject(source),
         duplicate: describeProject(duplicate),
         portable_bytes: new TextEncoder().encode(content).byteLength,
-        shown: duplicate.selected,
-        mcp_working_project: duplicate.uuid,
-        foreground_project: getForegroundProject()?.uuid ?? null,
+        visible_project: duplicate.uuid,
       }, null, 2);
     },
   }, projectToolDocs[9].status);
-
-  createToolGroup(projectPublicToolDocs[0], projectReadOperations);
-  createToolGroup(projectPublicToolDocs[1], projectEditOperations);
 
 }

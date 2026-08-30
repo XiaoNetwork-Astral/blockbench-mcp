@@ -3,9 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
-  groupedToolOutputSchema,
   type ToolContext,
   type ToolSpec,
 } from "@/lib/factories";
@@ -26,6 +23,8 @@ import {
 } from "@/lib/pluginWorkspace";
 import {
   getYsmBinding,
+  getYsmBindingPathStates,
+  getYsmBindingWorkspaceState,
   listYsmBindings,
   removeYsmBinding,
   setYsmBinding,
@@ -35,10 +34,6 @@ import {
   assertProjectMayBeMutated,
   describeProject,
 } from "@/lib/projectRoles";
-import {
-  peekSessionWorkingProject,
-  resolveOpenProject,
-} from "@/lib/projectContext";
 import { portableBbmodelText } from "@/lib/projectFiles";
 import {
   assertExternalWriteAllowed,
@@ -46,7 +41,6 @@ import {
 } from "@/lib/textureSafety";
 import {
   registerYsmMolangOperations,
-  ysmMolangEditToolDoc,
 } from "@/server/tools/ysm-molang";
 import { discoverYsmDocuments } from "@/lib/ysmMolangDocuments";
 
@@ -60,10 +54,6 @@ export const ysmSetWorkspaceParameters = z.object({
 export const ysmWorkspaceStatusParameters = z.object({});
 
 export const ysmBindProjectParameters = z.object({
-  project: z
-    .string()
-    .optional()
-    .describe("Project UUID, exact name, or exact save path. Defaults to this MCP session's working project."),
   geometry: z.string().describe("Workspace-relative YSM geometry JSON path."),
   manifest: z
     .string()
@@ -78,35 +68,21 @@ export const ysmBindProjectParameters = z.object({
     .string()
     .optional()
     .describe("Workspace-relative .bbmodel path. Defaults to the selected project's save path when scoped."),
-  allow_count_mismatch: z.boolean().optional().default(false),
 });
 
 export const ysmSaveProjectParameters = z.object({
-  project: z
-    .string()
-    .optional()
-    .describe("Project UUID, exact name, or exact save path. Defaults to this MCP session's working project."),
-  expected_source_sha256: z
-    .string()
-    .length(64)
-    .optional()
-    .describe("Optional explicit geometry hash precondition."),
   include_texture: z.boolean().optional().default(true),
   include_bbmodel: z.boolean().optional().default(true),
 });
 
-export const ysmUnbindProjectParameters = z.object({
-  project: z
-    .string()
-    .optional()
-    .describe("Project UUID, exact name, or exact save path. Defaults to this MCP session's working project."),
-});
+export const ysmUnbindProjectParameters = z.object({});
 
 export const ysmToolDocs: ToolSpec[] = [
   {
     name: "ysm_set_workspace",
     description:
       "Configures the plugin workspace used by optional YSM synchronization. Access remains folder-scoped.",
+    project: "none",
     annotations: { title: "Set Plugin Workspace", destructiveHint: false, openWorldHint: true },
     parameters: ysmSetWorkspaceParameters,
     status: STATUS_STABLE,
@@ -115,6 +91,7 @@ export const ysmToolDocs: ToolSpec[] = [
     name: "ysm_workspace_status",
     description:
       "Reports the plugin workspace, open Blockbench tabs, project roles, and YSM source bindings.",
+    project: "none",
     annotations: { title: "YSM Workspace Status", readOnlyHint: true },
     parameters: ysmWorkspaceStatusParameters,
     status: STATUS_STABLE,
@@ -122,7 +99,8 @@ export const ysmToolDocs: ToolSpec[] = [
   {
     name: "ysm_bind_project",
     description:
-      "Binds an open Bedrock project tab to its authoritative YSM geometry/texture/.bbmodel files after validating identifiers, hashes, and counts.",
+      "Binds the visible Bedrock project to its YSM geometry, texture, manifest, and portable-project files. Source/live count differences are reported rather than requiring a bypass flag.",
+    writableProject: false,
     annotations: { title: "Bind YSM Project", destructiveHint: false, openWorldHint: true },
     parameters: ysmBindProjectParameters,
     status: STATUS_STABLE,
@@ -130,7 +108,7 @@ export const ysmToolDocs: ToolSpec[] = [
   {
     name: "ysm_save_project",
     description:
-      "Synchronizes the live Blockbench project back to bound YSM geometry, texture, and portable .bbmodel files with hash preconditions and atomic writes. Unknown YSM fields are preserved.",
+      "Synchronizes the live Blockbench project back to bound YSM geometry, texture, and portable .bbmodel files with internal external-change checks and atomic writes. Unknown YSM fields are preserved.",
     annotations: { title: "Save Bound YSM Project", destructiveHint: true, openWorldHint: true },
     parameters: ysmSaveProjectParameters,
     status: STATUS_STABLE,
@@ -138,45 +116,16 @@ export const ysmToolDocs: ToolSpec[] = [
   {
     name: "ysm_unbind_project",
     description: "Removes the persisted YSM source binding from an open project tab without changing model files.",
+    writableProject: false,
     annotations: { title: "Unbind YSM Project", destructiveHint: false },
     parameters: ysmUnbindProjectParameters,
     status: STATUS_STABLE,
   },
 ];
 
-export const ysmWorkspaceEditOperations = [
-  ysmToolDocs[0],
-  ysmToolDocs[2],
-  ysmToolDocs[3],
-  ysmToolDocs[4],
-  ysmMolangEditToolDoc,
-];
-
-export const ysmPublicToolDocs: ToolSpec[] = [
-  {
-    name: "edit_ysm_workspace",
-    description:
-      "Configures the plugin workspace, binds/saves projects, or performs guarded targeted Molang edits through one command.action. The ysm_edit_molang_expressions action is experimental.",
-    annotations: {
-      title: "Edit YSM Workspace",
-      destructiveHint: true,
-      openWorldHint: true,
-    },
-    parameters: createToolGroupParameters(ysmWorkspaceEditOperations),
-    outputSchema: groupedToolOutputSchema,
-    status: STATUS_STABLE,
-  },
-];
-
-function requireProject(reference: string | undefined, context: ToolContext): ModelProject {
-  if (reference) return resolveOpenProject(reference);
-  const project = peekSessionWorkingProject(context.sessionId);
-  if (!project) {
-    throw new Error(
-      'No MCP working project. Use edit_projects with command.action "set_working_project" first.'
-    );
-  }
-  return project;
+function requireProject(context: ToolContext): ModelProject {
+  if (context.project) return context.project;
+  throw new Error("This YSM operation requires a visible Blockbench project.");
 }
 
 function slashPath(value: string): string {
@@ -196,6 +145,46 @@ function inferManifestPath(geometry: string): string | null {
 }
 
 type TrackedMolangDocument = NonNullable<YsmBinding["molangDocuments"]>[number];
+
+function bindingWorkspaceStatus(binding: YsmBinding) {
+  const currentWorkspaceRoot = getPluginWorkspaceRoot();
+  const identity = getYsmBindingWorkspaceState(binding, currentWorkspaceRoot);
+  const paths = getYsmBindingPathStates(binding, currentWorkspaceRoot, workspaceFileExists);
+  const pathFailure = paths.find((path) => path.state === "outside_scope")
+    ? "outside_scope"
+    : paths.find((path) => path.state === "missing")
+      ? "missing_files"
+      : null;
+  const state = identity === "unconfigured"
+    ? "workspace_unavailable"
+    : identity === "legacy"
+      ? "legacy_rebind_required"
+      : identity === "stale"
+        ? "stale_workspace"
+        : pathFailure ?? "valid";
+  return {
+    state,
+    usable: state === "valid",
+    bound_workspace: binding.workspaceRoot ?? null,
+    current_workspace: currentWorkspaceRoot || null,
+    paths,
+    action: state === "valid" ? null : "Run ysm_bind_project in the current workspace before saving.",
+  };
+}
+
+function describedBinding(binding: YsmBinding) {
+  return { ...binding, workspace_status: bindingWorkspaceStatus(binding) };
+}
+
+function assertCurrentBinding(binding: YsmBinding): void {
+  const status = bindingWorkspaceStatus(binding);
+  if (!status.usable) {
+    throw new Error(
+      `The YSM binding is not usable in the current plugin workspace (${status.state}). ` +
+        "Run ysm_bind_project again before saving."
+    );
+  }
+}
 
 function bindingMolangDocuments(manifest: string | null): {
   manifestSha256: string | null;
@@ -224,6 +213,16 @@ function bindingMolangDocuments(manifest: string | null): {
 }
 
 function bindingMolangStatus(binding: YsmBinding) {
+  const workspaceStatus = bindingWorkspaceStatus(binding);
+  if (!workspaceStatus.usable) {
+    return {
+      tracked: Boolean(binding.manifest),
+      changed: null,
+      checked: false,
+      workspace_status: workspaceStatus.state,
+      note: "Molang sidecars were not read because this binding must be rebound first.",
+    };
+  }
   if (!binding.manifest) {
     return {
       tracked: false,
@@ -378,17 +377,22 @@ export function registerYsmTools() {
   createInternalTool(ysmToolDocs[1].name, {
     ...ysmToolDocs[1],
     async execute() {
+      const storedBindings = listYsmBindings();
       return JSON.stringify(
         {
           workspace: getPluginWorkspaceRoot() || null,
           open_projects: ModelProject.all.map((project) => ({
             ...describeProject(project),
-            ysm_binding: getYsmBinding(project),
+            ysm_binding: getYsmBinding(project)
+              ? describedBinding(getYsmBinding(project)!)
+              : null,
             molang_sidecars: getYsmBinding(project)
               ? bindingMolangStatus(getYsmBinding(project)!)
               : null,
           })),
-          stored_bindings: listYsmBindings(),
+          stored_bindings: Object.fromEntries(
+            Object.entries(storedBindings).map(([key, binding]) => [key, describedBinding(binding)])
+          ),
         },
         null,
         2
@@ -399,15 +403,13 @@ export function registerYsmTools() {
   createInternalTool(ysmToolDocs[2].name, {
     ...ysmToolDocs[2],
     async execute({
-      project: projectReference,
       geometry,
       manifest,
       geometry_identifier,
       texture,
       bbmodel,
-      allow_count_mismatch,
     }, context) {
-      const project = requireProject(projectReference, context);
+      const project = requireProject(context);
       if (project.format?.id !== "bedrock") {
         throw new Error(
           `Project "${project.name}" uses format "${project.format?.id}", not Bedrock Entity.`
@@ -417,16 +419,8 @@ export function registerYsmTools() {
       const selected = selectGeometry(source, geometry_identifier);
       const counts = geometryCounts(selected.geometry);
       const liveCounts = { bones: project.groups.length, cubes: projectCubeCount(project) };
-      if (
-        !allow_count_mismatch &&
-        (counts.bones !== liveCounts.bones || counts.cubes !== liveCounts.cubes)
-      ) {
-        throw new Error(
-          `Source/live count mismatch for "${project.name}": source ${counts.bones} bones/${counts.cubes} cubes, ` +
-            `live ${liveCounts.bones} bones/${liveCounts.cubes} cubes. ` +
-            "Refusing to bind unless allow_count_mismatch=true."
-        );
-      }
+      const countMismatch =
+        counts.bones !== liveCounts.bones || counts.cubes !== liveCounts.cubes;
 
       const texturePath = texture ?? inferTexturePath(geometry);
       if (texturePath && !workspaceFileExists(texturePath)) {
@@ -449,6 +443,7 @@ export function registerYsmTools() {
       }
       const molang = bindingMolangDocuments(manifestPath);
       const binding: YsmBinding = {
+        workspaceRoot: getPluginWorkspaceRoot(),
         geometry,
         geometryIdentifier: selected.identifier,
         texture: texturePath,
@@ -472,6 +467,7 @@ export function registerYsmTools() {
         molang_diagnostics: molang.diagnostics,
         source_counts: counts,
         live_counts: liveCounts,
+        count_mismatch: countMismatch,
       }, null, 2);
     },
   }, ysmToolDocs[2].status);
@@ -479,26 +475,24 @@ export function registerYsmTools() {
   createInternalTool(ysmToolDocs[3].name, {
     ...ysmToolDocs[3],
     async execute({
-      project: projectReference,
-      expected_source_sha256,
       include_texture,
       include_bbmodel,
     }, context) {
-      const project = requireProject(projectReference, context);
+      const project = requireProject(context);
       assertProjectMayBeMutated(project, "ysm_save_project");
       const binding = getYsmBinding(project);
       if (!binding) {
         throw new Error(
-          `Project "${project.name}" has no YSM binding. Use edit_ysm_workspace with command.action "ysm_bind_project" first.`
+          `Project "${project.name}" has no YSM binding. Use ysm_bind_project first.`
         );
       }
+      assertCurrentBinding(binding);
       const molangSidecars = bindingMolangStatus(binding);
 
       const currentSourceHash = sha256WorkspaceFile(binding.geometry);
-      const expectedSourceHash = expected_source_sha256 ?? binding.sourceSha256;
-      if (currentSourceHash !== expectedSourceHash) {
+      if (currentSourceHash !== binding.sourceSha256) {
         throw new Error(
-          `Geometry changed outside this bound Blockbench project. Expected ${expectedSourceHash}, got ${currentSourceHash}. Rebind before saving.`
+          `Geometry changed outside this bound Blockbench project. Expected ${binding.sourceSha256}, got ${currentSourceHash}. Rebind before saving.`
         );
       }
       if (include_texture && binding.texture && binding.textureSha256) {
@@ -535,7 +529,7 @@ export function registerYsmTools() {
       }
 
       const source = readWorkspaceJson(binding.geometry);
-      const compiled = context!.runInProject(() => compileBedrockDocument(), project);
+      const compiled = compileBedrockDocument();
       const merged = mergeCompiledGeometry(source, compiled, binding.geometryIdentifier);
       const mergedSelection = selectGeometry(merged, binding.geometryIdentifier);
       const liveCounts = geometryCounts(mergedSelection.geometry);
@@ -555,10 +549,9 @@ export function registerYsmTools() {
         const previousSavePath = project.save_path;
         try {
           project.save_path = resolvePluginWorkspacePath(binding.bbmodel);
-          projectText = portableBbmodelText(context!.runInProject(
-            () => Codecs.project.compile({ bitmaps: true, absolute_paths: false }),
-            project
-          ));
+          projectText = portableBbmodelText(
+            Codecs.project.compile({ bitmaps: true, absolute_paths: false })
+          );
         } finally {
           project.save_path = previousSavePath;
         }
@@ -615,13 +608,12 @@ export function registerYsmTools() {
 
   createInternalTool(ysmToolDocs[4].name, {
     ...ysmToolDocs[4],
-    async execute({ project: projectReference }, context) {
-      const project = requireProject(projectReference, context);
+    async execute(_input, context) {
+      const project = requireProject(context);
       const previous = getYsmBinding(project);
       removeYsmBinding(project);
       return JSON.stringify({ project: describeProject(project), removed_binding: previous }, null, 2);
     },
   }, ysmToolDocs[4].status);
 
-  createToolGroup(ysmPublicToolDocs[0], ysmWorkspaceEditOperations);
 }

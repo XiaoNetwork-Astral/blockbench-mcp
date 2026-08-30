@@ -3,14 +3,9 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
-  groupedToolOutputSchema,
   type ToolSpec,
 } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
-import { ysmToolDocs } from "@/server/tools/ysm";
-import { ysmMolangReadToolDocs } from "@/server/tools/ysm-molang";
 import {
   mergeWorkingIntoBaseline,
   openYsmWorkflowTabs,
@@ -41,6 +36,7 @@ export const workflowToolDocs: ToolSpec[] = [
     description:
       "Validates and opens exactly three YSM .bbmodel tabs in order: old-skin reference (read-only), new-skin baseline (read-only), and writable working copy. It never changes pose or animation state.",
     annotations: { title: "Open YSM Three-Tab Workflow", destructiveHint: true, openWorldHint: true },
+    project: "none",
     parameters: openWorkflowTabsParameters,
     status: STATUS_STABLE,
   },
@@ -49,6 +45,7 @@ export const workflowToolDocs: ToolSpec[] = [
     description:
       "Reports the current three-tab workflow, paths, roles, protection state, and whether exactly one tab of each role is open.",
     annotations: { title: "Get YSM Workflow Status", readOnlyHint: true },
+    project: "none",
     parameters: workflowStatusParameters,
     status: STATUS_STABLE,
   },
@@ -58,33 +55,6 @@ export const workflowToolDocs: ToolSpec[] = [
       "After explicit user approval, saves the working copy, closes the baseline, replaces its .bbmodel with the working copy, reopens it read-only, and returns focus to the still-writable working tab.",
     annotations: { title: "Merge YSM Working Copy", destructiveHint: true, openWorldHint: true },
     parameters: mergeWorkflowParameters,
-    status: STATUS_STABLE,
-  },
-];
-
-const ysmReadOperations = [ysmToolDocs[1], workflowToolDocs[1], ...ysmMolangReadToolDocs];
-const ysmWorkflowEditOperations = [workflowToolDocs[0], workflowToolDocs[2]];
-
-export const workflowPublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_ysm",
-    description:
-      "Reports YSM workspace/workflow state and provides source-backed Molang discovery, parsing, validation, simulation, and preview through one read-only command.action. All Molang actions are experimental.",
-    annotations: { title: "Inspect YSM", readOnlyHint: true },
-    parameters: createToolGroupParameters(ysmReadOperations),
-    outputSchema: groupedToolOutputSchema,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_ysm_workflow",
-    description:
-      "Opens the protected YSM three-tab workflow or performs an explicitly confirmed baseline merge.",
-    annotations: {
-      title: "Edit YSM Workflow",
-      destructiveHint: true,
-      openWorldHint: true,
-    },
-    parameters: createToolGroupParameters(ysmWorkflowEditOperations),
     status: STATUS_STABLE,
   },
 ];
@@ -118,11 +88,9 @@ export function registerWorkflowTools(): void {
 
   createInternalTool(workflowToolDocs[2].name, {
     ...workflowToolDocs[2],
-    async execute() {
-      return JSON.stringify(await mergeWorkingIntoBaseline(), null, 2);
+    async execute(_args, { project }) {
+      return JSON.stringify(await mergeWorkingIntoBaseline(project!), null, 2);
     },
   }, workflowToolDocs[2].status);
 
-  createToolGroup(workflowPublicToolDocs[0], ysmReadOperations);
-  createToolGroup(workflowPublicToolDocs[1], ysmWorkflowEditOperations);
 }

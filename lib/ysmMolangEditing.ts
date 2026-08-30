@@ -27,14 +27,12 @@ export interface YsmMolangEdit {
   operation: "create" | "replace" | "remove";
   expression_id?: string;
   json_pointer?: string;
-  expected_literal_sha256?: string;
   value?: string | number;
 }
 
 export interface YsmMolangEditRequest {
   manifest: string;
   file: string;
-  expected_file_sha256: string;
   edits: YsmMolangEdit[];
   dialect?: MolangDialect;
   dry_run?: boolean;
@@ -153,11 +151,6 @@ export function editYsmMolangExpressions(request: YsmMolangEditRequest): YsmMola
     );
   }
   const beforeHash = sha256WorkspaceFile(request.file);
-  if (beforeHash !== request.expected_file_sha256.toLocaleLowerCase()) {
-    throw new Error(
-      `Molang source changed outside this request. Expected ${request.expected_file_sha256}, got ${beforeHash}. Re-inventory before editing.`
-    );
-  }
 
   const inventory = inventoryYsmMolangExpressions(request.manifest);
   const fatalInventory = inventory.diagnostics.find((item) => item.severity === "error");
@@ -172,6 +165,9 @@ export function editYsmMolangExpressions(request: YsmMolangEditRequest): YsmMola
   const seenPointers = new Set<string>();
 
   for (const edit of request.edits) {
+    if (edit.operation !== "create" && !edit.expression_id) {
+      throw new Error(`${edit.operation} requires a current expression_id from the inventory.`);
+    }
     const expression = findExpression(inventory.expressions, edit, request.file);
     const pointer = resolvedPointer(edit, expression);
     if (seenPointers.has(pointer)) throw new Error(`The edit batch targets '${pointer}' more than once.`);
@@ -196,20 +192,6 @@ export function editYsmMolangExpressions(request: YsmMolangEditRequest): YsmMola
       }
     }
 
-    const literal = currentNode
-      ? parsedCurrent.text.slice(currentNode.offset, currentNode.offset + currentNode.length)
-      : null;
-    if (edit.operation !== "create") {
-      if (!edit.expected_literal_sha256) {
-        throw new Error(`${edit.operation} '${pointer}' requires expected_literal_sha256.`);
-      }
-      const actualLiteralHash = sha256WorkspaceValue(literal ?? "");
-      if (actualLiteralHash !== edit.expected_literal_sha256.toLocaleLowerCase()) {
-        throw new Error(
-          `Literal '${pointer}' changed. Expected ${edit.expected_literal_sha256}, got ${actualLiteralHash}. Re-inventory before editing.`
-        );
-      }
-    }
     if (edit.operation !== "remove" && edit.value === undefined) {
       throw new Error(`${edit.operation} '${pointer}' requires a string or number value.`);
     }

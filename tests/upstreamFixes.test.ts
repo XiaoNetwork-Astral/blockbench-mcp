@@ -22,9 +22,8 @@ import {
 } from "@/server/tools/display";
 
 describe("upstream issue regressions", () => {
-  test("add_group advertises independent optional vectors and an explicit parent", () => {
-    expect(() => (addGroupParameters as any).parse({ name: "test" })).toThrow();
-    const parsed = (addGroupParameters as any).parse({ name: "test", parent: "root" }) as {
+  test("add_group advertises independent optional vectors and a root default", () => {
+    const parsed = (addGroupParameters as any).parse({ name: "test" }) as {
       origin: number[];
       rotation: number[];
       parent: string;
@@ -41,7 +40,7 @@ describe("upstream issue regressions", () => {
     expect(schema.properties?.origin.type).toBe("array");
     expect(schema.properties?.rotation.type).toBe("array");
     expect(schema.properties?.rotation.$ref).toBeUndefined();
-    expect(schema.required).toEqual(["name", "parent"]);
+    expect(schema.required).toEqual(["name"]);
   });
 
   test("texture render settings reach the final texture and rebuild material", () => {

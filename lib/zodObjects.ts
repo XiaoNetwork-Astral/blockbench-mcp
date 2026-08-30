@@ -43,18 +43,17 @@ export const blendModeEnum = z.enum([
 
 /** Layer blend modes (slightly different set for layers) */
 export const layerBlendModeEnum = z.enum([
-  "normal",
+  "default",
+  "set_opacity",
+  "color",
   "multiply",
-  "screen",
-  "overlay",
-  "soft_light",
-  "hard_light",
-  "color_dodge",
-  "color_burn",
+  "add",
   "darken",
   "lighten",
+  "screen",
+  "overlay",
   "difference",
-  "exclusion",
+  "alpha_mask",
 ]);
 
 /** Keyframe interpolation types */
@@ -62,9 +61,6 @@ export const interpolationEnum = z.enum(["linear", "catmullrom", "bezier", "step
 
 /** Basic 3D axis */
 export const axisEnum = z.enum(["x", "y", "z"]);
-
-/** 3D axis with 'all' option */
-export const axisWithAllEnum = axisEnum.or(z.literal("all"));
 
 /** Animation channels */
 export const animationChannelEnum = z.enum(["rotation", "position", "scale"]);
@@ -80,9 +76,6 @@ export const autoUvEnum = z.enum(["0", "1", "2"]);
 
 /** Cube faces */
 export const faceEnum = z.enum(["north", "south", "east", "west", "up", "down"]);
-
-/** Camera projection types */
-export const projectionEnum = z.enum(["unset", "orthographic", "perspective"]);
 
 /** Mesh selection modes */
 export const meshSelectionModeEnum = z.enum(["vertex", "edge", "face"]);
@@ -157,7 +150,7 @@ export const colorSchema = z.union([
 /** Hex color string */
 export const hexColorSchema = z
   .string()
-  .optional()
+  .regex(/^#[0-9a-f]{6}$/i, "Six-digit hex color")
   .describe("Color as hex string (e.g., #FF0000).");
 
 // ============================================================================
@@ -207,12 +200,6 @@ export const animationIdOptionalSchema = z
   .optional()
   .describe("Animation UUID or name. If not provided, uses current animation.");
 
-/** Optional group/bone ID */
-export const groupIdOptionalSchema = z
-  .string()
-  .optional()
-  .describe("Group/bone ID or name.");
-
 /** Required bone name */
 export const boneNameSchema = z
   .string()
@@ -244,7 +231,6 @@ export const opacitySchema = z
   .number()
   .min(0)
   .max(255)
-  .optional()
   .describe("Opacity (0-255).");
 
 /** Brush size 1-100 */
@@ -252,7 +238,6 @@ export const brushSizeSchema = z
   .number()
   .min(1)
   .max(100)
-  .optional()
   .describe("Brush size.");
 
 /** Brush softness 0-100 */
@@ -260,7 +245,6 @@ export const brushSoftnessSchema = z
   .number()
   .min(0)
   .max(100)
-  .optional()
   .describe("Brush softness percentage.");
 
 /** 2D coordinate point */
@@ -271,9 +255,6 @@ export const coordinateSchema = z.object({
 
 /** UV rotation angle enum */
 export const uvRotationAngleEnum = z.enum(["-90", "90", "180"]);
-
-/** Mouse button enum */
-export const mouseButtonEnum = z.enum(["left", "right"]);
 
 /** Stretch values for Hytale cubes */
 export const stretchSchema = z
@@ -376,11 +357,11 @@ export const keyframeDataSchema = z.object({
 /** Brush settings for paint tools */
 export const brushSettingsSchema = z
   .object({
-    size: brushSizeSchema,
-    opacity: opacitySchema,
-    softness: brushSoftnessSchema,
+    size: brushSizeSchema.optional(),
+    opacity: opacitySchema.optional(),
+    softness: brushSoftnessSchema.optional(),
     shape: brushShapeEnum.optional().describe("Brush shape."),
-    color: hexColorSchema.describe("Brush color as hex string."),
+    color: hexColorSchema.optional().describe("Brush color as hex string."),
     blend_mode: blendModeEnum.optional().describe("Brush blend mode."),
   })
   .optional()

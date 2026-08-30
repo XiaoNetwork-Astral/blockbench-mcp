@@ -1,13 +1,20 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { createResource } from "@/lib/factories";
-import {
-  findByExactUuid,
-  findByResourceId,
-  makeResourceId,
-  makeResourceUri,
-} from "@/lib/resourceUri";
-import { runInProjectContext } from "@/lib/projectContext";
+import { findByResourceId, makeResourceId, makeResourceUri } from "@/lib/resourceUri";
+import { getVisibleProject } from "@/src/blockbench/projects";
+
+function requireVisibleResourceProject(projectUuid: string): ModelProject {
+  const visible = getVisibleProject();
+  if (!visible) throw new Error("No Blockbench project tab is visible.");
+  if (visible.uuid !== projectUuid) {
+    throw new Error(
+      `Resource project "${projectUuid}" is not the visible tab. ` +
+        `Select it in Blockbench and read the resource again.`
+    );
+  }
+  return visible;
+}
 
 // Register projects resource using the factory pattern
 createResource("projects", {
@@ -105,9 +112,9 @@ createResource("nodes", {
   uriTemplate: "nodes://{project}/{id}",
   title: "Blockbench Nodes",
   description:
-    "Returns nodes from the project UUID embedded in each listed URI, so changing the foreground tab cannot retarget a saved resource link.",
+    "Returns nodes from the visible Blockbench tab. A listed URI remains valid only while its project is visible.",
   async listCallback() {
-    const project = Project;
+    const project = getVisibleProject();
     if (!project?.nodes_3d) {
       return { resources: [] };
     }
@@ -122,7 +129,7 @@ createResource("nodes", {
     };
   },
   async readCallback(uri, { project: projectUuid, id }) {
-    const project = findByExactUuid(ModelProject.all, projectUuid, "Project");
+    const project = requireVisibleResourceProject(projectUuid);
     if (!project.nodes_3d) {
       throw new Error("No nodes found in the Blockbench editor.");
     }
@@ -156,9 +163,9 @@ createResource("textures", {
   uriTemplate: "textures://{project}/{id}",
   title: "Blockbench Textures",
   description:
-    "Returns textures from the exact project UUID embedded in each listed URI. Texture IDs and names are resolved only inside that project and ambiguity is rejected.",
+    "Returns textures from the visible Blockbench tab. Texture IDs and names are resolved only inside that project and ambiguity is rejected.",
   async listCallback() {
-    const project = Project;
+    const project = getVisibleProject();
     const textures = project?.textures ?? [];
     if (textures.length === 0) {
       return { resources: [] };
@@ -173,7 +180,7 @@ createResource("textures", {
     };
   },
   async readCallback(uri, { project: projectUuid, id }) {
-    const project = findByExactUuid(ModelProject.all, projectUuid, "Project");
+    const project = requireVisibleResourceProject(projectUuid);
     const textures = project.textures ?? [];
 
     if (textures.length === 0) {
@@ -189,7 +196,7 @@ createResource("textures", {
     }
 
     // Helper to extract texture info
-    const getTextureInfo = (texture: Texture) => runInProjectContext(project, () => ({
+    const getTextureInfo = (texture: Texture) => ({
         project_uuid: project.uuid,
         uuid: texture.uuid,
         name: texture.name,
@@ -209,7 +216,7 @@ createResource("textures", {
         saved: texture.saved ?? false,
         selected: texture.selected ?? false,
         source: texture.source || null,
-      }));
+      });
 
     // If ID provided, find specific texture
     if (id) {
@@ -260,9 +267,9 @@ createResource("reference_models", {
     uriTemplate: "reference_models://{project}/{id}",
     title: "Reference Models",
     description:
-      "Returns reference models from the exact project UUID embedded in each listed URI. Requires the Reference Models plugin.",
+      "Returns reference models from the visible Blockbench tab. Requires the Reference Models plugin.",
     async listCallback() {
-      const project = Project;
+      const project = getVisibleProject();
       const elements = project?.elements ?? [];
       const referenceModels = elements.filter(
         (e) => e.type === "reference_model"
@@ -282,7 +289,7 @@ createResource("reference_models", {
       };
     },
     async readCallback(uri, { project: projectUuid, id }) {
-      const project = findByExactUuid(ModelProject.all, projectUuid, "Project");
+      const project = requireVisibleResourceProject(projectUuid);
       const elements = project.elements ?? [];
       const referenceModels = elements.filter(
         (e) => e.type === "reference_model"

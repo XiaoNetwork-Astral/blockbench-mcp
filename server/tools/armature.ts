@@ -3,8 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
@@ -111,6 +109,57 @@ function findMesh(id: string): Mesh | undefined {
   return undefined;
 }
 
+interface ArmatureIdentity {
+  uuid: string;
+  name: string;
+}
+
+export function assertMatchingArmature(
+  meshName: string,
+  boneName: string,
+  meshArmature: ArmatureIdentity | undefined,
+  boneArmature: ArmatureIdentity | undefined
+): asserts meshArmature is ArmatureIdentity {
+  if (!meshArmature) {
+    throw new Error(`Mesh "${meshName}" is not associated with an armature.`);
+  }
+  if (!boneArmature || boneArmature.uuid !== meshArmature.uuid) {
+    const boneArmatureName = boneArmature?.name ?? "no armature";
+    throw new Error(
+      `Bone "${boneName}" belongs to ${boneArmatureName === "no armature" ? boneArmatureName : `armature "${boneArmatureName}"`}, ` +
+        `not mesh "${meshName}"'s armature "${meshArmature.name}".`
+    );
+  }
+}
+
+export function assertMeshWeightVertexKeys(
+  meshName: string,
+  vertices: Record<string, unknown>,
+  keys: readonly string[]
+): void {
+  const missing = keys.filter((key) => !Object.hasOwn(vertices, key));
+  if (missing.length > 0) {
+    throw new Error(
+      `Mesh "${meshName}" has no vertex key${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`
+    );
+  }
+}
+
+function resolveWeightMesh(meshId?: string): Mesh {
+  const mesh = meshId ? findMesh(meshId) : Mesh.selected[0];
+  if (!mesh) throw new Error("No mesh found. Provide mesh_id or select a mesh.");
+  return mesh;
+}
+
+function resolveWeightTarget(meshId: string | undefined, boneId: string) {
+  const mesh = resolveWeightMesh(meshId);
+  const bone = findArmatureBoneOrThrow(boneId);
+  const meshArmature = (mesh as Mesh & { getArmature?: () => Armature | undefined }).getArmature?.();
+  const boneArmature = bone.getArmature();
+  assertMatchingArmature(mesh.name, bone.name, meshArmature, boneArmature);
+  return { mesh, bone, armature: meshArmature };
+}
+
 /**
  * Serialize an armature to a plain object
  */
@@ -147,6 +196,10 @@ function serializeArmatureBone(bone: ArmatureBone) {
     color: bone.color,
     visibility: bone.visibility,
     locked: bone.locked,
+    property_persistence: {
+      visibility: "editor_session_only",
+      locked: "project_file",
+    },
     export: bone.export,
     parentBone: bone.parent instanceof ArmatureBone
       ? { uuid: bone.parent.uuid, name: bone.parent.name }
@@ -174,7 +227,9 @@ export const getArmatureParameters = z.object({
 export const addArmatureParameters = z.object({
   parent: z
     .literal("root")
-    .describe("Armatures are root-only; pass the exact literal 'root' explicitly."),
+    .optional()
+    .default("root")
+    .describe("Armatures are always created at the Outliner root."),
   name: z.string().optional().default("armature").describe("Name for the new armature."),
   visibility: z.boolean().optional().default(true),
   locked: z.boolean().optional().default(false),
@@ -256,13 +311,19 @@ export const updateArmatureBoneParameters = z.object({
   width: z.number().optional(),
   connected: z.boolean().optional(),
   color: z.number().int().min(0).max(7).optional(),
-  visibility: z.boolean().optional(),
+  visibility: z
+    .boolean()
+    .optional()
+    .describe("Editor-session visibility. Blockbench does not store this ArmatureBone property in project files."),
   locked: z.boolean().optional(),
 });
 
 export const updateArmatureBonesBatchParameters = z.object({
   ids: z.array(elementIdSchema).describe("Array of bone UUIDs or names to update."),
-  visibility: z.boolean().optional(),
+  visibility: z
+    .boolean()
+    .optional()
+    .describe("Editor-session visibility. Blockbench does not store this ArmatureBone property in project files."),
   locked: z.boolean().optional(),
   color: z.number().int().min(0).max(7).optional(),
 });
@@ -301,6 +362,7 @@ export const setVertexWeightsBatchParameters = z.object({
   mesh_id: meshIdOptionalSchema,
   weights: z
     .record(z.string(), z.number().min(0).max(1))
+    .refine((weights) => Object.keys(weights).length > 0, "Provide at least one vertex weight.")
     .describe("Map of vertex_key -> weight value."),
 });
 
@@ -339,7 +401,7 @@ export const armatureToolDocs: ToolSpec[] = [
   {
     name: "add_armature",
     description:
-      "Creates a new root-level armature. The caller must explicitly pass parent='root'. An armature is a skeletal rig used for mesh deformation.",
+      "Creates a new root-level armature. An armature is a skeletal rig used for mesh deformation.",
     annotations: {
       title: "Add Armature",
       destructiveHint: true,
@@ -411,7 +473,8 @@ export const armatureToolDocs: ToolSpec[] = [
   },
   {
     name: "update_armature_bone",
-    description: "Updates properties of an existing armature bone.",
+    description:
+      "Updates an armature bone. Visibility is editor-session-only in Blockbench; the other supported properties are project data.",
     annotations: {
       title: "Update Armature Bone",
       destructiveHint: true,
@@ -421,7 +484,8 @@ export const armatureToolDocs: ToolSpec[] = [
   },
   {
     name: "update_armature_bones_batch",
-    description: "Updates multiple armature bones at once with the same properties.",
+    description:
+      "Updates multiple armature bones. Visibility is editor-session-only in Blockbench; locked and color are project data.",
     annotations: {
       title: "Update Armature Bones (Batch)",
       destructiveHint: true,
@@ -470,55 +534,6 @@ export const armatureToolDocs: ToolSpec[] = [
     },
     parameters: clearVertexWeightsParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-];
-
-const armatureReadOperations = [
-  armatureToolDocs[0],
-  armatureToolDocs[1],
-  armatureToolDocs[5],
-  armatureToolDocs[6],
-  armatureToolDocs[12],
-];
-const armatureEditOperations = [
-  armatureToolDocs[2],
-  armatureToolDocs[3],
-  armatureToolDocs[4],
-  armatureToolDocs[7],
-  armatureToolDocs[8],
-  armatureToolDocs[9],
-  armatureToolDocs[10],
-  armatureToolDocs[11],
-];
-const vertexWeightOperations = [
-  armatureToolDocs[13],
-  armatureToolDocs[14],
-];
-
-export const armaturePublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_armature",
-    description:
-      "Lists or inspects armatures, bones, and vertex weights. Select command.action and pass the corresponding input object.",
-    annotations: { title: "Inspect Armature", readOnlyHint: true },
-    parameters: createToolGroupParameters(armatureReadOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_armature",
-    description:
-      "Creates, updates, removes, or selects armatures and bones through one explicit command.action.",
-    annotations: { title: "Edit Armature", destructiveHint: true },
-    parameters: createToolGroupParameters(armatureEditOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_vertex_weights",
-    description:
-      "Sets one or many vertex weights with set_vertex_weights_batch, or clears weights for a bone and mesh.",
-    annotations: { title: "Edit Vertex Weights", destructiveHint: true },
-    parameters: createToolGroupParameters(vertexWeightOperations),
-    status: STATUS_STABLE,
   },
 ];
 
@@ -958,26 +973,16 @@ export function registerArmatureTools() {
   createInternalTool(armatureToolDocs[12].name, {
     ...armatureToolDocs[12],
     async execute({ mesh_id, bone_id }) {
-      // Find mesh
-      let mesh: Mesh | undefined;
-      if (mesh_id) {
-        mesh = findMesh(mesh_id);
-      } else {
-        mesh = Mesh.selected[0];
-      }
-      if (!mesh) {
-        throw new Error("No mesh found. Provide mesh_id or select a mesh.");
-      }
-
-      // Get armature for this mesh
-      const armature = (mesh as any).getArmature?.() as Armature | undefined;
+      const mesh = resolveWeightMesh(mesh_id);
+      const armature = (mesh as Mesh & { getArmature?: () => Armature | undefined }).getArmature?.();
       if (!armature) {
         throw new Error(`Mesh "${mesh.name}" is not associated with an armature.`);
       }
 
-      const bones = bone_id
-        ? [findArmatureBoneOrThrow(bone_id)]
-        : armature.getAllBones();
+      const bones = bone_id ? [findArmatureBoneOrThrow(bone_id)] : armature.getAllBones();
+      if (bone_id) {
+        assertMatchingArmature(mesh.name, bones[0].name, armature, bones[0].getArmature());
+      }
 
       const weights: Record<string, Record<string, number>> = {};
 
@@ -1011,27 +1016,16 @@ export function registerArmatureTools() {
   // ---------------------------------------------------------------------------
   createInternalTool(armatureToolDocs[13].name, {
     ...armatureToolDocs[13],
+    parameters: setVertexWeightsBatchParameters,
     async execute({ bone_id, mesh_id, weights }) {
-      const bone = findArmatureBoneOrThrow(bone_id);
-
-      let mesh: Mesh | undefined;
-      if (mesh_id) {
-        mesh = findMesh(mesh_id);
-      } else {
-        mesh = Mesh.selected[0];
-      }
-      if (!mesh) {
-        throw new Error("No mesh found. Provide mesh_id or select a mesh.");
-      }
+      const { mesh, bone } = resolveWeightTarget(mesh_id, bone_id);
+      const entries = Object.entries(weights);
+      assertMeshWeightVertexKeys(mesh.name, mesh.vertices, entries.map(([key]) => key));
 
       Undo.initEdit({ elements: [bone] });
 
-      let count = 0;
-      for (const [vertex_key, weight] of Object.entries(weights)) {
-        if (vertex_key in mesh.vertices) {
-          bone.setVertexWeight(mesh, vertex_key, weight);
-          count++;
-        }
+      for (const [vertex_key, weight] of entries) {
+        bone.setVertexWeight(mesh, vertex_key, weight);
       }
 
       Undo.finishEdit("Agent set vertex weights (batch)");
@@ -1043,10 +1037,10 @@ export function registerArmatureTools() {
 
       return JSON.stringify(
         {
-          message: `Set ${count} vertex weights on bone "${bone.name}"`,
+          message: `Set ${entries.length} vertex weights on bone "${bone.name}"`,
           bone: { uuid: bone.uuid, name: bone.name },
           mesh: { uuid: mesh.uuid, name: mesh.name },
-          weightsSet: count,
+          weightsSet: entries.length,
         },
         null,
         2
@@ -1060,17 +1054,7 @@ export function registerArmatureTools() {
   createInternalTool(armatureToolDocs[14].name, {
     ...armatureToolDocs[14],
     async execute({ bone_id, mesh_id }) {
-      const bone = findArmatureBoneOrThrow(bone_id);
-
-      let mesh: Mesh | undefined;
-      if (mesh_id) {
-        mesh = findMesh(mesh_id);
-      } else {
-        mesh = Mesh.selected[0];
-      }
-      if (!mesh) {
-        throw new Error("No mesh found. Provide mesh_id or select a mesh.");
-      }
+      const { mesh, bone } = resolveWeightTarget(mesh_id, bone_id);
 
       Undo.initEdit({ elements: [bone] });
 
@@ -1104,7 +1088,4 @@ export function registerArmatureTools() {
     },
   }, armatureToolDocs[14].status);
 
-  createToolGroup(armaturePublicToolDocs[0], armatureReadOperations);
-  createToolGroup(armaturePublicToolDocs[1], armatureEditOperations);
-  createToolGroup(armaturePublicToolDocs[2], vertexWeightOperations);
 }

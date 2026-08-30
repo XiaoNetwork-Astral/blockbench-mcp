@@ -3,12 +3,9 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import {
-  getProjectTexture,
   getProjectTextures,
   assertFaceTextureAssignmentSupported,
   imageContent,
@@ -18,10 +15,14 @@ import {
   getChannelTextureInfo,
 } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
+import { applyTextureCreationSettings } from "@/lib/toolFixes";
 import {
-  applyTextureCreationSettings,
-  applyTextureRenderSettings,
-} from "@/lib/toolFixes";
+  applyMaterialChannelAssignments,
+  assignTexturesToGroup,
+  resolveMaterialConfigPath,
+  type MaterialChannel,
+  type MaterialChannelAssignments,
+} from "@/lib/materialConfig";
 import {
   applyTextureToResolvedFaces,
   type FaceTextureElementTarget,
@@ -39,6 +40,56 @@ import {
   renderModeEnum,
   renderSidesEnum,
 } from "@/lib/zodObjects";
+
+type TextureGroupUndoAspects = UndoAspects & {
+  texture_groups: TextureGroup[];
+};
+
+type RuntimeTextureGroupMaterialConfig = TextureGroupMaterialConfig & {
+  subsurface_value?: number;
+};
+
+function materialConfig(
+  group: TextureGroup
+): RuntimeTextureGroupMaterialConfig {
+  return group.material_config as RuntimeTextureGroupMaterialConfig;
+}
+
+function replaceNumericArray(target: number[], values: readonly number[]): void {
+  target.splice(0, target.length, ...values);
+}
+
+function resolveMaterialAssignments(
+  textureGroup: TextureGroup,
+  requests: Partial<Record<MaterialChannel, string | undefined>>,
+  clearForUniform: Partial<Record<MaterialChannel, boolean>> = {}
+) {
+  const assignments: MaterialChannelAssignments = {};
+  const targets: Texture[] = [];
+  for (const channel of ["color", "normal", "height", "mer"] as const) {
+    const reference = requests[channel];
+    if (reference === undefined && !clearForUniform[channel]) continue;
+    if (reference === undefined || reference === "none") {
+      assignments[channel] = null;
+      continue;
+    }
+    const texture = findTextureOrThrow(reference);
+    assignments[channel] = texture;
+    targets.push(texture);
+  }
+  const current = textureGroup.getTextures();
+  const textures = [...new Map(
+    [...current, ...targets].map((texture) => [texture.uuid, texture] as const)
+  ).values()];
+  const groups = [...new Map(
+    [
+      textureGroup,
+      ...targets.map((texture) => TextureGroup.all.find((group) => group.uuid === texture.group)),
+    ].filter((group): group is TextureGroup => Boolean(group))
+      .map((group) => [group.uuid, group] as const)
+  ).values()];
+  return { assignments, textures, groups };
+}
 
 // ============================================================================
 // Texture Tool Parameter Schemas
@@ -257,7 +308,9 @@ export const configureMaterialParameters = z.object({
     .max(255)
     .optional()
     .describe("Subsurface scattering value (0-255)."),
-});
+}).refine((value) => Object.entries(value).some(([key, entry]) =>
+  key !== "material" && entry !== undefined
+), { message: "Configure at least one material channel or uniform value." });
 
 export const listMaterialsParameters = z.object({});
 
@@ -281,6 +334,9 @@ export const assignTextureChannelParameters = z.object({
 
 export const saveMaterialConfigParameters = z.object({
   material: z.string().describe("Material name or UUID to save."),
+  path: z.string().min(1).optional().describe(
+    "Optional absolute .texture_set.json output path."
+  ),
 });
 
 const TEXTURE_LOAD_TIMEOUT_MS = 15_000;
@@ -501,71 +557,12 @@ export const textureToolDocs: ToolSpec[] = [
   {
     name: "remove_texture",
     description:
-      "Removes an entire texture from the MCP working project. If it is referenced, supply a replacement texture or explicitly clear references; otherwise the operation refuses before mutation. Reference rewrites and removal share one Undo transaction.",
+      "Removes an entire texture from the visible project. If it is referenced, supply a replacement texture or explicitly clear references; otherwise the operation refuses before mutation. Reference rewrites and removal share one Undo transaction.",
     annotations: {
       title: "Remove Texture",
       destructiveHint: true,
     },
     parameters: removeTextureParameters,
-    status: STATUS_STABLE,
-  },
-];
-
-const textureReadOperations = [textureToolDocs[3], textureToolDocs[4]];
-const textureEditOperations = [
-  textureToolDocs[0],
-  textureToolDocs[1],
-  textureToolDocs[2],
-  textureToolDocs[12],
-];
-const materialReadOperations = [textureToolDocs[7], textureToolDocs[8]];
-const materialEditOperations = [
-  textureToolDocs[5],
-  textureToolDocs[6],
-  textureToolDocs[9],
-  textureToolDocs[10],
-  textureToolDocs[11],
-];
-
-export const texturePublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_textures",
-    description:
-      "Lists project textures or returns one texture's image data through a read-only command.action.",
-    annotations: { title: "Inspect Textures", readOnlyHint: true },
-    parameters: createToolGroupParameters(textureReadOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_textures",
-    description:
-      "Creates, applies, groups, or safely removes textures through one command.action. Paint actions accept texture_id directly, so the redundant activate_texture command is no longer exposed.",
-    annotations: {
-      title: "Edit Textures",
-      destructiveHint: true,
-      openWorldHint: true,
-    },
-    parameters: createToolGroupParameters(textureEditOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "inspect_materials",
-    description:
-      "Lists PBR materials or returns one material's detailed channel configuration.",
-    annotations: { title: "Inspect Materials", readOnlyHint: true },
-    parameters: createToolGroupParameters(materialReadOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_materials",
-    description:
-      "Creates, imports, configures, assigns channels to, or saves PBR materials through one command.action.",
-    annotations: {
-      title: "Edit Materials",
-      destructiveHint: true,
-      openWorldHint: true,
-    },
-    parameters: createToolGroupParameters(materialEditOperations),
     status: STATUS_STABLE,
   },
 ];
@@ -577,6 +574,7 @@ export const texturePublicToolDocs: ToolSpec[] = [
 export function registerTextureTools() {
   createInternalTool(textureToolDocs[0].name, {
     ...textureToolDocs[0],
+    parameters: createTextureParameters,
     async execute({
       name,
       width,
@@ -725,6 +723,7 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[1].name, {
     ...textureToolDocs[1],
+    parameters: applyTextureParameters,
     async execute({ applyTo, id, texture }) {
       const element = findElementOrThrow(id);
       const projectTexture = texture
@@ -733,7 +732,7 @@ export function registerTextureTools() {
 
       if (!projectTexture) {
         throw new Error(
-          "No default texture available. Use edit_textures with command.action \"create_texture\" to create one first."
+          "No default texture available. Use create_texture first."
         );
       }
       if (!Format.per_group_texture) {
@@ -848,6 +847,7 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[2].name, {
     ...textureToolDocs[2],
+    parameters: addTextureGroupParameters,
     async execute({ name, textures, is_material }) {
       const textureList = [...new Map<string, Texture>(
         ((textures ?? []) as string[]).map((reference: string) => {
@@ -859,15 +859,13 @@ export function registerTextureTools() {
         textures: textureList,
         texture_groups: [] as TextureGroup[],
         collections: [],
-      } as UndoAspects & { texture_groups: TextureGroup[] };
+      } as TextureGroupUndoAspects;
       Undo.initEdit(beforeAspects);
 
       let textureGroup: TextureGroup | undefined;
       try {
         textureGroup = new TextureGroup({ name, is_material }).add();
-        for (const texture of textureList) {
-          texture.extend({ group: textureGroup.uuid });
-        }
+        assignTexturesToGroup(textureGroup.uuid, textureList);
       } catch (error) {
         (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
         if (textureGroup && TextureGroup.all.includes(textureGroup)) textureGroup.remove();
@@ -878,7 +876,7 @@ export function registerTextureTools() {
         textures: textureList,
         texture_groups: [textureGroup],
         collections: [],
-      } as UndoAspects & { texture_groups: TextureGroup[] });
+      } as TextureGroupUndoAspects);
       Canvas.updateAll();
 
       return `Added texture group ${textureGroup.name} with ID ${textureGroup.uuid}`;
@@ -887,6 +885,7 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[3].name, {
     ...textureToolDocs[3],
+    parameters: listTexturesParameters,
     async execute() {
       const textures = getProjectTextures();
 
@@ -905,12 +904,13 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[4].name, {
     ...textureToolDocs[4],
+    parameters: getTextureParameters,
     async execute({ texture }) {
       if (!texture) {
         const defaultTexture = Texture.getDefault();
         if (!defaultTexture) {
           throw new Error(
-            "No default texture available. Use edit_textures with command.action \"create_texture\" first, or specify a texture ID."
+            "No default texture available. Use create_texture first, or specify a texture ID."
           );
         }
         return imageContent({ url: defaultTexture.getDataURL() });
@@ -923,6 +923,7 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[5].name, {
     ...textureToolDocs[5],
+    parameters: createPbrMaterialParameters,
     async execute({
       name,
       color_texture,
@@ -945,6 +946,14 @@ export function registerTextureTools() {
           texture: findTextureOrThrow(reference),
           channel,
         }));
+      const duplicateTexture = channelAssignments.find(({ texture }, index) =>
+        channelAssignments.findIndex((candidate) => candidate.texture.uuid === texture.uuid) !== index
+      );
+      if (duplicateTexture) {
+        throw new Error(
+          `Texture "${duplicateTexture.texture.name}" cannot occupy more than one PBR channel.`
+        );
+      }
       const texturesToAdd = [...new Map(
         channelAssignments.map(({ texture }) => [texture.uuid, texture] as const)
       ).values()];
@@ -952,28 +961,28 @@ export function registerTextureTools() {
         texture_groups: [],
         textures: texturesToAdd,
         collections: [],
-      } as UndoAspects & { texture_groups: TextureGroup[] });
+      } as TextureGroupUndoAspects);
 
       let textureGroup: TextureGroup | undefined;
       try {
         textureGroup = new TextureGroup({ name, is_material: true });
 
-        if (color_value) textureGroup.material_config.color_value = color_value;
-        if (mer_value) textureGroup.material_config.mer_value = mer_value;
+        if (color_value) {
+          replaceNumericArray(textureGroup.material_config.color_value, color_value);
+        }
+        if (mer_value) {
+          replaceNumericArray(textureGroup.material_config.mer_value, mer_value);
+        }
         if (subsurface_value !== undefined) {
-          (
-            textureGroup.material_config as TextureGroupMaterialConfig & {
-              subsurface_value?: number;
-            }
-          ).subsurface_value = subsurface_value;
+          materialConfig(textureGroup).subsurface_value = subsurface_value;
         }
         textureGroup.material_config.saved = false;
         textureGroup.add();
 
         for (const { texture, channel } of channelAssignments) {
-          texture.extend({ group: textureGroup.uuid, pbr_channel: channel });
+          texture.group = textureGroup.uuid;
+          texture.pbr_channel = channel;
         }
-        textureGroup.updateMaterial();
       } catch (error) {
         (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
         if (textureGroup && TextureGroup.all.includes(textureGroup)) textureGroup.remove();
@@ -984,7 +993,8 @@ export function registerTextureTools() {
         texture_groups: [textureGroup],
         textures: texturesToAdd,
         collections: [],
-      } as UndoAspects & { texture_groups: TextureGroup[] });
+      } as TextureGroupUndoAspects);
+      textureGroup.updateMaterial();
       Canvas.updateAll();
 
       return JSON.stringify({
@@ -1006,6 +1016,7 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[6].name, {
     ...textureToolDocs[6],
+    parameters: configureMaterialParameters,
     async execute({
       material,
       color_texture,
@@ -1017,79 +1028,54 @@ export function registerTextureTools() {
       subsurface_value,
     }) {
       const textureGroup = findTextureGroupOrThrow(material);
-      const textures = textureGroup.getTextures();
-
-      Undo.initEdit({
-        texture_groups: [textureGroup],
-        textures,
+      const resolved = resolveMaterialAssignments(textureGroup, {
+        color: color_texture,
+        normal: normal_texture,
+        height: height_texture,
+        mer: mer_texture,
+      }, {
+        color: color_value !== undefined && color_texture === undefined,
+        mer: mer_value !== undefined && mer_texture === undefined,
       });
-
-      // Handle color channel
-      if (color_texture === "none") {
-        textures
-          .filter((t: Texture) => t.pbr_channel === "color")
-          .forEach((t: Texture) => (t.group = ""));
-      } else if (color_texture) {
-        textures
-          .filter((t: Texture) => t.pbr_channel === "color")
-          .forEach((t: Texture) => (t.pbr_channel = "color"));
-        const tex = findTextureOrThrow(color_texture);
-        tex.extend({ group: textureGroup.uuid, pbr_channel: "color" });
-      }
-
-      // Handle normal channel
-      if (normal_texture === "none") {
-        textures
-          .filter((t: Texture) => t.pbr_channel === "normal")
-          .forEach((t: Texture) => (t.group = ""));
-      } else if (normal_texture) {
-        const tex = findTextureOrThrow(normal_texture);
-        tex.extend({ group: textureGroup.uuid, pbr_channel: "normal" });
-      }
-
-      // Handle height channel
-      if (height_texture === "none") {
-        textures
-          .filter((t: Texture) => t.pbr_channel === "height")
-          .forEach((t: Texture) => (t.group = ""));
-      } else if (height_texture) {
-        const tex = findTextureOrThrow(height_texture);
-        tex.extend({ group: textureGroup.uuid, pbr_channel: "height" });
-      }
-
-      // Handle MER channel
-      if (mer_texture === "none") {
-        textures
-          .filter((t: Texture) => t.pbr_channel === "mer")
-          .forEach((t: Texture) => (t.group = ""));
-      } else if (mer_texture) {
-        const tex = findTextureOrThrow(mer_texture);
-        tex.extend({ group: textureGroup.uuid, pbr_channel: "mer" });
-      }
-
-      // Update uniform values
+      Undo.initEdit({
+        texture_groups: resolved.groups,
+        textures: resolved.textures,
+      } as TextureGroupUndoAspects);
+      const changes = applyMaterialChannelAssignments(
+        textureGroup.uuid,
+        resolved.textures,
+        resolved.assignments
+      );
       if (color_value) {
-        textureGroup.material_config.color_value = color_value;
+        replaceNumericArray(textureGroup.material_config.color_value, color_value);
       }
       if (mer_value) {
-        textureGroup.material_config.mer_value = mer_value;
+        replaceNumericArray(textureGroup.material_config.mer_value, mer_value);
       }
       if (subsurface_value !== undefined) {
-        textureGroup.material_config.subsurface_value = subsurface_value;
+        materialConfig(textureGroup).subsurface_value = subsurface_value;
       }
 
       textureGroup.material_config.saved = false;
-      textureGroup.updateMaterial();
-
       Undo.finishEdit("Agent configured material");
+      for (const group of resolved.groups) group.updateMaterial();
       Canvas.updateAll();
-
-      return `Configured material "${textureGroup.name}"`;
+      return JSON.stringify({
+        material: { uuid: textureGroup.uuid, name: textureGroup.name },
+        assigned_channels: changes.assigned,
+        detached_texture_uuids: changes.detached,
+        uniform_values: {
+          color: [...textureGroup.material_config.color_value],
+          mer: [...textureGroup.material_config.mer_value],
+          subsurface: materialConfig(textureGroup).subsurface_value ?? null,
+        },
+      }, null, 2);
     },
   }, textureToolDocs[6].status);
 
   createInternalTool(textureToolDocs[7].name, {
     ...textureToolDocs[7],
+    parameters: listMaterialsParameters,
     async execute() {
       // @ts-ignore - TextureGroup is globally available
       const materials = TextureGroup.all.filter(
@@ -1110,7 +1096,7 @@ export function registerTextureTools() {
           config: {
             color_value: group.material_config.color_value,
             mer_value: group.material_config.mer_value,
-            subsurface_value: group.material_config.subsurface_value,
+            subsurface_value: materialConfig(group).subsurface_value,
             saved: group.material_config.saved,
           },
         };
@@ -1122,6 +1108,7 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[8].name, {
     ...textureToolDocs[8],
+    parameters: getMaterialInfoParameters,
     async execute({ material }) {
       const textureGroup = findTextureGroupOrThrow(material);
       const textures = textureGroup.getTextures();
@@ -1150,7 +1137,7 @@ export function registerTextureTools() {
         config: {
           color_value: textureGroup.material_config.color_value,
           mer_value: textureGroup.material_config.mer_value,
-          subsurface_value: textureGroup.material_config.subsurface_value,
+          subsurface_value: materialConfig(textureGroup).subsurface_value,
           saved: textureGroup.material_config.saved,
           file_path: textureGroup.material_config.getFilePath(),
         },
@@ -1163,6 +1150,7 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[9].name, {
     ...textureToolDocs[9],
+    parameters: importTextureSetParameters,
     async execute({ path }) {
       // Validate path ends with texture_set.json
       if (!path.endsWith(".texture_set.json")) {
@@ -1171,8 +1159,10 @@ export function registerTextureTools() {
         );
       }
 
-      // @ts-ignore - fs module available via Blockbench
       const fs = requireNativeModule("fs");
+      if (!fs) {
+        throw new Error("Blockbench did not grant access to the selected texture-set file.");
+      }
       if (!fs.existsSync(path)) {
         throw new Error(`File not found: ${path}`);
       }
@@ -1187,61 +1177,73 @@ export function registerTextureTools() {
 
   createInternalTool(textureToolDocs[10].name, {
     ...textureToolDocs[10],
+    parameters: assignTextureChannelParameters,
     async execute({ material, texture, channel }) {
       const textureGroup = findTextureGroupOrThrow(material);
       const tex = findTextureOrThrow(texture);
-
+      const resolved = resolveMaterialAssignments(textureGroup, { [channel]: tex.uuid });
       Undo.initEdit({
-        texture_groups: [textureGroup],
-        textures: [tex],
-      });
-
-      // Remove any existing texture from this channel in the group
-      const existingTextures = textureGroup.getTextures();
-      existingTextures
-        .filter((t: Texture) => t.pbr_channel === channel && t.uuid !== tex.uuid)
-        .forEach((t: Texture) => {
-          t.pbr_channel = "color"; // Reset to color
-        });
-
-      // Assign the texture to the channel
-      tex.extend({
-        group: textureGroup.uuid,
-        pbr_channel: channel,
-      });
-
+        texture_groups: resolved.groups,
+        textures: resolved.textures,
+      } as TextureGroupUndoAspects);
+      const changes = applyMaterialChannelAssignments(
+        textureGroup.uuid,
+        resolved.textures,
+        resolved.assignments
+      );
       textureGroup.material_config.saved = false;
-      textureGroup.updateMaterial();
-
       Undo.finishEdit("Agent assigned texture channel");
+      for (const group of resolved.groups) group.updateMaterial();
       Canvas.updateAll();
-
-      return `Assigned texture "${tex.name}" to ${channel} channel of material "${textureGroup.name}"`;
+      return JSON.stringify({
+        material: { uuid: textureGroup.uuid, name: textureGroup.name },
+        texture: { uuid: tex.uuid, name: tex.name },
+        channel,
+        detached_texture_uuids: changes.detached,
+      }, null, 2);
     },
   }, textureToolDocs[10].status);
 
   createInternalTool(textureToolDocs[11].name, {
     ...textureToolDocs[11],
-    async execute({ material }, context) {
+    parameters: saveMaterialConfigParameters,
+    async execute({ material, path }, context) {
       const textureGroup = findTextureGroupOrThrow(material);
-      const filePath = textureGroup.material_config.getFilePath();
-
-      if (!filePath) {
-        throw new Error(
-          "Cannot save: Material needs a color texture with a valid file path. Save the color texture first, then try again."
-        );
+      const colorTexture = textureGroup.getTextures().find(
+        (texture) => texture.pbr_channel === "color"
+      ) as (Texture & { relative_path?: string }) | undefined;
+      const filePath = resolveMaterialConfigPath({
+        explicitPath: path,
+        nativePath: textureGroup.material_config.getFilePath(),
+        colorTexturePath: colorTexture?.path || colorTexture?.relative_path || null,
+        projectSavePath: context.project?.save_path || null,
+        materialName: textureGroup.name,
+        pathApi: PathModule,
+      });
+      if (!filePath.toLocaleLowerCase().endsWith(".texture_set.json")) {
+        throw new Error("Material config path must end with '.texture_set.json'.");
       }
-
       assertExternalWriteAllowed(filePath, context.project!, "save_material_config");
-
-      textureGroup.material_config.save();
-
-      return `Saved material config to "${filePath}"`;
+      const fs = requireNativeModule("fs");
+      if (!fs) throw new Error("Blockbench did not grant filesystem access for this save.");
+      fs.mkdirSync(PathModule.dirname(filePath), { recursive: true });
+      fs.writeFileSync(
+        filePath,
+        `${autoStringify(textureGroup.material_config.compileForBedrock())}\n`,
+        "utf8"
+      );
+      textureGroup.material_config.saved = true;
+      return JSON.stringify({
+        material: { uuid: textureGroup.uuid, name: textureGroup.name },
+        path: filePath,
+        saved: true,
+      }, null, 2);
     },
   }, textureToolDocs[11].status);
 
   createInternalTool(textureToolDocs[12].name, {
     ...textureToolDocs[12],
+    parameters: removeTextureParameters,
     async execute({ texture, replacement, clear_references }, context) {
       const target = findTextureOrThrow(texture);
       const replacementTexture = replacement
@@ -1359,8 +1361,4 @@ export function registerTextureTools() {
     },
   }, textureToolDocs[12].status);
 
-  createToolGroup(texturePublicToolDocs[0], textureReadOperations);
-  createToolGroup(texturePublicToolDocs[1], textureEditOperations);
-  createToolGroup(texturePublicToolDocs[2], materialReadOperations);
-  createToolGroup(texturePublicToolDocs[3], materialEditOperations);
 }

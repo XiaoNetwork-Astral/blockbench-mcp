@@ -7,8 +7,6 @@ import {
   MCP_BIND_HOST_SETTING,
   MCP_ENDPOINT_SETTING,
   MCP_PORT_SETTING,
-  MCP_SESSION_TIMEOUT_SETTING,
-  MCP_SSE_HEARTBEAT_SETTING,
   PLUGIN_WORKSPACE_SETTING,
 } from "@/lib/pluginSettings";
 
@@ -27,8 +25,6 @@ export const LEGACY_SETTING_ID_MAP: Readonly<Record<string, string>> = {
   codex_mcp_auth_enabled: MCP_AUTH_ENABLED_SETTING,
   codex_mcp_auth_token: MCP_AUTH_TOKEN_SETTING,
   codex_mcp_plugin_workspace: PLUGIN_WORKSPACE_SETTING,
-  codex_mcp_session_timeout: MCP_SESSION_TIMEOUT_SETTING,
-  codex_mcp_sse_heartbeat: MCP_SSE_HEARTBEAT_SETTING,
   codex_mcp_audit_retention: MCP_AUDIT_RETENTION_SETTING,
   codex_mcp_audit_page_size: MCP_AUDIT_PAGE_SIZE_SETTING,
   codex_mcp_audit_default_scope: MCP_AUDIT_DEFAULT_SCOPE_SETTING,

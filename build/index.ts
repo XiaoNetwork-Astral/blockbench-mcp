@@ -47,7 +47,6 @@ async function buildPlugin(): Promise<boolean> {
     plugins: [blockbenchCompatPlugin, textFileLoaderPlugin],
     external: [
       "three",
-      "tinycolor2",
       // Native modules that require permission in Blockbench v5.0+
       "node:module",
       "node:fs",
@@ -60,7 +59,6 @@ async function buildPlugin(): Promise<boolean> {
       "node:os",
       "node:v8",
       "child_process",
-      "http",
       "https",
       "net",
       "tls",

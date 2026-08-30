@@ -2,8 +2,7 @@
 
 This guide covers creating animations for Hytale models using Blockbench with the Hytale plugin.
 
-Grouped public tools use the envelope `{ "command": { "action": "...", "input": { ... } } }`.
-The action names below are exact `command.action` values.
+Each operation is a direct tool with its own input schema.
 
 ## Animation Basics
 
@@ -38,7 +37,7 @@ Hytale supports these animation channels per bone:
 - Channel: `visibility`
 - Values: boolean (true/false)
 - Toggle bone visibility at keyframes
-- Use `edit_hytale` action `hytale_create_visibility_keyframe`
+- Use `hytale_create_visibility_keyframe`
 
 ## Interpolation Types
 
@@ -47,7 +46,7 @@ Hytale supports these animation channels per bone:
 
 ## Loop Modes
 
-Set with `edit_hytale` action `hytale_set_animation_loop`:
+Set with `hytale_set_animation_loop`:
 
 - `loop` - Continuous playback, restarts from beginning
 - `hold` - Play once, freeze on last frame
@@ -57,7 +56,7 @@ Set with `edit_hytale` action `hytale_set_animation_loop`:
 
 ### 1. Create Animation
 ```
-Use `edit_animation` action `create_animation`:
+Use `create_animation`:
 - name: "walk_cycle"
 - animation_length: 1.0 (1 second)
 - loop: true
@@ -65,11 +64,11 @@ Use `edit_animation` action `create_animation`:
 
 ### 2. Add Keyframes
 Use animation tools to add keyframes:
-- `edit_animation` action `manage_keyframes` for position/rotation/scale
-- `edit_hytale` action `hytale_create_visibility_keyframe` for visibility toggles
+- `manage_keyframes` for position/rotation/scale
+- `hytale_create_visibility_keyframe` for visibility toggles
 
 ### 3. Set Interpolation
-Use `edit_animation_editor` action `animation_graph_editor` to adjust curves:
+Use `animation_graph_editor` to adjust curves:
 - `smooth` for organic movements
 - `linear` for mechanical movements
 - `stepped` for snappy transitions

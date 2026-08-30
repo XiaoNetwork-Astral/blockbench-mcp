@@ -4,6 +4,10 @@ import { closestPointsBetweenTriangleSetsBvh } from "@/lib/triangleBvh";
 import type { Triangle3 } from "@/lib/measurements";
 import { analyzeUvIntegrity, type UvFaceRecord } from "@/lib/uvIntegrity";
 import { fitBoundingSpherePerspectiveDistance } from "@/lib/cameraFraming";
+import {
+  evaluateExpected,
+  validationViewRenderCount,
+} from "@/server/tools/validation";
 
 function rotatedThinBox(perpendicularOffset: number): [OrientedBox, OrientedBox] {
   const diagonal = Math.SQRT1_2;
@@ -53,6 +57,35 @@ describe("model validation geometry", () => {
     expect(result?.distance).toBe(2);
     expect(result?.exact_separation).toBe(true);
     expect(result?.truncated).toBe(false);
+  });
+
+  test("applies explicit penetration limits to connected contracts", () => {
+    const base = {
+      relation: "connected" as const,
+      minimum_separation: 0,
+      minimum_penetration: 0,
+    };
+    expect(evaluateExpected("intersecting", 0, 0.5, {
+      ...base,
+      minimum_penetration: 0.6,
+    })).toMatchObject({ status: "fail" });
+    expect(evaluateExpected("intersecting", 0, 0.5, {
+      ...base,
+      maximum_penetration: 0.1,
+    })).toMatchObject({ status: "fail" });
+    expect(evaluateExpected("touching", 0, 0, {
+      ...base,
+      maximum_penetration: 0.1,
+    })).toMatchObject({ status: "pass" });
+  });
+
+  test("validation render work is fixed per view rather than per descendant", () => {
+    const views = [
+      { passes: ["color", "wireframe"] },
+      { passes: ["color", "element_id", "depth"] },
+    ];
+    expect(validationViewRenderCount(views, false)).toBe(6);
+    expect(validationViewRenderCount(views, true)).toBe(8);
   });
 });
 
@@ -136,5 +169,21 @@ describe("typed UV integrity", () => {
       exact: false,
       overlap_area: null,
     });
+  });
+
+  test("includes missing required sharing in the summary contract failures", () => {
+    const result = analyzeUvIntegrity([
+      face({ face_id: "a", uv_points: [[0, 0], [2, 0], [2, 2], [0, 2]] }),
+      face({ face_id: "b", uv_points: [[8, 8], [10, 8], [10, 10], [8, 10]] }),
+    ], {
+      expected_sharing: [{ first_face: "a", second_face: "b", relation: "shared" }],
+    });
+    expect(result.summary.missing_expected_overlaps).toHaveLength(1);
+    expect(result.summary.missing_expected_overlaps[0]).toMatchObject({
+      first_face: "a",
+      second_face: "b",
+      relation: "missing_expected_overlap",
+    });
+    expect(result.summary.contract_failure_count).toBe(1);
   });
 });

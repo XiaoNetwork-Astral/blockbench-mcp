@@ -43,6 +43,25 @@ describe("source-backed YSM Molang", () => {
     expect(result.state.variables.x).toBe(3.35);
   });
 
+  test("evaluates flat dotted bindings with the same contract as nested bindings", () => {
+    const source = "math.sin(query.anim_time * 90) * 5";
+    const nested = evaluateMolang(source, {
+      bindings: { query: { anim_time: 0.25 } },
+    });
+    const flat = evaluateMolang(source, {
+      bindings: { "query.anim_time": 0.25 },
+    });
+
+    expect(flat.diagnostics).toEqual([]);
+    expect(flat.value).toBe(nested.value);
+    expect(evaluateMolang("query.anim_time", {
+      bindings: {
+        query: { anim_time: 0.1 },
+        "query.anim_time": 0.25,
+      },
+    }).value).toBe(0.25);
+  });
+
   test("supports deterministic, serializable second-order physics state", () => {
     const source = "ysm.second_order('strap', 1, 2, 0.8, 0.3)";
     const first = evaluateMolang(source, { seed: 17, delta_seconds: 0 });

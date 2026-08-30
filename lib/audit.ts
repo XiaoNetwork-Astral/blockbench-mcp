@@ -9,7 +9,6 @@ import {
   type UndoOwnership,
 } from "@/lib/auditCore";
 import { getProjectRole } from "@/lib/projectRoles";
-import { sessionManager } from "@/lib/sessions";
 import {
   DEFAULT_AUDIT_RETENTION,
   getAuditRetention,
@@ -55,8 +54,6 @@ export interface AuditOperationSummary {
   startedAt: number;
   finishedAt: number | null;
   durationMs: number | null;
-  sessionId: string | null;
-  clientName: string | null;
   readOnly: boolean;
   projectId: string | null;
   projectName: string | null;
@@ -149,7 +146,6 @@ interface BeginOperationOptions {
   toolName: string;
   title: string;
   args?: unknown;
-  sessionId?: string;
   readOnly?: boolean;
   trackNativeEvents?: boolean;
 }
@@ -628,26 +624,23 @@ class AuditManager {
     toolName: string;
     title: string;
     args: unknown;
-    sessionId?: string;
     readOnly: boolean;
   }): AuditOperationHandle {
-    const session = options.sessionId ? sessionManager.get(options.sessionId) : undefined;
     return this.beginOperation({
       source: "mcp",
       toolName: options.toolName,
       title: options.title,
       args: options.args,
-      sessionId: options.sessionId,
       readOnly: options.readOnly,
       trackNativeEvents: !options.readOnly,
-    }, session?.clientName);
+    });
   }
 
   finishMcpOperation(handle: AuditOperationHandle, result?: unknown, error?: unknown): void {
     this.finishOperation(handle, result, error);
   }
 
-  private beginOperation(options: BeginOperationOptions, clientName?: string): AuditOperationHandle {
+  private beginOperation(options: BeginOperationOptions): AuditOperationHandle {
     const id = createId();
     const startedAt = Date.now();
     const readOnly = options.readOnly ?? false;
@@ -663,8 +656,6 @@ class AuditManager {
       startedAt,
       finishedAt: null,
       durationMs: null,
-      sessionId: options.sessionId ?? null,
-      clientName: clientName ?? null,
       readOnly,
       projectId: beforeRuntime.point.projectId,
       projectName: beforeRuntime.point.projectName,
@@ -768,7 +759,6 @@ class AuditManager {
       summary.title,
       summary.projectName ?? "",
       summary.projectRole ?? "",
-      summary.clientName ?? "",
       summary.argumentsSummary,
       summary.resultSummary,
       summary.errorSummary,

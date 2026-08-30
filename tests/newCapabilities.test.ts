@@ -315,9 +315,9 @@ describe("project file and new tool contracts", () => {
       origin: [0, 0, 0],
       position: [1, 1, 1],
     })).toThrow();
-    expect(openBbmodelParameters.parse({ path: "D:\\model.bbmodel" }).show)
-      .toBe(false);
-    expect(duplicateProjectParameters.parse({}).show).toBe(false);
+    expect(openBbmodelParameters.parse({ path: "D:\\model.bbmodel" }))
+      .toEqual({ path: "D:\\model.bbmodel" });
+    expect(duplicateProjectParameters.parse({})).toEqual({});
   });
 
   test("measurement schema supports batched surface distances and long-axis angles", () => {

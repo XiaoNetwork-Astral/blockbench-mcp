@@ -4,8 +4,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import {
@@ -14,7 +12,6 @@ import {
   getHytaleFormatType,
   getHytaleBlockSize,
   getAttachmentCollections,
-  findAttachmentCollection,
   getAttachmentPieces,
   getCubeShadingMode,
   isCubeDoubleSided,
@@ -24,7 +21,6 @@ import {
   HYTALE_QUAD_NORMALS,
   type HytaleCube,
   type HytaleGroup,
-  type HytaleAttachmentCollection,
 } from "@/lib/hytale";
 import { findGroupOrThrow, findElementOrThrow } from "@/lib/util";
 import {
@@ -100,8 +96,10 @@ export const hytaleCreateQuadParametersSchema = z.object({
   group: z
     .string()
     .min(1)
+    .optional()
+    .default("root")
     .describe(
-      "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level quad."
+      "Parent group/bone UUID or unique name. Defaults to the Outliner root."
     ),
   double_sided: z
     .boolean()
@@ -175,7 +173,7 @@ export const hytaleToolDocs: ToolSpec[] = [
       "Sets Hytale-specific properties on a cube: shading_mode (flat, standard, fullbright, reflective) and double_sided.",
     annotations: {
       title: "Set Hytale Cube Properties",
-      destructiveHint: false,
+      destructiveHint: true,
     },
     parameters: hytaleSetCubePropertiesParametersSchema,
     status: "experimental",
@@ -193,10 +191,10 @@ export const hytaleToolDocs: ToolSpec[] = [
   {
     name: "hytale_create_quad",
     description:
-      "Creates a Hytale quad under a mandatory explicit parent. Use group='root' only for an intentional root-level quad; missing or ambiguous parents are rejected before mutation.",
+      "Creates a Hytale quad at the Outliner root unless a parent group or bone is supplied.",
     annotations: {
       title: "Create Hytale Quad",
-      destructiveHint: false,
+      destructiveHint: true,
     },
     parameters: hytaleCreateQuadParametersSchema,
     status: "experimental",
@@ -217,7 +215,7 @@ export const hytaleToolDocs: ToolSpec[] = [
       "Marks or unmarks a group as an attachment piece. Attachment pieces attach to like-named bones in the main model.",
     annotations: {
       title: "Set Attachment Piece",
-      destructiveHint: false,
+      destructiveHint: true,
     },
     parameters: hytaleSetAttachmentPieceParametersSchema,
     status: "experimental",
@@ -238,7 +236,7 @@ export const hytaleToolDocs: ToolSpec[] = [
       "Creates a visibility keyframe for a bone. Hytale supports toggling node visibility at keyframes.",
     annotations: {
       title: "Create Visibility Keyframe",
-      destructiveHint: false,
+      destructiveHint: true,
     },
     parameters: hytaleCreateVisibilityKeyframeParametersSchema,
     status: "experimental",
@@ -249,7 +247,7 @@ export const hytaleToolDocs: ToolSpec[] = [
       'Sets the loop mode for a Hytale animation. Hytale supports "loop" (continuous) or "hold" (freeze on last frame).',
     annotations: {
       title: "Set Animation Loop Mode",
-      destructiveHint: false,
+      destructiveHint: true,
     },
     parameters: hytaleSetAnimationLoopParametersSchema,
     status: "experimental",
@@ -260,7 +258,7 @@ export const hytaleToolDocs: ToolSpec[] = [
       "Sets the stretch values for a cube. Hytale uses stretch instead of float sizes for better UV handling.",
     annotations: {
       title: "Set Cube Stretch",
-      destructiveHint: false,
+      destructiveHint: true,
     },
     parameters: hytaleSetCubeStretchParametersSchema,
     status: "experimental",
@@ -273,42 +271,6 @@ export const hytaleToolDocs: ToolSpec[] = [
       readOnlyHint: true,
     },
     parameters: hytaleGetCubeStretchParametersSchema,
-    status: "experimental",
-  },
-];
-
-const hytaleReadOperations = [
-  hytaleToolDocs[0],
-  hytaleToolDocs[1],
-  hytaleToolDocs[3],
-  hytaleToolDocs[5],
-  hytaleToolDocs[7],
-  hytaleToolDocs[11],
-];
-const hytaleEditOperations = [
-  hytaleToolDocs[2],
-  hytaleToolDocs[4],
-  hytaleToolDocs[6],
-  hytaleToolDocs[8],
-  hytaleToolDocs[9],
-  hytaleToolDocs[10],
-];
-
-export const hytalePublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_hytale",
-    description:
-      "Reads or validates Hytale format, cube, stretch, and attachment information through one command.action.",
-    annotations: { title: "Inspect Hytale", readOnlyHint: true },
-    parameters: createToolGroupParameters(hytaleReadOperations),
-    status: "experimental",
-  },
-  {
-    name: "edit_hytale",
-    description:
-      "Creates or changes Hytale quads, cube properties, stretch, attachment pieces, visibility keyframes, or animation loops through one command.action.",
-    annotations: { title: "Edit Hytale", destructiveHint: true },
-    parameters: createToolGroupParameters(hytaleEditOperations),
     status: "experimental",
   },
 ];
@@ -692,7 +654,7 @@ export function registerHytaleTools() {
           animation = findHytaleAnimation(animation_id);
         } else {
           // @ts-ignore - Animation is globally available
-          animation = Animation.selected;
+          animation = Animator.selected;
           if (!animation) {
             throw new Error("No animation selected and no animation_id provided.");
           }
@@ -753,7 +715,7 @@ export function registerHytaleTools() {
           animation = findHytaleAnimation(animation_id);
         } else {
           // @ts-ignore - Animation is globally available
-          animation = Animation.selected;
+          animation = Animator.selected;
           if (!animation) {
             throw new Error("No animation selected and no animation_id provided.");
           }
@@ -865,9 +827,6 @@ export function registerHytaleTools() {
     },
     hytaleToolDocs[11].status
   );
-
-  createToolGroup(hytalePublicToolDocs[0], hytaleReadOperations);
-  createToolGroup(hytalePublicToolDocs[1], hytaleEditOperations);
 
   console.log("[MCP] Hytale tools registered successfully");
 }

@@ -481,7 +481,7 @@ describe("Blockbench settings integration", () => {
 
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
-    expect(Object.keys(category.items)).toHaveLength(11);
+    expect(Object.keys(category.items)).toHaveLength(9);
     expect(category.items.blockbench_mcp_plugin_workspace).toBeDefined();
     expect(category.items.blockbench_mcp_bind_host).toBeDefined();
     expect(category.items.blockbench_mcp_port).toBeDefined();
@@ -529,7 +529,7 @@ describe("Blockbench settings integration", () => {
 
     settingsSetup();
 
-    expect(Object.keys(mock.settingsApi.structure[CATEGORY_ID].items)).toHaveLength(11);
+    expect(Object.keys(mock.settingsApi.structure[CATEGORY_ID].items)).toHaveLength(9);
     expect(
       mock.settingsApi.structure[CATEGORY_ID].items.blockbench_mcp_instructions
     ).toBeUndefined();
@@ -545,7 +545,7 @@ describe("Blockbench settings integration", () => {
 
     const category = mock.settingsApi.structure[CATEGORY_ID];
     expect(category).toBeDefined();
-    expect(Object.keys(category.items)).toHaveLength(11);
+    expect(Object.keys(category.items)).toHaveLength(9);
     expect(category.items.blockbench_mcp_plugin_workspace).toBeDefined();
     expect(category.items.blockbench_mcp_bind_host).toBeDefined();
     expect(category.items.blockbench_mcp_port).toBeDefined();
@@ -560,7 +560,7 @@ describe("Blockbench settings integration", () => {
     expect(reconcileSettingsDialog()).toBe(true);
     dialog.sidebar.setPage(CATEGORY_ID);
 
-    expect(Object.keys(category.items)).toHaveLength(11);
+    expect(Object.keys(category.items)).toHaveLength(9);
     expect(dialog.content_vue.open_category).toBe(CATEGORY_ID);
     expect(mock.getForceUpdates()).toBeGreaterThan(0);
   });

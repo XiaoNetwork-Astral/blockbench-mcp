@@ -4,7 +4,6 @@ type TextureWithExternalState = Texture & {
   relative_path?: string;
   sync_to_project?: string;
   stopWatcher?: () => unknown;
-  convertToInternal?: (dataUrl?: string) => unknown;
 };
 
 const rememberedTextureDependencies = new WeakMap<ModelProject, Set<string>>();
@@ -51,31 +50,11 @@ export function rememberProjectTextureDependencies(project: ModelProject): void 
   rememberedTextureDependencies.set(project, remembered);
 }
 
-/**
- * Make one project-owned texture safe for an Undoable bitmap mutation.
- *
- * Blockbench can synchronize same-UUID textures into another open tab and can
- * reload a linked file during Undo. Detaching before Undo.initEdit ensures the
- * transaction captures project-local pixels while retaining the texture's
- * identity and path metadata for inspection.
- */
+/** Detach a texture from file watching and Blockbench's cross-tab pixel sync. */
 export function prepareTextureForMutation(
   project: ModelProject,
   texture: Texture
 ): void {
-  const ownershipCount = project.textures.filter((candidate) => candidate === texture).length;
-  if (ownershipCount !== 1) {
-    throw new Error(
-      `Texture "${texture.name}" (${texture.uuid}) is not uniquely owned by project "${project.name}".`
-    );
-  }
-  const uuidMatches = project.textures.filter((candidate) => candidate.uuid === texture.uuid);
-  if (uuidMatches.length !== 1) {
-    throw new Error(
-      `Texture UUID "${texture.uuid}" is duplicated in project "${project.name}". ` +
-        "Stop editing and repair the project before continuing."
-    );
-  }
   const foreignOwners = currentProjects().filter(
     (candidate) => candidate !== project && candidate.textures.includes(texture)
   );
@@ -94,21 +73,7 @@ export function prepareTextureForMutation(
   guarded.stopWatcher?.();
   guarded.sync_to_project = "";
   if (!texture.internal) {
-    const dataUrl = texture.getDataURL();
-    if (!/^data:image\//i.test(dataUrl)) {
-      throw new Error(
-        `Texture "${texture.name}" could not be detached from its external file before editing.`
-      );
-    }
-    if (!guarded.convertToInternal) {
-      throw new Error(
-        `Texture "${texture.name}" cannot be detached because this Blockbench build does not expose convertToInternal().`
-      );
-    }
-    guarded.convertToInternal(dataUrl);
-    if (!texture.internal) {
-      throw new Error(`Texture "${texture.name}" remained externally linked after detachment.`);
-    }
+    texture.convertToInternal(texture.getDataURL());
   }
   texture.saved = textureSaved;
   project.saved = projectSaved;
@@ -128,9 +93,11 @@ export function editTextureWithUndo(
   includeSelection = false
 ): void {
   prepareTextureForMutation(project, texture);
-  const aspects = {
-    textures: [texture],
+  const aspects: UndoAspects & { layers?: TextureLayer[] } = {
     bitmap: true,
+    ...(texture.layers_enabled && texture.selected_layer
+      ? { layers: [texture.selected_layer] }
+      : { textures: [texture] }),
     ...(includeSelection ? { selected_texture: true } : {}),
   };
   Undo.initEdit(aspects);
@@ -144,24 +111,13 @@ export function editTextureWithUndo(
     });
     Undo.finishEdit(action, aspects);
   } catch (error) {
-    (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+    Undo.cancelEdit();
     throw error;
   }
 }
 
-/** Detach every texture in a project after validating all UUID identities first. */
+/** Detach every texture in a project while preserving its saved indicator. */
 export function isolateProjectTextures(project: ModelProject): void {
-  const counts = new Map<string, number>();
-  for (const texture of project.textures) {
-    counts.set(texture.uuid, (counts.get(texture.uuid) ?? 0) + 1);
-  }
-  const duplicated = [...counts.entries()].filter(([, count]) => count > 1);
-  if (duplicated.length > 0) {
-    throw new Error(
-      `Project "${project.name}" contains duplicated texture UUIDs: ` +
-        duplicated.map(([uuid]) => uuid).join(", ")
-    );
-  }
   for (const texture of [...project.textures]) {
     prepareTextureForMutation(project, texture);
   }

@@ -3,8 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import { findElementOrThrow, findGroupOrThrow } from "@/lib/util";
@@ -21,18 +19,12 @@ import {
   vec3,
   animationIdOptionalSchema,
   animationChannelEnum,
-  interpolationEnum,
   axisEnum,
-  axisWithAllEnum,
   timeRangeSchema,
   boneNameSchema,
   loopModeEnum,
   keyframeDataSchema,
 } from "@/lib/zodObjects";
-import {
-  previewOperationDocs,
-  registerPreviewOperation,
-} from "./preview";
 
 export function normalizeAnimationName(name: string): string {
   const normalized = name.trim();
@@ -43,6 +35,108 @@ export function normalizeAnimationName(name: string): string {
 }
 
 const KEYFRAME_TIME_EPSILON = 0.001;
+
+type RuntimeAnimator = GeneralAnimator & {
+  createKeyframe(
+    value: KeyframeOptions | null,
+    time: number,
+    channel: string,
+    undo?: boolean,
+    select?: boolean
+  ): _Keyframe;
+};
+
+function createRuntimeKeyframe(
+  animator: GeneralAnimator,
+  value: KeyframeOptions | null,
+  time: number,
+  channel: string
+): _Keyframe {
+  return (animator as RuntimeAnimator).createKeyframe(
+    value,
+    time,
+    channel,
+    false,
+    false
+  );
+}
+
+export function keyframeVector(value: unknown, fallback = 0): ArrayVector3 {
+  if (typeof value === "number" && Number.isFinite(value)) return [value, value, value];
+  if (Array.isArray(value)) {
+    return [0, 1, 2].map((index) => {
+      const component = Number(value[index]);
+      return Number.isFinite(component) ? component : fallback;
+    }) as ArrayVector3;
+  }
+  return [fallback, fallback, fallback];
+}
+
+type BezierVectorProperty =
+  | "bezier_left_time"
+  | "bezier_left_value"
+  | "bezier_right_time"
+  | "bezier_right_value";
+
+export function setKeyframeVector(
+  keyframe: Record<BezierVectorProperty, unknown>,
+  property: BezierVectorProperty,
+  value: unknown,
+  fallback = 0
+): void {
+  const vector = keyframeVector(value, fallback);
+  const current = keyframe[property];
+  if (Array.isArray(current)) current.splice(0, current.length, ...vector);
+  else keyframe[property] = vector;
+}
+
+export function collectAnimationKeyframes<T>(animation: {
+  animators?: Record<string, { keyframes?: T[] }>;
+}): T[] {
+  return [...new Set(
+    Object.values(animation.animators ?? {}).flatMap((animator) => animator.keyframes ?? [])
+  )];
+}
+
+interface CopyableRuntimeKeyframe {
+  channel: string;
+  time: number;
+  interpolation: string;
+  uniform: boolean;
+  data_points: Array<{ getUndoCopy(): Record<string, unknown> }>;
+  bezier_linked: boolean;
+  bezier_left_time?: unknown;
+  bezier_left_value?: unknown;
+  bezier_right_time?: unknown;
+  bezier_right_value?: unknown;
+}
+
+export function copyRuntimeKeyframeData(keyframe: CopyableRuntimeKeyframe) {
+  return {
+    channel: keyframe.channel,
+    time: keyframe.time,
+    interpolation: keyframe.interpolation,
+    uniform: keyframe.uniform,
+    data_points: keyframe.data_points.map((point) => point.getUndoCopy()),
+    bezier_linked: keyframe.bezier_linked,
+    bezier_left_time: keyframeVector(keyframe.bezier_left_time, -0.1),
+    bezier_left_value: keyframeVector(keyframe.bezier_left_value),
+    bezier_right_time: keyframeVector(keyframe.bezier_right_time, 0.1),
+    bezier_right_value: keyframeVector(keyframe.bezier_right_value),
+  };
+}
+
+function numericKeyframeVector(values: Array<string | number>): ArrayVector3 {
+  const vector = [Number(values[0]), Number(values[1]), Number(values[2])] as ArrayVector3;
+  if (vector.some((value) => !Number.isFinite(value))) {
+    throw new Error("This operation requires numeric keyframe values, not Molang expressions.");
+  }
+  return vector;
+}
+
+function flipRuntimeKeyframe(keyframe: _Keyframe, axis: 0 | 1 | 2): void {
+  (keyframe as unknown as { flip(axis: 0 | 1 | 2): unknown }).flip(axis);
+}
 
 export function resolveUniqueKeyframeAtTime<T extends { time: number }>(
   keyframes: readonly T[] | undefined,
@@ -98,12 +192,12 @@ export function assertKeyframeTimesAvailable(
 
 function findAnimationOrThrow(reference?: string): _Animation {
   if (!reference) {
-    if (!Animation.selected) throw new Error("No animation is selected.");
-    return Animation.selected;
+    if (!Animator.selected) throw new Error("No animation is selected.");
+    return Animator.selected;
   }
   return resolveUniqueReference(
     reference,
-    Animation.all,
+    Animator.animations,
     "Animation",
     "inspect_animation"
   );
@@ -139,7 +233,7 @@ function animationSummary(animation: _Animation, includeKeyframes: boolean) {
   return {
     uuid: animation.uuid,
     name: animation.name,
-    selected: Animation.selected === animation,
+    selected: Animator.selected === animation,
     loop: animation.loop,
     length: animation.length,
     snapping: animation.snapping,
@@ -193,7 +287,6 @@ export const animationGraphEditorParameters = z.object({
   animation_id: animationIdOptionalSchema,
   bone_name: boneNameSchema.describe("Name of the bone/group to modify curves for."),
   channel: animationChannelEnum.describe("Animation channel to modify."),
-  axis: axisWithAllEnum.default("all").describe("Axis to modify curves for."),
   action: z
     .enum([
       "smooth",
@@ -225,6 +318,14 @@ export const animationGraphEditorParameters = z.object({
     .describe(
       "Custom bezier curve control points (only for 'custom' action)."
     ),
+}).superRefine(({ action, custom_curve }, context) => {
+  if (action === "custom" && !custom_curve) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["custom_curve"],
+      message: "custom_curve is required for the custom action.",
+    });
+  }
 });
 
 export const boneRiggingParameters = z
@@ -249,7 +350,7 @@ export const boneRiggingParameters = z
           .min(1)
           .optional()
           .describe(
-            'Required for create, parent, unparent, and mirror. Use the literal "root" for the root level; otherwise provide an exact UUID or unique name.'
+            'Target parent UUID or unique name. Creating defaults to root, mirroring defaults to the original parent, and only the parent action requires this field.'
           ),
         new_name: z
           .string()
@@ -275,19 +376,12 @@ export const boneRiggingParameters = z
       .describe("Bone configuration data."),
   })
   .superRefine(({ action, bone_data }, ctx) => {
-    if (["create", "parent", "unparent", "mirror"].includes(action) && !bone_data.parent) {
+    if (action === "parent" && !bone_data.parent) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["bone_data", "parent"],
         message:
-          'parent is required for this action. Use the literal "root" for the root level.',
-      });
-    }
-    if (action === "unparent" && bone_data.parent && bone_data.parent !== "root") {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["bone_data", "parent"],
-        message: 'unparent requires parent to be the literal "root".',
+          'parent is required for the parent action. Use the literal "root" for the root level.',
       });
     }
     if (action === "rename" && !bone_data.new_name) {
@@ -370,7 +464,7 @@ export const batchKeyframeOperationsParameters = z.object({
   range: timeRangeSchema.optional().describe("Time range for keyframe selection."),
   pattern: z
     .object({
-      interval: z.number().describe("Time interval between keyframes."),
+      interval: z.number().positive().describe("Time interval between keyframes."),
       offset: z
         .number()
         .optional()
@@ -397,19 +491,56 @@ export const batchKeyframeOperationsParameters = z.object({
       mirror_axis: axisEnum.optional().describe("Axis to mirror values across."),
       bake_interval: z
         .number()
+        .positive()
         .optional()
         .describe("Interval for baking keyframes."),
     })
     .optional()
     .describe("Operation-specific parameters."),
+}).superRefine(({ selection, range, pattern, operation, parameters }, context) => {
+  if (selection === "range" && !range) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["range"],
+      message: "range is required for range selection.",
+    });
+  }
+  if (selection === "pattern" && !pattern) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["pattern"],
+      message: "pattern is required for pattern selection.",
+    });
+  }
+  if (operation === "mirror" && !parameters?.mirror_axis) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["parameters", "mirror_axis"],
+      message: "mirror_axis is required for the mirror operation.",
+    });
+  }
+  if (
+    operation === "offset" &&
+    parameters?.offset_time === undefined &&
+    parameters?.offset_values === undefined
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["parameters"],
+      message: "offset requires offset_time or offset_values.",
+    });
+  }
+  if (operation === "scale" && parameters?.scale_factor === undefined) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["parameters", "scale_factor"],
+      message: "scale_factor is required for the scale operation.",
+    });
+  }
 });
 
-export const animationCopyPasteParameters = z.object({
-  action: z
-    .enum(["copy", "paste", "mirror_paste"])
-    .describe("Copy or paste action."),
-  source: z
-    .object({
+export const copyAnimationKeyframesParameters = z.object({
+  source: z.object({
       animation: z
         .string()
         .optional()
@@ -425,11 +556,8 @@ export const animationCopyPasteParameters = z.object({
         .describe(
           "Time range to copy. If not provided, copies all keyframes."
         ),
-    })
-    .optional()
-    .describe("Source data for copy operation."),
-  target: z
-    .object({
+    }).describe("Animation data to copy."),
+  target: z.object({
       animation: z
         .string()
         .optional()
@@ -440,10 +568,10 @@ export const animationCopyPasteParameters = z.object({
         .optional()
         .default(0)
         .describe("Time offset for pasted keyframes."),
-      mirror_axis: axisEnum.optional().describe("Axis to mirror across for mirror_paste."),
-    })
-    .optional()
-    .describe("Target data for paste operation."),
+      mirror_axis: axisEnum
+        .optional()
+        .describe("Optional axis to mirror while copying."),
+    }).describe("Destination for the copied keyframes."),
 });
 
 export const animationToolDocs: ToolSpec[] = [
@@ -512,14 +640,14 @@ export const animationToolDocs: ToolSpec[] = [
     status: STATUS_EXPERIMENTAL,
   },
   {
-    name: "animation_copy_paste",
+    name: "copy_animation_keyframes",
     description:
-      "Copies and pastes animation data between bones or animations.",
+      "Copies keyframes directly between bones or animations, optionally mirroring them, without a stored clipboard step.",
     annotations: {
       title: "Animation Copy/Paste",
       destructiveHint: true,
     },
-    parameters: animationCopyPasteParameters,
+    parameters: copyAnimationKeyframesParameters,
     status: STATUS_EXPERIMENTAL,
   },
 ];
@@ -549,62 +677,19 @@ export const animationManagementToolDoc: ToolSpec = {
   status: STATUS_STABLE,
 };
 
-const animationDataOperations = [
-  animationToolDocs[0],
-  animationManagementToolDoc,
-  animationToolDocs[1],
-  animationToolDocs[3],
-  animationToolDocs[5],
-  animationToolDocs[6],
-];
-const animationEditorOperations = [
-  animationToolDocs[2],
-  animationToolDocs[4],
-  previewOperationDocs[0],
-];
-const animationReadOperations = animationInspectionToolDocs;
-
-export const animationPublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_animation",
-    description:
-      "Lists animations or returns one animation's keyframes through one read-only command.action.",
-    annotations: { title: "Inspect Animation", readOnlyHint: true },
-    parameters: createToolGroupParameters(animationReadOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_animation",
-    description:
-      "Creates animations, rigs bones, and edits, batches, copies, or pastes keyframes through one command.action.",
-    annotations: { title: "Edit Animation", destructiveHint: true },
-    parameters: createToolGroupParameters(animationDataOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_animation_editor",
-    description:
-      "Controls graph curves, the timeline, or the temporary preview pose through one command.action.",
-    annotations: { title: "Edit Animation Editor", destructiveHint: true },
-    parameters: createToolGroupParameters(animationEditorOperations),
-    status: STATUS_STABLE,
-  },
-];
-
 export function registerAnimationTools() {
-registerPreviewOperation();
-
 createInternalTool(
   animationInspectionToolDocs[0].name,
   {
     ...animationInspectionToolDocs[0],
+    parameters: listAnimationsParameters,
     async execute() {
       return JSON.stringify({
-        current: Animation.selected
-          ? { uuid: Animation.selected.uuid, name: Animation.selected.name }
+        current: Animator.selected
+          ? { uuid: Animator.selected.uuid, name: Animator.selected.name }
           : null,
-        count: Animation.all.length,
-        animations: Animation.all.map((animation) => animationSummary(animation, false)),
+        count: Animator.animations.length,
+        animations: Animator.animations.map((animation) => animationSummary(animation, false)),
       }, null, 2);
     },
   },
@@ -615,6 +700,7 @@ createInternalTool(
   animationInspectionToolDocs[1].name,
   {
     ...animationInspectionToolDocs[1],
+    parameters: getAnimationParameters,
     async execute({ animation_id }) {
       return JSON.stringify(animationSummary(findAnimationOrThrow(animation_id), true), null, 2);
     },
@@ -626,6 +712,7 @@ createInternalTool(
   animationManagementToolDoc.name,
   {
     ...animationManagementToolDoc,
+    parameters: manageAnimationParameters,
     async execute({ action, animation_id, new_name }) {
       const animation = findAnimationOrThrow(animation_id);
       if (action === "select") {
@@ -637,7 +724,7 @@ createInternalTool(
         const normalizedName = normalizeAnimationName(new_name!);
         Undo.initEdit({ animations: [animation] });
         animation.name = normalizedName;
-        animation.createUniqueName();
+        animation.createUniqueName(Animator.animations);
         Undo.finishEdit("Rename animation", { animations: [animation] });
         animation.select();
         return JSON.stringify(animationSummary(animation, false));
@@ -653,6 +740,7 @@ createInternalTool(
   animationToolDocs[0].name,
   {
     ...animationToolDocs[0],
+    parameters: createAnimationParameters,
     async execute({ name, loop, animation_length, bones, particle_effects }) {
       const animationData = {
         loop,
@@ -683,7 +771,7 @@ createInternalTool(
       };
 
       const normalizedName = normalizeAnimationName(name);
-      const allAnimations = (Animation as unknown as { all: _Animation[] }).all;
+      const allAnimations = Animator.animations;
       const animationsBefore = new Set(allAnimations);
       Animator.loadFile({
         content: JSON.stringify({
@@ -694,7 +782,7 @@ createInternalTool(
         }),
       });
 
-      const createdAnimations = (Animation as unknown as { all: _Animation[] }).all.filter(
+      const createdAnimations = Animator.animations.filter(
         (animation) => !animationsBefore.has(animation)
       );
       if (createdAnimations.length !== 1) {
@@ -721,6 +809,7 @@ createInternalTool(
   animationToolDocs[1].name,
   {
     ...animationToolDocs[1],
+    parameters: manageKeyframesParameters,
     async execute({ animation_id, action, bone_name, channel, keyframes }) {
       // Find or select animation
       const animation = findAnimationOrThrow(animation_id);
@@ -744,11 +833,15 @@ createInternalTool(
         assertKeyframeTimesAvailable(undefined, requestedTimes, context);
       }
 
-      const resolvedKeyframes =
+      const resolvedKeyframes: _Keyframe[] =
         action === "create"
           ? []
           : keyframes.map((keyframe) =>
-              resolveUniqueKeyframeAtTime(animator?.[channel], keyframe.time, context)
+              resolveUniqueKeyframeAtTime(
+                animator?.[channel] as _Keyframe[] | undefined,
+                keyframe.time,
+                context
+              )
             );
 
       if (action === "select") {
@@ -773,15 +866,16 @@ createInternalTool(
         switch (action) {
           case "create":
             keyframes.forEach((kf) => {
-              const keyframe = activeAnimator.createKeyframe(
+              const keyframe = createRuntimeKeyframe(
+                activeAnimator,
                 {
                   time: kf.time,
                   channel,
                   interpolation: kf.interpolation,
+                  data_points: [],
                 },
                 kf.time,
-                channel,
-                false
+                channel
               );
 
               if (kf.values !== undefined) {
@@ -789,18 +883,14 @@ createInternalTool(
               }
 
               if (kf.interpolation === "bezier" && kf.bezier_handles) {
-                // @ts-ignore
                 if (kf.bezier_handles.left_time !== undefined)
-                  keyframe.bezier_left_time = kf.bezier_handles.left_time;
-                // @ts-ignore
+                  setKeyframeVector(keyframe, "bezier_left_time", kf.bezier_handles.left_time);
                 if (kf.bezier_handles.left_value)
-                  keyframe.bezier_left_value = kf.bezier_handles.left_value;
-                // @ts-ignore
+                  setKeyframeVector(keyframe, "bezier_left_value", kf.bezier_handles.left_value);
                 if (kf.bezier_handles.right_time !== undefined)
-                  keyframe.bezier_right_time = kf.bezier_handles.right_time;
-                // @ts-ignore
+                  setKeyframeVector(keyframe, "bezier_right_time", kf.bezier_handles.right_time);
                 if (kf.bezier_handles.right_value)
-                  keyframe.bezier_right_value = kf.bezier_handles.right_value;
+                  setKeyframeVector(keyframe, "bezier_right_value", kf.bezier_handles.right_value);
               }
             });
             break;
@@ -819,18 +909,14 @@ createInternalTool(
                 keyframe.interpolation = kf.interpolation;
               }
               if (kf.interpolation === "bezier" && kf.bezier_handles) {
-                // @ts-ignore
                 if (kf.bezier_handles.left_time !== undefined)
-                  keyframe.bezier_left_time = kf.bezier_handles.left_time;
-                // @ts-ignore
+                  setKeyframeVector(keyframe, "bezier_left_time", kf.bezier_handles.left_time);
                 if (kf.bezier_handles.left_value)
-                  keyframe.bezier_left_value = kf.bezier_handles.left_value;
-                // @ts-ignore
+                  setKeyframeVector(keyframe, "bezier_left_value", kf.bezier_handles.left_value);
                 if (kf.bezier_handles.right_time !== undefined)
-                  keyframe.bezier_right_time = kf.bezier_handles.right_time;
-                // @ts-ignore
+                  setKeyframeVector(keyframe, "bezier_right_time", kf.bezier_handles.right_time);
                 if (kf.bezier_handles.right_value)
-                  keyframe.bezier_right_value = kf.bezier_handles.right_value;
+                  setKeyframeVector(keyframe, "bezier_right_value", kf.bezier_handles.right_value);
               }
             });
             break;
@@ -853,11 +939,11 @@ createInternalTool(
   animationToolDocs[2].name,
   {
     ...animationToolDocs[2],
+    parameters: animationGraphEditorParameters,
     async execute({
       animation_id,
       bone_name,
       channel,
-      axis,
       action,
       keyframe_range,
       custom_curve,
@@ -872,18 +958,22 @@ createInternalTool(
         throw new Error(`No keyframes found for ${bone_name}.${channel}`);
       }
 
-      Undo.initEdit({
-        animations: [animation],
-        keyframes: animator[channel],
-      });
-
-      const keyframes = animator[channel].filter((kf) => {
+      const keyframes = (animator[channel] as _Keyframe[]).filter((kf) => {
         if (!keyframe_range) return true;
         return kf.time >= keyframe_range.start && kf.time <= keyframe_range.end;
+      }).sort((a, b) => a.time - b.time);
+      if (keyframes.length === 0) {
+        throw new Error(`No keyframes found for ${bone_name}.${channel} in the requested range.`);
+      }
+
+      Undo.initEdit({
+        animations: [animation],
+        keyframes,
       });
 
-      keyframes.forEach((kf, index) => {
-        switch (action) {
+      try {
+        keyframes.forEach((kf, index) => {
+          switch (action) {
           case "linear":
             kf.interpolation = "linear";
             break;
@@ -900,56 +990,41 @@ createInternalTool(
           case "ease_out":
           case "ease_in_out":
             kf.interpolation = "bezier";
-            // Set bezier handles based on easing type
+            const previous = keyframes[index - 1];
             const next = keyframes[index + 1];
-            if (next) {
-              const duration = next.time - kf.time;
-              // @ts-ignore
-              kf.bezier_left_time = 0;
-              // @ts-ignore
-              kf.bezier_right_time = duration;
-
-              if (action === "ease_in") {
-                // @ts-ignore
-                kf.bezier_right_time = duration * 0.6;
-              } else if (action === "ease_out") {
-                // @ts-ignore
-                kf.bezier_left_time = duration * 0.4;
-              } else {
-                // @ts-ignore
-                kf.bezier_left_time = duration * 0.3;
-                // @ts-ignore
-                kf.bezier_right_time = duration * 0.7;
-              }
-            }
+            const previousDuration = previous ? kf.time - previous.time : 0.1;
+            const nextDuration = next ? next.time - kf.time : 0.1;
+            const leftFactor = action === "ease_in" ? 0.4 : action === "ease_out" ? 0.6 : 0.3;
+            const rightFactor = action === "ease_in" ? 0.6 : action === "ease_out" ? 0.4 : 0.3;
+            setKeyframeVector(kf, "bezier_left_time", -previousDuration * leftFactor);
+            setKeyframeVector(kf, "bezier_right_time", nextDuration * rightFactor);
+            setKeyframeVector(kf, "bezier_left_value", 0);
+            setKeyframeVector(kf, "bezier_right_value", 0);
             break;
 
           case "custom":
-            if (!custom_curve) {
-              throw new Error("custom_curve is required for 'custom' action.");
-            }
+            if (!custom_curve) throw new Error("custom_curve is required for the custom action.");
             kf.interpolation = "bezier";
-            // @ts-ignore
-            kf.bezier_left_time = custom_curve.control_point_1[0];
-            // @ts-ignore
-            kf.bezier_left_value = [
-              custom_curve.control_point_1[1],
-              custom_curve.control_point_1[1],
-              custom_curve.control_point_1[1],
-            ];
-            // @ts-ignore
-            kf.bezier_right_time = custom_curve.control_point_2[0];
-            // @ts-ignore
-            kf.bezier_right_value = [
-              custom_curve.control_point_2[1],
-              custom_curve.control_point_2[1],
-              custom_curve.control_point_2[1],
-            ];
+            setKeyframeVector(
+              kf,
+              "bezier_left_time",
+              -Math.abs(custom_curve.control_point_1[0])
+            );
+            setKeyframeVector(kf, "bezier_left_value", custom_curve.control_point_1[1]);
+            setKeyframeVector(
+              kf,
+              "bezier_right_time",
+              Math.abs(custom_curve.control_point_2[0])
+            );
+            setKeyframeVector(kf, "bezier_right_value", custom_curve.control_point_2[1]);
             break;
-        }
-      });
-
-      Undo.finishEdit("Modify animation curves");
+          }
+        });
+        Undo.finishEdit("Modify animation curves");
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        throw error;
+      }
       Animator.preview();
       updateKeyframeSelection();
 
@@ -963,10 +1038,11 @@ createInternalTool(
   animationToolDocs[3].name,
   {
     ...animationToolDocs[3],
+    parameters: boneRiggingParameters,
     async execute({ action, bone_data }) {
       switch (action) {
         case "create": {
-          const parent = resolveOutlinerParentOrThrow(bone_data.parent!, "group");
+          const parent = resolveOutlinerParentOrThrow(bone_data.parent ?? "root", "group");
           const children: Array<OutlinerElement | Group> = [...new Map<string, OutlinerElement | Group>(
             ((bone_data.children ?? []) as string[]).map((reference: string) => {
               const child = findElementOrThrow(reference);
@@ -1001,8 +1077,8 @@ createInternalTool(
           try {
             group = new Group({
               name: bone_data.name,
-              origin: bone_data.origin ?? [0, 0, 0],
-              rotation: bone_data.rotation ?? [0, 0, 0],
+              origin: (bone_data.origin ?? [0, 0, 0]) as ArrayVector3,
+              rotation: (bone_data.rotation ?? [0, 0, 0]) as ArrayVector3,
             })
               .addTo(parent)
               .init();
@@ -1091,7 +1167,7 @@ createInternalTool(
           const bone = findGroupOrThrow(bone_data.name);
           const state = collectOutlinerSubtree([bone]);
           Undo.initEdit({ ...state, outliner: true, collections: [] });
-          bone.transferOrigin(bone_data.origin!);
+          bone.transferOrigin(bone_data.origin! as ArrayVector3);
           Undo.finishEdit(`Bone rigging: ${action}`, {
             ...state,
             outliner: true,
@@ -1120,7 +1196,9 @@ createInternalTool(
 
         case "mirror": {
           const bone = findGroupOrThrow(bone_data.name);
-          const parent = resolveOutlinerParentOrThrow(bone_data.parent!, "group");
+          const parent = bone_data.parent
+            ? resolveOutlinerParentOrThrow(bone_data.parent, "group")
+            : bone.parent;
           const axis = bone_data.mirror_axis || "x";
           const axisIndex = axis === "x" ? 0 : axis === "y" ? 1 : 2;
           Undo.initEdit({
@@ -1161,6 +1239,7 @@ createInternalTool(
   animationToolDocs[4].name,
   {
     ...animationToolDocs[4],
+    parameters: animationTimelineParameters,
     async execute({ animation_id, action, time, length, fps, loop_mode, range }) {
       const animation = findAnimationOrThrow(animation_id);
       animation.select();
@@ -1245,28 +1324,31 @@ createInternalTool(
   animationToolDocs[5].name,
   {
     ...animationToolDocs[5],
+    parameters: batchKeyframeOperationsParameters,
     async execute({ selection, range, pattern, operation, parameters = {} }) {
-      if (!Animation.selected) {
+      const animation = Animator.selected;
+      if (!animation) {
         throw new Error("No animation selected.");
       }
 
-      // Gather keyframes based on selection type
-      let keyframes: any[] = [];
+      const allKeyframes = collectAnimationKeyframes(animation);
+      let keyframes: _Keyframe[] = [];
 
       switch (selection) {
         case "all":
-          keyframes = Timeline.keyframes;
+          keyframes = allKeyframes;
           break;
 
         case "selected":
-          keyframes = Timeline.selected;
+          const selected = new Set(Timeline.selected);
+          keyframes = allKeyframes.filter((keyframe) => selected.has(keyframe));
           break;
 
         case "range":
           if (!range) {
             throw new Error("Range required for range selection.");
           }
-          keyframes = Timeline.keyframes.filter(
+          keyframes = allKeyframes.filter(
             (kf) => kf.time >= range.start && kf.time <= range.end
           );
           break;
@@ -1275,9 +1357,9 @@ createInternalTool(
           if (!pattern) {
             throw new Error("Pattern required for pattern selection.");
           }
-          keyframes = Timeline.keyframes.filter((kf) => {
-            const relativeTime = kf.time - pattern.offset;
-            return Math.abs(relativeTime % pattern.interval) < 0.001;
+          keyframes = allKeyframes.filter((kf) => {
+            const intervalIndex = (kf.time - pattern.offset) / pattern.interval;
+            return Math.abs(intervalIndex - Math.round(intervalIndex)) < KEYFRAME_TIME_EPSILON;
           });
           break;
       }
@@ -1286,18 +1368,18 @@ createInternalTool(
         throw new Error("No keyframes found matching selection criteria.");
       }
 
-      Undo.initEdit({
-        keyframes: keyframes,
-      });
+      const undoAspects = { animations: [animation], keyframes: [...keyframes] };
+      Undo.initEdit(undoAspects);
 
-      switch (operation) {
+      try {
+        switch (operation) {
         case "offset":
           keyframes.forEach((kf) => {
             if (parameters.offset_time !== undefined) {
               kf.time += parameters.offset_time;
             }
             if (parameters.offset_values) {
-              const values = kf.getArray();
+              const values = numericKeyframeVector(kf.getArray());
               applyKeyframeValues(kf, [
                 values[0] + parameters.offset_values[0],
                 values[1] + parameters.offset_values[1],
@@ -1308,8 +1390,8 @@ createInternalTool(
           break;
 
         case "scale":
-          const pivot = parameters.scale_pivot || 0;
-          const factor = parameters.scale_factor || 1;
+          const pivot = parameters.scale_pivot ?? 0;
+          const factor = parameters.scale_factor ?? 1;
           keyframes.forEach((kf) => {
             kf.time = pivot + (kf.time - pivot) * factor;
           });
@@ -1335,7 +1417,7 @@ createInternalTool(
               ? 1
               : 2;
           keyframes.forEach((kf) => {
-            const values = kf.getArray();
+            const values = numericKeyframeVector(kf.getArray());
             values[axisIndex] *= -1;
             applyKeyframeValues(kf, values);
           });
@@ -1349,14 +1431,15 @@ createInternalTool(
           break;
 
         case "bake":
-          const interval =
-            parameters.bake_interval || 1 / Animation.selected.snapping;
-          const animators = new Set(keyframes.map((kf) => kf.animator));
+          const interval = parameters.bake_interval ?? 1 / animation.snapping;
+          const animators = new Set<GeneralAnimator>(
+            keyframes.map((keyframe) => keyframe.animator)
+          );
 
           animators.forEach((animator) => {
-            const channels = ["rotation", "position", "scale"];
+            const channels = ["rotation", "position", "scale"] as const;
             channels.forEach((channel) => {
-              const channelKfs = animator[channel];
+              const channelKfs = animator[channel] as _Keyframe[];
               if (!channelKfs || channelKfs.length < 2) return;
 
               const startTime = Math.min(...channelKfs.map((kf) => kf.time));
@@ -1367,21 +1450,30 @@ createInternalTool(
                   !channelKfs.find((kf) => Math.abs(kf.time - time) < 0.001)
                 ) {
                   Timeline.time = time;
-                  const keyframe = animator.createKeyframe(
-                    { time, channel },
+                  const keyframe = createRuntimeKeyframe(
+                    animator,
+                    { time, channel, data_points: [] },
                     time,
-                    channel,
-                    false
+                    channel
                   );
-                  applyKeyframeValues(keyframe, animator.interpolate(channel, true));
+                  const values = animator.interpolate(channel, true);
+                  if (values === false) {
+                    throw new Error(`Could not interpolate ${channel} at ${time} seconds.`);
+                  }
+                  applyKeyframeValues(keyframe, numericKeyframeVector(values));
+                  undoAspects.keyframes.push(keyframe);
                 }
               }
             });
           });
-          break;
-      }
+            break;
+        }
 
-      Undo.finishEdit(`Batch keyframe operation: ${operation}`);
+        Undo.finishEdit(`Batch keyframe operation: ${operation}`, undoAspects);
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        throw error;
+      }
       Animator.preview();
 
       return `Performed ${operation} on ${keyframes.length} keyframes`;
@@ -1394,183 +1486,82 @@ createInternalTool(
   animationToolDocs[6].name,
   {
     ...animationToolDocs[6],
-    async execute({ action, source, target }) {
-      // Static storage for copied data between copy/paste operations
-      // @ts-ignore
-      if (!global.animationClipboard) {
-        // @ts-ignore
-        global.animationClipboard = null;
+    parameters: copyAnimationKeyframesParameters,
+    async execute({ source, target }) {
+      const sourceAnimation = source.animation
+        ? findAnimationOrThrow(source.animation)
+        : Animator.selected;
+      const targetAnimation = target.animation
+        ? findAnimationOrThrow(target.animation)
+        : Animator.selected;
+      if (!sourceAnimation || !targetAnimation) {
+        throw new Error("Select an animation or supply explicit source and target animations.");
       }
 
-      switch (action) {
-        case "copy": {
-          if (!source) {
-            throw new Error("Source data required for copy operation.");
-          }
+      const sourceBone = findGroupOrThrow(source.bone);
+      const targetBone = findGroupOrThrow(target.bone);
+      const sourceAnimator = sourceAnimation.animators[sourceBone.uuid];
+      if (!sourceAnimator) {
+        throw new Error(`No animation data exists for bone "${source.bone}".`);
+      }
 
-          const srcAnimation = source.animation
-            ? findAnimationOrThrow(source.animation)
-            : Animation.selected;
+      const copied = source.channels.flatMap((channel) => {
+        const channelKeyframes = sourceAnimator[channel] as _Keyframe[] | undefined;
+        return (channelKeyframes ?? [])
+          .filter((keyframe) => !source.time_range || (
+            keyframe.time >= source.time_range.start &&
+            keyframe.time <= source.time_range.end
+          ))
+          .map(copyRuntimeKeyframeData);
+      });
+      if (copied.length === 0) {
+        throw new Error("No source keyframes match the requested channels and time range.");
+      }
 
-          if (!srcAnimation) {
-            throw new Error("Source animation not found.");
-          }
-
-          const srcBone = findGroupOrThrow(source.bone);
-
-          const animator = srcAnimation.animators[srcBone.uuid];
-          if (!animator) {
-            throw new Error(`No animation data for bone "${source.bone}".`);
-          }
-
-          // Copy keyframe data
-          const copiedData: any = {
-            bone_name: source.bone,
-            channels: {},
-          };
-
-          source.channels.forEach((channel) => {
-            if (!animator[channel]) return;
-
-            let keyframes = animator[channel];
-            if (source.time_range) {
-              keyframes = keyframes.filter(
-                (kf) =>
-                  kf.time >= source.time_range.start &&
-                  kf.time <= source.time_range.end
-              );
-            }
-
-            copiedData.channels[channel] = keyframes.map((kf) => ({
-              time: kf.time,
-              values: kf.getArray(),
-              interpolation: kf.interpolation,
-              // @ts-ignore
-              bezier_left_time: kf.bezier_left_time,
-              // @ts-ignore
-              bezier_left_value: kf.bezier_left_value,
-              // @ts-ignore
-              bezier_right_time: kf.bezier_right_time,
-              // @ts-ignore
-              bezier_right_value: kf.bezier_right_value,
-            }));
-          });
-
-          // @ts-ignore
-          global.animationClipboard = copiedData;
-
-          return `Copied animation data from "${source.bone}" (${Object.keys(
-            copiedData.channels
-          ).join(", ")})`;
+      const axisIndex = target.mirror_axis === "x"
+        ? 0
+        : target.mirror_axis === "y"
+          ? 1
+          : target.mirror_axis === "z"
+            ? 2
+            : undefined;
+      const undoAspects = { animations: [targetAnimation], keyframes: [] };
+      Undo.initEdit(undoAspects);
+      try {
+        let targetAnimator = targetAnimation.animators[targetBone.uuid];
+        if (!targetAnimator) {
+          targetAnimator = new BoneAnimator(targetBone.uuid, targetAnimation, target.bone);
+          targetAnimation.animators[targetBone.uuid] = targetAnimator;
         }
 
-        case "paste":
-        case "mirror_paste": {
-          if (!target) {
-            throw new Error("Target data required for paste operation.");
-          }
-
-          // @ts-ignore
-          if (!global.animationClipboard) {
-            throw new Error("No animation data in clipboard. Copy first.");
-          }
-
-          const tgtAnimation = target.animation
-            ? findAnimationOrThrow(target.animation)
-            : Animation.selected;
-
-          if (!tgtAnimation) {
-            throw new Error("Target animation not found.");
-          }
-
-          const tgtBone = findGroupOrThrow(target.bone);
-
-          let animator = tgtAnimation.animators[tgtBone.uuid];
-          if (!animator) {
-            animator = new BoneAnimator(
-              tgtBone.uuid,
-              tgtAnimation,
-              target.bone
-            );
-            tgtAnimation.animators[tgtBone.uuid] = animator;
-          }
-
-          Undo.initEdit({
-            animations: [tgtAnimation],
-            keyframes: [],
-          });
-
-          // @ts-ignore
-          const clipboardData = global.animationClipboard;
-          const mirrorAxis =
-            action === "mirror_paste" ? target.mirror_axis || "x" : null;
-          const axisIndex =
-            mirrorAxis === "x"
-              ? 0
-              : mirrorAxis === "y"
-              ? 1
-              : mirrorAxis === "z"
-              ? 2
-              : -1;
-
-          Object.entries(clipboardData.channels).forEach(
-            ([channel, keyframes]: [string, any[]]) => {
-              keyframes.forEach((kfData) => {
-                const values = [...kfData.values];
-
-                // Apply mirroring if needed
-                if (
-                  mirrorAxis &&
-                  (channel === "rotation" || channel === "position")
-                ) {
-                  values[axisIndex] *= -1;
-                }
-
-                const keyframe = animator.createKeyframe(
-                  {
-                    time: kfData.time + (target.time_offset || 0),
-                    channel,
-                    interpolation: kfData.interpolation,
-                  },
-                  kfData.time + (target.time_offset || 0),
-                  channel,
-                  false
-                );
-                applyKeyframeValues(keyframe, values);
-
-                // Copy bezier data if present
-                if (kfData.interpolation === "bezier") {
-                  // @ts-ignore
-                  if (kfData.bezier_left_time !== undefined)
-                    keyframe.bezier_left_time = kfData.bezier_left_time;
-                  // @ts-ignore
-                  if (kfData.bezier_left_value)
-                    keyframe.bezier_left_value = kfData.bezier_left_value;
-                  // @ts-ignore
-                  if (kfData.bezier_right_time !== undefined)
-                    keyframe.bezier_right_time = kfData.bezier_right_time;
-                  // @ts-ignore
-                  if (kfData.bezier_right_value)
-                    keyframe.bezier_right_value = kfData.bezier_right_value;
-                }
-              });
-            }
+        for (const keyframeData of copied) {
+          const time = keyframeData.time + target.time_offset;
+          const keyframe = createRuntimeKeyframe(
+            targetAnimator,
+            { ...keyframeData, time },
+            time,
+            keyframeData.channel
           );
-
-          Undo.finishEdit(`${action} animation data`);
-          Animator.preview();
-
-          return `Pasted animation data to "${target.bone}"${
-            mirrorAxis ? ` (mirrored on ${mirrorAxis} axis)` : ""
-          }`;
+          if (axisIndex !== undefined) flipRuntimeKeyframe(keyframe, axisIndex);
         }
+        Undo.finishEdit("Copy animation keyframes", undoAspects);
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        throw error;
       }
+      targetAnimation.select();
+      Animator.preview();
+
+      return JSON.stringify({
+        copied_keyframes: copied.length,
+        source: { animation: sourceAnimation.name, bone: source.bone },
+        target: { animation: targetAnimation.name, bone: target.bone },
+        time_offset: target.time_offset,
+        mirror_axis: target.mirror_axis ?? null,
+      });
     },
   },
   animationToolDocs[6].status
 );
 
-  createToolGroup(animationPublicToolDocs[0], animationReadOperations);
-  createToolGroup(animationPublicToolDocs[1], animationDataOperations);
-  createToolGroup(animationPublicToolDocs[2], animationEditorOperations);
 }

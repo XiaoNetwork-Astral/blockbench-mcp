@@ -1,16 +1,10 @@
 import type * as Three from "three";
-import {
-  getForegroundProject,
-  getSessionCameraState,
-  peekSessionWorkingProject,
-  resolveOpenProject,
-  runInProjectContext,
-  type McpCameraState,
-} from "@/lib/projectContext";
+import { getVisibleProject } from "@/src/blockbench/projects";
+import type { McpCameraState } from "@/src/blockbench/camera";
 import { resolveUniqueReference } from "@/lib/modelSafety";
 import {
-  applySessionPreviewVisibilityToClone,
-  getSessionPreviewAnimationState,
+  applyPreviewVisibilityToClone,
+  type McpPreviewState,
 } from "@/lib/previewState";
 
 type ThreeApi = typeof import("three");
@@ -52,51 +46,6 @@ export function imageContent(
         mimeType,
       },
     ],
-  };
-}
-
-export function fixCircularReferences<
-  T extends Record<string, any>,
-  K extends keyof T,
-  V extends T[K]
->(o: T): (k: K, v: V) => V | string {
-  const weirdTypes = [
-    Int8Array,
-    Uint8Array,
-    Uint8ClampedArray,
-    Int16Array,
-    Uint16Array,
-    Int32Array,
-    Uint32Array,
-    BigInt64Array,
-    BigUint64Array,
-    //Float16Array,
-    Float32Array,
-    Float64Array,
-    ArrayBuffer,
-    // SharedArrayBuffer,
-    DataView,
-  ];
-
-  const defs = new Map();
-
-  return function (k: K, v: V): V | string {
-    if (k && (v as unknown) === o)
-      return "[" + (k as string) + " is the same as original object]";
-    if (v === undefined) return undefined as V;
-    if (v === null) return null as V;
-    const weirdType = weirdTypes.find((t) => (v as unknown) instanceof t);
-    if (weirdType) return weirdType.toString();
-    if (typeof v == "function") {
-      return v.toString();
-    }
-    if (v && typeof v == "object") {
-      const def = defs.get(v);
-      if (def)
-        return "[" + (k as string) + " is the same as " + (def as string) + "]";
-      defs.set(v, k);
-    }
-    return v;
   };
 }
 
@@ -151,39 +100,31 @@ export function assertFaceTextureAssignmentSupported(texture: Texture): void {
   }
 }
 
-/**
- * Programmatically sets a BarItems slider/widget's value, tolerating the API
- * drift between Blockbench versions where some items expose `.set(n)`,
- * `.change(n)`, or only allow `.value = n`. Prior to this helper, calls like
- * `BarItems.slider_brush_size.set(n)` crashed hollow-shape drawing with
- * `… .set is not a function` on current Blockbench builds.
- */
+type MutableBarItem = {
+  value?: unknown;
+  set?: (value: unknown) => unknown;
+  change?: (value: unknown) => unknown;
+  update?: () => unknown;
+};
+
+/** Set a Blockbench toolbar value through the mutator that item exposes. */
 export function setBarItemValue(id: string, value: unknown): void {
-  // @ts-ignore - BarItems is a Blockbench global
-  const item = BarItems?.[id];
-  if (!item) return;
+  const item = (BarItems as unknown as Record<string, MutableBarItem>)[id];
+  if (!item) throw new Error(`Blockbench toolbar item "${id}" is unavailable.`);
   if (typeof item.set === "function") {
-    try {
-      item.set(value);
-      return;
-    } catch {
-      // Fall through to direct assignment for widgets whose runtime method
-      // signatures drifted from the public type surface.
-    }
+    item.set(value);
+    return;
   }
   if ("value" in item) {
     item.value = value;
-    if (typeof item.update === "function") item.update();
+    item.update?.();
     return;
   }
   if (typeof item.change === "function") {
-    try {
-      item.change(value);
-    } catch {
-      // Best-effort UI setting; callers should not fail because Blockbench
-      // changed an optional widget mutator signature.
-    }
+    item.change(value);
+    return;
   }
+  throw new Error(`Blockbench toolbar item "${id}" does not expose a value mutator.`);
 }
 
 /**
@@ -199,7 +140,7 @@ export function getAndActivateTexture(id?: string): Texture {
     const active = Texture.selected ?? Texture.getDefault();
     if (!active) {
       throw new Error(
-        "No texture available. Use edit_textures with command.action \"create_texture\" first, or pass texture_id explicitly."
+        "No texture available. Use create_texture first, or pass texture_id explicitly."
       );
     }
     if (Texture.selected?.uuid !== active.uuid) {
@@ -211,7 +152,7 @@ export function getAndActivateTexture(id?: string): Texture {
   const texture = getProjectTexture(id);
   if (!texture) {
     throw new Error(
-      `Texture "${id}" not found. Use inspect_textures with command.action "list_textures" to see available textures.`
+      `Texture "${id}" not found. Use list_textures to see available textures.`
     );
   }
   // Blockbench paint tools operate on Texture.selected, so activating the
@@ -275,7 +216,7 @@ export function findGroupOrThrow(name: string): Group {
   }
   if (nameMatches.length === 0) {
     throw new Error(
-      `Bone/group "${name}" not found. Use inspect_elements with command.action "list_outline" to see available groups and bones.`
+      `Bone/group "${name}" not found. Use list_outline to see available groups and bones.`
     );
   }
   return nameMatches[0];
@@ -305,7 +246,7 @@ export function findMeshOrThrow(id: string): Mesh {
   }
   if (nameMatches.length === 0) {
     throw new Error(
-      `Mesh "${id}" not found. Use inspect_elements with command.action "list_outline" to see available meshes.`
+      `Mesh "${id}" not found. Use list_outline to see available meshes.`
     );
   }
   return nameMatches[0];
@@ -335,7 +276,7 @@ export function findElementOrThrow(id: string): OutlinerElement | Group {
   }
   if (nameMatches.length === 0) {
     throw new Error(
-      `Element "${id}" not found. Use inspect_elements with command.action "list_outline" to see available elements.`
+      `Element "${id}" not found. Use list_outline to see available elements.`
     );
   }
   return nameMatches[0];
@@ -351,7 +292,7 @@ export function findTextureOrThrow(id: string): Texture {
   const texture = getProjectTexture(id);
   if (!texture) {
     throw new Error(
-      `Texture "${id}" not found. Use inspect_textures with command.action "list_textures" to see available textures.`
+      `Texture "${id}" not found. Use list_textures to see available textures.`
     );
   }
   return texture;
@@ -366,7 +307,7 @@ export function findTextureGroupOrThrow(id: string): TextureGroup {
     id,
     TextureGroup.all,
     "Material/texture group",
-    'inspect_materials with command.action "list_materials"'
+    "list_materials"
   );
 }
 
@@ -402,7 +343,7 @@ export function getMeshOrSelected(meshId?: string): Mesh {
   const selected = Mesh.selected[0];
   if (!selected) {
     throw new Error(
-      "No mesh selected and no mesh_id provided. Select a mesh or provide a mesh_id. Use inspect_elements with command.action \"list_outline\" to see available meshes."
+      "No mesh selected and no mesh_id provided. Select a mesh or provide a mesh_id. Use list_outline to see available meshes."
     );
   }
   return selected;
@@ -437,12 +378,9 @@ async function waitForRenderFrames(frameCount: number): Promise<void> {
 }
 
 function resolveScreenshotProject(
-  reference: string | undefined,
-  sessionId: string | undefined,
   workingProject?: ModelProject | null
 ): ModelProject {
-  if (reference) return resolveOpenProject(reference);
-  const target = workingProject ?? peekSessionWorkingProject(sessionId) ?? getForegroundProject();
+  const target = workingProject ?? getVisibleProject();
   if (!target) {
     throw new Error("No project found in the Blockbench editor.");
   }
@@ -485,16 +423,9 @@ function fittedCameraState(project: ModelProject): McpCameraState {
 
 export function getEffectiveCameraState(
   project: ModelProject,
-  sessionId?: string,
   viewport?: [number, number]
 ): McpCameraState {
-  const sessionState = getSessionCameraState(sessionId, project.uuid);
-  if (sessionState) return {
-    ...sessionState,
-    viewport: viewport ?? sessionState.viewport ?? [800, 600],
-  };
-
-  if (project === getForegroundProject() && Preview.selected) {
+  if (project === getVisibleProject() && Preview.selected) {
     const preview = Preview.selected;
     return {
       position: preview.camera.position.toArray() as [number, number, number],
@@ -549,7 +480,7 @@ export function withTemporaryAnimationPose<T>(
   time: number | null,
   callback: () => T
 ): T {
-  return runInProjectContext(project, () => {
+  return (() => {
     const transforms: ObjectTransformSnapshot[] = [];
     project.model_3d.traverse((node) => transforms.push({
       node,
@@ -596,19 +527,19 @@ export function withTemporaryAnimationPose<T>(
       }
       project.model_3d.updateMatrixWorld(true);
     }
-  });
+  })();
 }
 
-function cloneProjectModelForSession(
+function cloneProjectModel(
   project: ModelProject,
-  sessionId?: string
+  preview?: McpPreviewState
 ): Three.Object3D {
-  const previewState = getSessionPreviewAnimationState(sessionId, project.uuid);
-  if (!previewState) return project.model_3d.clone(true);
+  const animation = preview?.animation;
+  if (!animation) return project.model_3d.clone(true);
   return withTemporaryAnimationPose(
     project,
-    previewState.animationId,
-    previewState.time,
+    animation.animationId,
+    animation.time,
     () => project.model_3d.clone(true)
   );
 }
@@ -625,6 +556,7 @@ export type OffscreenRenderPass =
 
 export interface OffscreenRenderOptions {
   pass?: OffscreenRenderPass;
+  preview?: McpPreviewState;
   includedNodeIds?: string[];
   idNodeIds?: string[];
   cloneTransforms?: Array<{
@@ -647,7 +579,6 @@ function renderProjectOffscreenDetailed(
   state: McpCameraState,
   width: number,
   height: number,
-  sessionId?: string,
   options: OffscreenRenderOptions = {}
 ): OffscreenRenderResult {
   const preview = Screencam.NoAAPreview as Preview & {
@@ -692,7 +623,7 @@ function renderProjectOffscreenDetailed(
     camera.updateMatrixWorld(true);
 
     const renderScene = new THREE_API.Scene();
-    const modelClone = cloneProjectModelForSession(project, sessionId);
+    const modelClone = cloneProjectModel(project, options.preview);
     const sourceNodes: Three.Object3D[] = [];
     const clonedNodes: Three.Object3D[] = [];
     project.model_3d.traverse((node) => sourceNodes.push(node));
@@ -726,7 +657,7 @@ function renderProjectOffscreenDetailed(
         if (clone && !includeWithRelations.has(node.uuid)) clone.visible = false;
       }
     } else {
-      applySessionPreviewVisibilityToClone(project, sourceToClone, sessionId);
+      applyPreviewVisibilityToClone(project, sourceToClone, options.preview?.visibility);
     }
 
     for (const transform of options.cloneTransforms ?? []) {
@@ -874,9 +805,9 @@ function renderProjectOffscreen(
   state: McpCameraState,
   width: number,
   height: number,
-  sessionId?: string
+  options: OffscreenRenderOptions = {}
 ): string {
-  return renderProjectOffscreenDetailed(project, state, width, height, sessionId).data_url;
+  return renderProjectOffscreenDetailed(project, state, width, height, options).data_url;
 }
 
 export async function captureOffscreenValidationPass(
@@ -884,28 +815,36 @@ export async function captureOffscreenValidationPass(
   camera: McpCameraState,
   width: number,
   height: number,
-  sessionId: string | undefined,
   options: OffscreenRenderOptions
 ): Promise<OffscreenRenderResult> {
   await waitForRenderFrames(1);
-  return renderProjectOffscreenDetailed(project, camera, width, height, sessionId, options);
+  return renderProjectOffscreenDetailed(project, camera, width, height, options);
 }
 
-export async function captureScreenshot(
-  project?: string,
-  settleFrames = 2,
-  sessionId?: string,
-  workingProject?: ModelProject | null,
-  width = 800,
-  height = 600
-) {
-  const target = resolveScreenshotProject(project, sessionId, workingProject);
+export interface ScreenshotOptions {
+  settleFrames?: number;
+  workingProject?: ModelProject | null;
+  width?: number;
+  height?: number;
+  camera?: McpCameraState;
+  preview?: McpPreviewState;
+}
+
+export async function captureScreenshot(options: ScreenshotOptions = {}) {
+  const {
+    settleFrames = 2,
+    workingProject,
+    width = 800,
+    height = 600,
+    preview,
+  } = options;
+  const target = resolveScreenshotProject(workingProject);
 
   await waitForRenderFrames(settleFrames);
-  const camera = getEffectiveCameraState(target, sessionId, [width, height]);
+  const camera = options.camera ?? getEffectiveCameraState(target, [width, height]);
   return {
     ...imageContent(
-      renderProjectOffscreen(target, camera, width, height, sessionId),
+      renderProjectOffscreen(target, camera, width, height, { preview }),
       "image/png"
     ),
     structuredContent: {

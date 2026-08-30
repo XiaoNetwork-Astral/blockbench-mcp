@@ -51,21 +51,6 @@ export function normalizeVector(vector: Vector3Tuple): Vector3Tuple {
   return multiply(vector, 1 / length);
 }
 
-function closestPointOnSegment(
-  point: Vector3Tuple,
-  start: Vector3Tuple,
-  end: Vector3Tuple
-): Vector3Tuple {
-  const segment = subtract(end, start);
-  const denominator = lengthSquared(segment);
-  if (denominator <= EPSILON) return [...start];
-  const amount = Math.max(
-    0,
-    Math.min(1, dot(subtract(point, start), segment) / denominator)
-  );
-  return add(start, multiply(segment, amount));
-}
-
 /** Closest point on a triangle using the Voronoi-region method. */
 export function closestPointOnTriangle(
   point: Vector3Tuple,

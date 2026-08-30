@@ -9,15 +9,9 @@ export const MCP_ENDPOINT_SETTING = "blockbench_mcp_endpoint";
 export const MCP_AUTH_ENABLED_SETTING = "blockbench_mcp_auth_enabled";
 export const MCP_AUTH_TOKEN_SETTING = "blockbench_mcp_auth_token";
 export const PLUGIN_WORKSPACE_SETTING = "blockbench_mcp_plugin_workspace";
-export const MCP_SESSION_TIMEOUT_SETTING = "blockbench_mcp_session_timeout";
-export const MCP_SSE_HEARTBEAT_SETTING = "blockbench_mcp_sse_heartbeat";
 export const MCP_AUDIT_RETENTION_SETTING = "blockbench_mcp_audit_retention";
 export const MCP_AUDIT_PAGE_SIZE_SETTING = "blockbench_mcp_audit_page_size";
 export const MCP_AUDIT_DEFAULT_SCOPE_SETTING = "blockbench_mcp_audit_default_scope";
-export const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
-export const MAX_SESSION_TIMEOUT_MINUTES = 1_440;
-export const DEFAULT_SSE_HEARTBEAT_SECONDS = 15;
-export const MAX_SSE_HEARTBEAT_SECONDS = 600;
 export const DEFAULT_AUDIT_RETENTION = 10_000;
 export const MIN_AUDIT_RETENTION = 100;
 export const MAX_AUDIT_RETENTION = 50_000;
@@ -111,24 +105,6 @@ export function getMcpEndpoint(): string {
   const configured = String(Settings.get(MCP_ENDPOINT_SETTING) || "").trim();
   const endpoint = configured.startsWith("/") ? configured : `/${configured}`;
   return /^\/[^\s?#]*$/.test(endpoint) && endpoint !== "/" ? endpoint : DEFAULT_MCP_ENDPOINT;
-}
-
-export function getSessionTimeoutMinutes(): number {
-  return numericSetting(
-    MCP_SESSION_TIMEOUT_SETTING,
-    DEFAULT_SESSION_TIMEOUT_MINUTES,
-    1,
-    MAX_SESSION_TIMEOUT_MINUTES
-  );
-}
-
-export function getSseHeartbeatSeconds(): number {
-  return numericSetting(
-    MCP_SSE_HEARTBEAT_SETTING,
-    DEFAULT_SSE_HEARTBEAT_SECONDS,
-    0,
-    MAX_SSE_HEARTBEAT_SECONDS
-  );
 }
 
 export function getAuditRetention(): number {

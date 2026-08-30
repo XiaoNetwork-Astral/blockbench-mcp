@@ -13,7 +13,6 @@ export type HytaleShadingMode = (typeof HYTALE_SHADING_MODES)[number];
 
 // Quad normal directions
 export const HYTALE_QUAD_NORMALS = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"] as const;
-export type HytaleQuadNormal = (typeof HYTALE_QUAD_NORMALS)[number];
 
 /**
  * Check if the Hytale plugin is installed and enabled in Blockbench.
@@ -91,36 +90,6 @@ export function getAttachmentCollections(): HytaleAttachmentCollection[] {
   return (Collection.all ?? []).filter(
     (c: Collection) => c.export_codec === "blockymodel"
   ) as HytaleAttachmentCollection[];
-}
-
-/**
- * Find an attachment collection by name or UUID.
- */
-export function findAttachmentCollection(
-  id: string
-): HytaleAttachmentCollection | null {
-  const collections = getAttachmentCollections();
-  const uuidMatches = collections.filter((collection) => collection.uuid === id);
-  if (uuidMatches.length === 1) return uuidMatches[0];
-  if (uuidMatches.length > 1) {
-    throw new Error(`Attachment collection UUID "${id}" is duplicated.`);
-  }
-  const nameMatches = collections.filter((collection) => collection.name === id);
-  if (nameMatches.length === 1) return nameMatches[0];
-  if (nameMatches.length > 1) {
-    throw new Error(
-      `Attachment collection name "${id}" is ambiguous (${nameMatches.length} matches: ` +
-        `${nameMatches.map((collection) => collection.uuid).join(", ")}). Use an exact UUID.`
-    );
-  }
-  return null;
-}
-
-/**
- * Check if a group is marked as an attachment piece.
- */
-export function isAttachmentPiece(group: Group): boolean {
-  return (group as HytaleGroup).is_piece === true;
 }
 
 /**

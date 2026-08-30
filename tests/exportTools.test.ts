@@ -1,27 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import {
   assertPortableProjectExportMatches,
-  compileCodecInProject,
+  compileCodec,
 } from "@/server/tools/export";
 
 describe("export_model codec compilation", () => {
   test("resolves synchronous and asynchronous codec results before serialization", async () => {
-    const run = <T>(callback: () => T) => callback();
-    const sync = await compileCodecInProject(
+    const sync = await compileCodec(
       () => "sync-content",
       undefined,
-      undefined,
-      run,
-      false,
-      "sync"
+      undefined
     );
-    const asyncResult = await compileCodecInProject(
+    const asyncResult = await compileCodec(
       async () => ({ asset: { generator: "test" } }),
       undefined,
-      undefined,
-      run,
-      false,
-      "async"
+      undefined
     );
 
     expect(sync).toBe("sync-content");
@@ -36,54 +29,13 @@ describe("export_model codec compilation", () => {
       },
     };
 
-    const result = await compileCodecInProject(
+    const result = await compileCodec(
       codec.compile,
       "project",
-      codec,
-      (callback) => callback(),
-      false,
-      "project"
+      codec
     );
 
     expect(result).toBe("bound-codec:project");
-  });
-
-  test("compiles a background project before restoring the foreground context", async () => {
-    let currentProject = "foreground";
-    const runInProject = <T>(callback: () => T): T => {
-      const previous = currentProject;
-      currentProject = "working-copy";
-      try {
-        return callback();
-      } finally {
-        currentProject = previous;
-      }
-    };
-
-    const result = await compileCodecInProject(
-      () => currentProject,
-      undefined,
-      undefined,
-      runInProject,
-      true,
-      "project"
-    );
-
-    expect(result).toBe("working-copy");
-    expect(currentProject).toBe("foreground");
-  });
-
-  test("does not let an asynchronous codec export an inactive tab", async () => {
-    await expect(
-      compileCodecInProject(
-        async () => "late-content",
-        undefined,
-        undefined,
-        (callback) => callback(),
-        true,
-        "gltf"
-      )
-    ).rejects.toThrow(/cannot safely export an inactive tab/i);
   });
 
   test("rejects portable project content from a different tab before writing", () => {

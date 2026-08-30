@@ -12,126 +12,18 @@ export interface McpPreviewAnimationState {
   time: number | null;
 }
 
+export interface McpPreviewState {
+  animation?: McpPreviewAnimationState;
+  visibility?: McpPreviewVisibilityState;
+}
+
 interface PreviewBoneLike {
   uuid: string;
+  name: string;
+  type?: string;
   parent?: unknown;
   mesh?: unknown;
-}
-
-const DEFAULT_SESSION_KEY = "__default_mcp_session__";
-const previewVisibilityStates = new Map<
-  string,
-  Map<string, McpPreviewVisibilityState>
->();
-const previewAnimationStates = new Map<
-  string,
-  Map<string, McpPreviewAnimationState>
->();
-
-function sessionKey(sessionId?: string): string {
-  return sessionId || DEFAULT_SESSION_KEY;
-}
-
-function uniqueIds(ids: readonly string[]): string[] {
-  return [...new Set(ids)];
-}
-
-function cloneState(state: McpPreviewVisibilityState): McpPreviewVisibilityState {
-  return {
-    hiddenBoneIds: [...state.hiddenBoneIds],
-    shownBoneIds: [...state.shownBoneIds],
-    isolatedBoneIds: [...state.isolatedBoneIds],
-  };
-}
-
-function hasVisibilityFilter(state: McpPreviewVisibilityState): boolean {
-  return Boolean(
-    state.hiddenBoneIds.length ||
-      state.shownBoneIds.length ||
-      state.isolatedBoneIds.length
-  );
-}
-
-export function setSessionPreviewVisibilityState(
-  sessionId: string | undefined,
-  projectId: string,
-  state: McpPreviewVisibilityState
-): void {
-  const normalized: McpPreviewVisibilityState = {
-    hiddenBoneIds: uniqueIds(state.hiddenBoneIds),
-    shownBoneIds: uniqueIds(state.shownBoneIds),
-    isolatedBoneIds: uniqueIds(state.isolatedBoneIds),
-  };
-  const key = sessionKey(sessionId);
-
-  if (!hasVisibilityFilter(normalized)) {
-    const perProject = previewVisibilityStates.get(key);
-    perProject?.delete(projectId);
-    if (perProject?.size === 0) previewVisibilityStates.delete(key);
-    return;
-  }
-
-  let perProject = previewVisibilityStates.get(key);
-  if (!perProject) {
-    perProject = new Map();
-    previewVisibilityStates.set(key, perProject);
-  }
-  perProject.set(projectId, normalized);
-}
-
-export function setSessionPreviewAnimationState(
-  sessionId: string | undefined,
-  projectId: string,
-  state: McpPreviewAnimationState
-): void {
-  const key = sessionKey(sessionId);
-  let perProject = previewAnimationStates.get(key);
-  if (!perProject) {
-    perProject = new Map();
-    previewAnimationStates.set(key, perProject);
-  }
-  perProject.set(projectId, {
-    animationId: state.animationId,
-    time: state.animationId ? state.time ?? 0 : null,
-  });
-}
-
-export function getSessionPreviewAnimationState(
-  sessionId: string | undefined,
-  projectId: string
-): McpPreviewAnimationState | null {
-  const state = previewAnimationStates.get(sessionKey(sessionId))?.get(projectId);
-  return state ? { ...state } : null;
-}
-
-export function getSessionPreviewVisibilityState(
-  sessionId: string | undefined,
-  projectId: string
-): McpPreviewVisibilityState | null {
-  const state = previewVisibilityStates.get(sessionKey(sessionId))?.get(projectId);
-  return state ? cloneState(state) : null;
-}
-
-export function clearSessionPreviewVisibilityState(sessionId?: string): void {
-  const key = sessionKey(sessionId);
-  previewVisibilityStates.delete(key);
-  previewAnimationStates.delete(key);
-}
-
-export function clearAllPreviewVisibilityStates(): void {
-  previewVisibilityStates.clear();
-  previewAnimationStates.clear();
-}
-
-export function forgetProjectPreviewVisibilityState(projectId: string): void {
-  for (const [key, perProject] of previewVisibilityStates) {
-    perProject.delete(projectId);
-    if (perProject.size === 0) previewVisibilityStates.delete(key);
-  }
-  for (const [key, perProject] of previewAnimationStates) {
-    perProject.delete(projectId);
-    if (perProject.size === 0) previewAnimationStates.delete(key);
-  }
+  scene_object?: unknown;
 }
 
 function isPreviewBone(value: unknown): value is PreviewBoneLike {
@@ -182,19 +74,27 @@ export function resolvePreviewBoneVisibility(
   return visibility;
 }
 
-export function applySessionPreviewVisibilityToClone(
+/** Project-local nodes accepted by capture preview visibility controls. */
+export function previewNodesForProject(project: ModelProject): PreviewBoneLike[] {
+  const groups = project.groups as PreviewBoneLike[];
+  const rigNodes = (project.elements as PreviewBoneLike[]).filter(
+    (node) => node.type === "armature" || node.type === "armature_bone"
+  );
+  return [...new Map([...groups, ...rigNodes].map((node) => [node.uuid, node])).values()];
+}
+
+export function applyPreviewVisibilityToClone(
   project: ModelProject,
   sourceToClone: ReadonlyMap<THREE.Object3D, THREE.Object3D>,
-  sessionId?: string
+  state?: McpPreviewVisibilityState
 ): number {
-  const state = getSessionPreviewVisibilityState(sessionId, project.uuid);
   if (!state) return 0;
 
-  const bones = project.groups as PreviewBoneLike[];
+  const bones = previewNodesForProject(project);
   const visibility = resolvePreviewBoneVisibility(bones, state);
   let updated = 0;
   for (const bone of bones) {
-    const sourceMesh = bone.mesh as THREE.Object3D | undefined;
+    const sourceMesh = (bone.scene_object ?? bone.mesh) as THREE.Object3D | undefined;
     if (!sourceMesh) continue;
     const clone = sourceToClone.get(sourceMesh);
     const visible = visibility.get(bone.uuid);

@@ -133,39 +133,40 @@ describe("world-bounds relationship analysis", () => {
   });
 });
 
-describe("explicit Outliner parent schemas", () => {
+describe("Outliner parent schemas", () => {
   const cube = { name: "cube", from: [0, 0, 0], to: [1, 1, 1] };
   const mesh = { name: "mesh" };
 
-  test("creation and duplication reject omitted parents but accept literal root", () => {
-    expect(() => placeCubeParameters.parse({ elements: [cube] })).toThrow();
+  test("creation defaults to root and duplication can preserve its original parent", () => {
+    expect(placeCubeParameters.parse({ elements: [cube] }).group).toBe("root");
     expect(placeCubeParameters.parse({ elements: [cube], group: "root" }).group).toBe("root");
-    expect(() => addGroupParameters.parse({ name: "group" })).toThrow();
+    expect(addGroupParameters.parse({ name: "group" }).parent).toBe("root");
     expect(addGroupParameters.parse({ name: "group", parent: "root" }).parent).toBe("root");
-    expect(() => duplicateElementParameters.parse({ id: "cube" })).toThrow();
+    expect(duplicateElementParameters.parse({ id: "cube" }).parent).toBeUndefined();
     expect(duplicateElementParameters.parse({ id: "cube", parent: "root" }).parent).toBe("root");
-    expect(() => placeMeshParameters.parse({ elements: [mesh] })).toThrow();
+    expect(placeMeshParameters.parse({ elements: [mesh] }).group).toBe("root");
     expect(placeMeshParameters.parse({ elements: [mesh], group: "root" }).group).toBe("root");
   });
 
-  test("generated mesh and armature tools require explicit placement", () => {
+  test("generated mesh, armature, and Hytale tools default to root", () => {
     const sphere = { name: "sphere", position: [0, 0, 0] };
     const cylinder = { name: "cylinder", position: [0, 0, 0] };
-    expect(() => createSphereParameters.parse({ elements: [sphere] })).toThrow();
+    expect(createSphereParameters.parse({ elements: [sphere] }).group).toBe("root");
     expect(createSphereParameters.parse({ elements: [sphere], group: "root" }).group).toBe("root");
-    expect(() => createCylinderParameters.parse({ elements: [cylinder] })).toThrow();
+    expect(createCylinderParameters.parse({ elements: [cylinder] }).group).toBe("root");
     expect(createCylinderParameters.parse({ elements: [cylinder], group: "root" }).group).toBe("root");
     const pyramid = {
       name: "pyramid",
       base_center: [0, 0, 0],
       apex: [0, 4, 0],
     };
-    expect(() => createPyramidParameters.parse({ elements: [pyramid] })).toThrow();
+    expect(createPyramidParameters.parse({ elements: [pyramid] }))
+      .toMatchObject({ group: "root", elements: [{ sides: 4, capped: true }] });
     expect(createPyramidParameters.parse({ elements: [pyramid], group: "root" }))
       .toMatchObject({ group: "root", elements: [{ sides: 4, capped: true }] });
-    expect(() => addArmatureParameters.parse({})).toThrow();
+    expect(addArmatureParameters.parse({}).parent).toBe("root");
     expect(addArmatureParameters.parse({ parent: "root" }).parent).toBe("root");
-    expect(() => hytaleCreateQuadParametersSchema.parse({ name: "quad" })).toThrow();
+    expect(hytaleCreateQuadParametersSchema.parse({ name: "quad" }).group).toBe("root");
     expect(hytaleCreateQuadParametersSchema.parse({ name: "quad", group: "root" }).group)
       .toBe("root");
   });
@@ -176,15 +177,19 @@ describe("explicit Outliner parent schemas", () => {
       .toMatchObject({ parent: "root", preserve_world_transform: true });
   });
 
-  test("bone rigging makes hierarchy and rename intent explicit", () => {
-    expect(() => boneRiggingParameters.parse({
+  test("bone rigging defaults placement only where the action is unambiguous", () => {
+    expect(boneRiggingParameters.parse({
       action: "create",
       bone_data: { name: "bone" },
-    })).toThrow(/parent/i);
-    expect(() => boneRiggingParameters.parse({
+    })).toMatchObject({ action: "create", bone_data: { name: "bone" } });
+    expect(boneRiggingParameters.parse({
       action: "unparent",
-      bone_data: { name: "bone", parent: "other" },
-    })).toThrow(/root/i);
+      bone_data: { name: "bone" },
+    })).toMatchObject({ action: "unparent", bone_data: { name: "bone" } });
+    expect(() => boneRiggingParameters.parse({
+      action: "parent",
+      bone_data: { name: "bone" },
+    })).toThrow(/parent/i);
     expect(() => boneRiggingParameters.parse({
       action: "rename",
       bone_data: { name: "bone" },
@@ -224,11 +229,9 @@ describe("geometry import source safety", () => {
 });
 
 describe("project mutation safety schemas", () => {
-  test("close-without-saving requires an explicit project scope", () => {
-    expect(() => closeProjectParameters.parse({})).toThrow();
-    expect(closeProjectParameters.parse({ targets: "working" }).targets)
-      .toBe("working");
-    expect(() => closeProjectParameters.parse({ targets: "active" })).toThrow();
+  test("close-without-saving always targets the captured visible project", () => {
+    expect(closeProjectParameters.parse({})).toEqual({});
+    expect(closeProjectParameters.parse({ targets: "all" })).toEqual({});
   });
 
   test("texture resolution preserves UVs by default", () => {

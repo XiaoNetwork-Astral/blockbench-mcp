@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as THREE from "three";
 import { withTemporaryAnimationPose } from "@/lib/util";
 
-const runtime = globalThis as typeof globalThis & Record<string, any>;
+const runtime = globalThis as unknown as Record<string, any>;
 const previousGlobals: Record<string, unknown> = {};
 
 beforeEach(() => {

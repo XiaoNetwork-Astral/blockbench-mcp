@@ -33,8 +33,10 @@ export const placeCubeParameters = z.object({
   group: z
     .string()
     .min(1)
+    .optional()
+    .default("root")
     .describe(
-      "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level cube."
+      "Parent group/bone UUID or unique name. Defaults to the Outliner root."
     ),
   faces: z
     .union([
@@ -177,7 +179,7 @@ export const cubeToolDocs: ToolSpec[] = [
   {
     name: "create_cube",
     description:
-      "Places one or more cubes under a mandatory explicit parent. Use group='root' only for intentional root-level cubes; omitted, missing, or ambiguous parents are rejected before mutation.",
+      "Places one or more cubes. They are created at the Outliner root unless a parent group or bone is supplied.",
     annotations: {
       title: "Create Cube",
       destructiveHint: true,

@@ -82,6 +82,21 @@ describe("project-scoped texture safety", () => {
     expect(target.saved).toBe(true);
   });
 
+  test("does not impose a second UUID-uniqueness authorization gate", () => {
+    replaceGlobal("PathModule", path.win32);
+    const { project: target, texture } = project(
+      "working",
+      "D:\\workspace\\textures\\default.png"
+    );
+    target.textures.push({ ...texture });
+    replaceGlobal("ModelProject", { all: [target] });
+
+    expect(() => prepareTextureForMutation(
+      target as unknown as ModelProject,
+      texture as unknown as Texture
+    )).not.toThrow();
+  });
+
   test("blocks a write that would alter another open project's texture dependency", () => {
     replaceGlobal("PathModule", path.win32);
     const storage = {
@@ -192,6 +207,44 @@ describe("project-scoped texture safety", () => {
       edit_name: "test edit",
       no_undo_init: true,
       no_undo_finish: true,
+    });
+  });
+
+  test("records the active layer instead of the whole texture for layer edits", () => {
+    replaceGlobal("PathModule", path.win32);
+    const { project: working, texture } = project(
+      "working",
+      "D:\\workspace\\textures\\working.png",
+      "working"
+    );
+    const layer = { uuid: "layer" };
+    Object.assign(texture, {
+      layers_enabled: true,
+      selected_layer: layer,
+      edit(callback: (canvas: HTMLCanvasElement) => void) {
+        callback({} as HTMLCanvasElement);
+      },
+    });
+    replaceGlobal("ModelProject", { all: [working] });
+    let aspects: Record<string, unknown> | undefined;
+    replaceGlobal("Undo", {
+      initEdit(value: Record<string, unknown>) { aspects = value; },
+      finishEdit() {},
+      cancelEdit() {},
+    });
+
+    editTextureWithUndo(
+      working as unknown as ModelProject,
+      texture as unknown as Texture,
+      "layer edit",
+      () => {},
+      true
+    );
+
+    expect(aspects).toEqual({
+      bitmap: true,
+      layers: [layer],
+      selected_texture: true,
     });
   });
 });

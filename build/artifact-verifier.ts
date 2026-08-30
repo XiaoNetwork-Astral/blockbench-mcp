@@ -15,6 +15,46 @@ const nativeModuleNames = new Set(
   builtinModules.flatMap((name) => [name, name.replace(/^node:/, "")])
 );
 
+const blockbenchNativeModuleNames = new Set([
+  "buffer",
+  "child_process",
+  "clipboard",
+  "constants",
+  "crypto",
+  "dialog",
+  "events",
+  "fs",
+  "https",
+  "net",
+  "os",
+  "path",
+  "perf_hooks",
+  "process",
+  "querystring",
+  "shell",
+  "stream",
+  "string_decoder",
+  "timers",
+  "tls",
+  "url",
+  "util",
+  "v8",
+  "zlib",
+]);
+
+function verifyNativeModuleRequests(source: string): void {
+  const requestPattern = /\brequireNativeModule\s*\(\s*(["'])([^"']+)\1/g;
+  for (const match of source.matchAll(requestPattern)) {
+    const requested = match[2];
+    const normalized = requested.replace(/^node:/, "");
+    if (!blockbenchNativeModuleNames.has(normalized)) {
+      throw new Error(
+        `Standalone plugin requests unsupported Blockbench native module ${JSON.stringify(requested)}.`
+      );
+    }
+  }
+}
+
 function requireNativeOnly(moduleName: unknown): unknown {
   if (typeof moduleName !== "string" || !nativeModuleNames.has(moduleName)) {
     throw new Error(
@@ -51,6 +91,7 @@ export function verifyBlockbenchPluginArtifact(
   source: string,
   expected: ExpectedPluginIdentity
 ): RegisteredPlugin {
+  verifyNativeModuleRequests(source);
   const registrations: RegisteredPlugin[] = [];
   const pluginApi = {
     register(id: unknown, metadata: unknown) {

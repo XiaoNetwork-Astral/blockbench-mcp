@@ -9,12 +9,8 @@ import {
   DEFAULT_MCP_BIND_HOST,
   DEFAULT_MCP_ENDPOINT,
   DEFAULT_MCP_PORT,
-  DEFAULT_SESSION_TIMEOUT_MINUTES,
-  DEFAULT_SSE_HEARTBEAT_SECONDS,
   MAX_AUDIT_RETENTION,
   MAX_MCP_PORT,
-  MAX_SESSION_TIMEOUT_MINUTES,
-  MAX_SSE_HEARTBEAT_SECONDS,
   MCP_AUDIT_DEFAULT_SCOPE_SETTING,
   MCP_AUDIT_PAGE_SIZE_SETTING,
   MCP_AUDIT_RETENTION_SETTING,
@@ -23,8 +19,6 @@ import {
   MCP_BIND_HOST_SETTING,
   MCP_ENDPOINT_SETTING,
   MCP_PORT_SETTING,
-  MCP_SESSION_TIMEOUT_SETTING,
-  MCP_SSE_HEARTBEAT_SETTING,
   MIN_AUDIT_RETENTION,
   MIN_MCP_PORT,
   PLUGIN_WORKSPACE_SETTING,
@@ -156,7 +150,7 @@ function ensureSettingsCategory(): void {
     items: {},
   };
 
-  if (legacy && LEGACY_PLUGIN_ID !== CATEGORY_ID) {
+  if (legacy) {
     reactiveDelete(Settings.structure, LEGACY_PLUGIN_ID);
     if (sidebar?.pages[LEGACY_PLUGIN_ID]) {
       reactiveDelete(sidebar.pages, LEGACY_PLUGIN_ID);
@@ -680,27 +674,6 @@ export function settingsSetup(): void {
     icon: "key",
     onChange: keepEnabledAuthTokenNonEmpty,
   });
-  addSetting(MCP_SESSION_TIMEOUT_SETTING, {
-    name: tl("mcp.settings.session_timeout_name"),
-    description: tl("mcp.settings.session_timeout_desc"),
-    type: "number",
-    value: DEFAULT_SESSION_TIMEOUT_MINUTES,
-    min: 1,
-    max: MAX_SESSION_TIMEOUT_MINUTES,
-    step: 1,
-    icon: "timer",
-  });
-  addSetting(MCP_SSE_HEARTBEAT_SETTING, {
-    name: tl("mcp.settings.sse_heartbeat_name"),
-    description: tl("mcp.settings.sse_heartbeat_desc"),
-    type: "number",
-    value: DEFAULT_SSE_HEARTBEAT_SECONDS,
-    min: 0,
-    max: MAX_SSE_HEARTBEAT_SECONDS,
-    step: 1,
-    icon: "favorite",
-  });
-
   addSetting(MCP_AUDIT_RETENTION_SETTING, {
     name: tl("mcp.settings.audit_retention_name"),
     description: tl("mcp.settings.audit_retention_desc", [MAX_AUDIT_RETENTION]),

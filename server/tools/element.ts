@@ -3,8 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import { findElementOrThrow, findGroupOrThrow, findTextureOrThrow } from "@/lib/util";
@@ -114,8 +112,10 @@ export const addGroupParameters = z.object({
   parent: z
     .string()
     .min(1)
+    .optional()
+    .default("root")
     .describe(
-      "Required parent UUID or unique name. Use the exact literal 'root' only for an intentional root-level group."
+      "Parent UUID or unique name. Defaults to the Outliner root."
     ),
   visibility: z.boolean().optional().default(true),
   autouv: autoUvEnum
@@ -154,8 +154,9 @@ export const duplicateElementParameters = z.object({
   parent: z
     .string()
     .min(1)
+    .optional()
     .describe(
-      "Required target parent UUID or unique name. Use the exact literal 'root' only for an intentional root-level duplicate."
+      "Target parent UUID or unique name. Defaults to the original element's parent."
     ),
   offset: vec3().optional().default([0, 0, 0]),
   newName: z.string().optional(),
@@ -234,7 +235,7 @@ export const elementToolDocs: ToolSpec[] = [
   {
     name: "add_group",
     description:
-      "Adds a new group under a mandatory explicit parent. Use parent='root' only for an intentional root-level group; omitted, missing, or ambiguous parents are rejected before mutation.",
+      "Adds a new group at the Outliner root unless a parent group or bone is supplied.",
     annotations: {
       title: "Add Group",
       destructiveHint: true,
@@ -256,7 +257,7 @@ export const elementToolDocs: ToolSpec[] = [
   {
     name: "duplicate_element",
     description:
-      "Duplicates a cube, mesh, or group under a mandatory explicit target parent while preserving geometry, UVs, textures, and descendants. You may offset the duplicate or assign a new name.",
+      "Duplicates a cube, mesh, or group beside the original by default while preserving geometry, UVs, textures, and descendants. You may choose another parent, offset the duplicate, or assign a new name.",
     annotations: { title: "Duplicate Element", destructiveHint: true },
     parameters: duplicateElementParameters,
     status: STATUS_EXPERIMENTAL,
@@ -304,7 +305,7 @@ export const elementToolDocs: ToolSpec[] = [
   {
     name: "get_selection",
     description:
-      "Returns the current selection state: selected cube/mesh/group UUIDs and names, plus the active texture. Use this to verify what the edit_textures action apply_texture or an edit_texture_paint action with fill_mode=\"selected_elements\" will target.",
+      "Returns selected cube/mesh/group identities, each selected mesh's vertex/edge/face keys, and the active texture.",
     annotations: {
       title: "Get Selection",
       readOnlyHint: true,
@@ -345,43 +346,6 @@ export const elementToolDocs: ToolSpec[] = [
       "Creates, renames, replaces the members of, or removes one editor-only Collection without changing Outliner parents or bones.",
     annotations: { title: "Edit Collection", destructiveHint: true },
     parameters: editCollectionParameters,
-    status: STATUS_STABLE,
-  },
-];
-
-const elementReadOperations = [
-  elementToolDocs[2],
-  elementToolDocs[5],
-  elementToolDocs[7],
-  elementToolDocs[8],
-  elementToolDocs[11],
-];
-const elementEditOperations = [
-  elementToolDocs[0],
-  elementToolDocs[1],
-  elementToolDocs[3],
-  elementToolDocs[4],
-  elementToolDocs[6],
-  elementToolDocs[9],
-  elementToolDocs[10],
-  elementToolDocs[12],
-];
-
-export const elementPublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_elements",
-    description:
-      "Lists the Outliner or Collections, searches elements, reports selection, or finds texture users through one read-only command.action.",
-    annotations: { title: "Inspect Elements", readOnlyHint: true },
-    parameters: createToolGroupParameters(elementReadOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_elements",
-    description:
-      "Edits Outliner elements or editor-only Collections through one explicit command.action.",
-    annotations: { title: "Edit Elements", destructiveHint: true },
-    parameters: createToolGroupParameters(elementEditOperations),
     status: STATUS_STABLE,
   },
 ];
@@ -656,7 +620,9 @@ export function registerElementTools() {
           `Element "${id}" has unsupported type "${element.type}". duplicate_element supports cubes, meshes, and groups.`
         );
       }
-      const targetParent = resolveOutlinerParentOrThrow(parent, element.type);
+      const targetParent = parent
+        ? resolveOutlinerParentOrThrow(parent, element.type)
+        : element.parent;
 
       Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
       let duplicate: OutlinerNode | undefined;
@@ -896,6 +862,11 @@ export function registerElementTools() {
         uuid: m.uuid,
         name: m.name,
         type: "mesh" as const,
+        mesh_elements: {
+          vertex_keys: [...m.getSelectedVertices()],
+          edges: m.getSelectedEdges().map((edge) => [edge[0], edge[1]]),
+          face_keys: [...m.getSelectedFaces()],
+        },
       }));
       const groups = Group.all
         .filter((g: Group) => g.selected)
@@ -1194,6 +1165,4 @@ export function registerElementTools() {
     },
   }, elementToolDocs[12].status);
 
-  createToolGroup(elementPublicToolDocs[0], elementReadOperations);
-  createToolGroup(elementPublicToolDocs[1], elementEditOperations);
 }

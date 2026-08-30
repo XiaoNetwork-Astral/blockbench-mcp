@@ -3,20 +3,16 @@
 import { VERSION } from "@/lib/constants";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
-let serverInstance: McpServer | null = null;
 const MCP_INSTRUCTIONS =
-  "Public tools use predictable intent_domain names: inspect_* reads, edit_* changes model or " +
-  "editor state, create_* creates focused geometry, and import_*/export_* cross file boundaries. " +
-  "Grouped tools expose exact operations through command.action. " +
-  "Each MCP session owns a working project independently from the Blockbench tab the user is viewing. " +
-  "Use inspect_projects/list_projects and edit_projects/set_working_project to orient once; do not " +
-  "show or select that tab merely to edit it or capture_viewport, because the user may switch tabs freely. " +
+  "Each project-scoped tool acts on the Blockbench tab visible when that call begins. " +
+  "Use list_projects to inspect open tabs and select_project when a different tab should become visible. " +
+  "Tools take operation-specific inputs directly; there is no command wrapper or connection-owned project. " +
   "Work incrementally and preserve existing content unless the user explicitly authorizes a " +
-  "replacement or deletion. Every Outliner create, duplicate, parent, or mirror operation must " +
-  "name an explicit parent; use the literal root only when root placement is intentional. Build " +
+  "replacement or deletion. New Outliner nodes default to root and duplicates stay beside the original; " +
+  "name a parent when building hierarchy and always name the destination when reparenting. Build " +
   "a semantic group hierarchy before adding geometry, and validate each coherent stage from " +
-  "front, side, top, and perspective views. Use inspect_geometry with command.action " +
-  "inspect_spatial_relationships for important contacts. If hierarchy or depth remains " +
+  "front, side, top, and perspective views. Use inspect_spatial_relationships for important " +
+  "contacts. If hierarchy or depth remains " +
   "ambiguous after those checks, stop before further " +
   "mutation and ask the user to inspect the model and state the intended structure or position. " +
   "Do not use import_bedrock_geometry as a shortcut unless the user explicitly asks to import existing " +
@@ -34,25 +30,3 @@ export function createServer() {
     { instructions: MCP_INSTRUCTIONS }
   );
 }
-
-/**
- * Gets the current server instance
- */
-export function getServer() {
-  if (!serverInstance) {
-    serverInstance = createServer();
-  }
-  return serverInstance;
-}
-
-/**
- * Replaces the current server instance with a new one
- * @param newServer - The new server instance
- */
-export function setServer(newServer: McpServer) {
-  serverInstance = newServer;
-}
-
-// Export the default server instance
-const server = getServer();
-export default server;

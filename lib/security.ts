@@ -1,10 +1,3 @@
-const blockedToolNames = new Set([
-  "risky_eval",
-  "trigger_action",
-  "emulate_clicks",
-  "fill_dialog",
-]);
-
 /** Whether a configured bind host is unambiguously local-only. */
 export function isLoopbackMcpHost(host: string): boolean {
   const normalized = host
@@ -17,17 +10,6 @@ export function isLoopbackMcpHost(host: string): boolean {
   if (normalized === "::1" || normalized === "0:0:0:0:0:0:0:1") return true;
   if (/^127(?:\.\d{1,3}){3}$/.test(normalized)) return true;
   return /^::ffff:127(?:\.\d{1,3}){3}$/.test(normalized);
-}
-
-/**
- * Reject tools that deliberately expose arbitrary code execution. Keeping the
- * check at the shared registration boundary prevents an upstream merge from
- * accidentally making the tool reachable again.
- */
-export function assertToolRegistrationAllowed(name: string): void {
-  if (blockedToolNames.has(name)) {
-    throw new Error(`MCP tool "${name}" is permanently disabled by the local security policy.`);
-  }
 }
 
 function constantTimeEqual(left: string, right: string): boolean {

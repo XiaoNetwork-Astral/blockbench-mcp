@@ -3,10 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createTool,
-  createToolGroup,
-  createToolGroupParameters,
-  groupedToolOutputSchema,
   type ToolSpec,
 } from "@/lib/factories";
 import {
@@ -17,16 +13,12 @@ import {
 } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import { vec3 } from "@/lib/zodObjects";
-import {
-  resolveOpenProject,
-  setSessionCameraState,
-  type McpCameraState,
-} from "@/lib/projectContext";
+import type { McpCameraState } from "@/src/blockbench/camera";
 import { expandOutlinerGeometryWorldBounds } from "@/lib/sceneBounds";
 import { fitBoundingSpherePerspectiveDistance } from "@/lib/cameraFraming";
+import { previewParameters, resolvePreviewState } from "@/server/tools/preview";
 
 export const captureScreenshotParameters = z.object({
-  project: z.string().optional().describe("Project name or UUID."),
   settle_frames: z
     .number()
     .int()
@@ -37,7 +29,11 @@ export const captureScreenshotParameters = z.object({
     .describe("Render frames to wait before capture. Use 0 only when the scene is already stable."),
   width: z.number().int().min(64).max(1600).optional().default(800),
   height: z.number().int().min(64).max(1200).optional().default(600),
-});
+  camera: z.lazy(() => setCameraAngleParameters).optional()
+    .describe("Optional one-shot camera for this capture."),
+  preview: previewParameters.optional()
+    .describe("Optional one-shot animation pose and bone visibility for this capture."),
+}).strict();
 
 export const captureAppScreenshotParameters = z.object({});
 
@@ -95,15 +91,13 @@ export const setCameraAngleParameters = z.object({
   }
 });
 
-export const getCameraStateParameters = z.object({
-  project: z.string().optional().describe("Project UUID, exact name, or exact save path."),
-}).strict();
+export const getCameraStateParameters = z.object({}).strict();
 
 export const cameraToolDocs: ToolSpec[] = [
   {
     name: "capture_viewport",
     description:
-      "Renders the requested or MCP working project offscreen without selecting its Blockbench tab.",
+      "Captures the visible project with optional one-shot camera, animation, and bone visibility settings.",
     annotations: {
       title: "Inspect Viewport",
       readOnlyHint: true,
@@ -114,6 +108,7 @@ export const cameraToolDocs: ToolSpec[] = [
   {
     name: "capture_blockbench_ui",
     description: "Returns the image data of the Blockbench app.",
+    project: "none",
     annotations: {
       title: "Inspect Blockbench UI",
       readOnlyHint: true,
@@ -123,35 +118,9 @@ export const cameraToolDocs: ToolSpec[] = [
   },
   {
     name: "get_camera_state",
-    description: "Returns the effective session-scoped offscreen camera with exact projection, FOV/zoom, viewport, and project identity.",
+    description: "Returns the effective camera for the visible project with exact projection, FOV/zoom, viewport, and project identity.",
     annotations: { title: "Get MCP Camera State", readOnlyHint: true },
     parameters: getCameraStateParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-];
-
-const cameraInspectionOperations = [...cameraToolDocs];
-
-export const cameraPublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_blockbench",
-    description:
-      "Captures the rendered viewport or complete Blockbench window, or returns the effective offscreen camera, through one command.action. The get_camera_state action is experimental.",
-    annotations: { title: "Inspect Blockbench", readOnlyHint: true },
-    parameters: createToolGroupParameters(cameraInspectionOperations),
-    outputSchema: groupedToolOutputSchema,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_camera",
-    description:
-      "Sets this MCP session's offscreen camera for its working project without changing the user's visible viewport.",
-    annotations: {
-      title: "Edit Camera",
-      destructiveHint: false,
-      idempotentHint: true,
-    },
-    parameters: setCameraAngleParameters,
     status: STATUS_EXPERIMENTAL,
   },
 ];
@@ -159,15 +128,33 @@ export const cameraPublicToolDocs: ToolSpec[] = [
 export function registerCameraTools() {
   createInternalTool(cameraToolDocs[0].name, {
     ...cameraToolDocs[0],
-    async execute({ project, settle_frames, width, height }, context) {
-      return await captureScreenshot(
-        project,
-        settle_frames,
-        context.sessionId,
-        context.project,
+    async execute({ settle_frames, width, height, camera: inputCamera, preview }, context) {
+      const project = context.project!;
+      const camera = inputCamera
+        ? inputCamera.auto_fit
+          ? fittedElementCamera(inputCamera)
+          : {
+              position: [...inputCamera.position!] as [number, number, number],
+              target: inputCamera.target
+                ? [...inputCamera.target] as [number, number, number]
+                : undefined,
+              rotation: inputCamera.rotation
+                ? [...inputCamera.rotation] as [number, number, number]
+                : undefined,
+              projection: inputCamera.projection,
+              zoom: inputCamera.zoom,
+              fov: inputCamera.fov,
+              viewport: [width, height] as [number, number],
+            } satisfies McpCameraState
+        : undefined;
+      return captureScreenshot({
+        settleFrames: settle_frames,
+        workingProject: project,
         width,
-        height
-      );
+        height,
+        camera,
+        preview: resolvePreviewState(preview, project),
+      });
     },
   }, cameraToolDocs[0].status);
 
@@ -180,59 +167,18 @@ export function registerCameraTools() {
 
   createInternalTool(cameraToolDocs[2].name, {
     ...cameraToolDocs[2],
-    async execute({ project: reference }, context) {
-      const project = reference ? resolveOpenProject(reference) : context.project!;
+    async execute(_input, context) {
+      const project = context.project!;
       return JSON.stringify({
         schema_version: "1",
         project: { uuid: project.uuid, name: project.name },
-        camera: getEffectiveCameraState(project, context.sessionId),
+        camera: getEffectiveCameraState(project),
       }, null, 2);
     },
   }, cameraToolDocs[2].status);
-
-  createTool(cameraPublicToolDocs[1].name, {
-    ...cameraPublicToolDocs[1],
-    async execute(angle, context) {
-      const project = context.project!;
-      const state = angle.auto_fit
-        ? fittedElementCamera(project, angle)
-        : {
-            position: [...angle.position!] as [number, number, number],
-            target: angle.target ? [...angle.target] as [number, number, number] : undefined,
-            rotation: angle.rotation ? [...angle.rotation] as [number, number, number] : undefined,
-            projection: angle.projection,
-            zoom: angle.zoom,
-            fov: angle.fov,
-            viewport: angle.viewport
-              ? [angle.viewport[0], angle.viewport[1]] as [number, number]
-              : undefined,
-          } satisfies McpCameraState;
-      setSessionCameraState(context.sessionId, project.uuid, state);
-      const viewport = state.viewport ?? [800, 600];
-      const screenshot = await captureScreenshot(
-        undefined,
-        2,
-        context.sessionId,
-        project,
-        viewport[0],
-        viewport[1]
-      );
-      return {
-        ...screenshot,
-        structuredContent: {
-          schema_version: "1",
-          project: { uuid: project.uuid, name: project.name },
-          camera: state,
-        },
-      };
-    },
-  }, cameraPublicToolDocs[1].status);
-
-  createToolGroup(cameraPublicToolDocs[0], cameraInspectionOperations);
 }
 
 function fittedElementCamera(
-  project: ModelProject,
   angle: z.infer<typeof setCameraAngleParameters>
 ): McpCameraState {
   const fit = angle.auto_fit!;

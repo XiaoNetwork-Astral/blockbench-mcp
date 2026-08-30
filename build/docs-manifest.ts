@@ -1,69 +1,24 @@
 import { z } from "zod";
 import type { ToolSpec, PromptSpec, ResourceSpec } from "../lib/factories";
-
-// Tool docs imports — each file exports schemas at module level with zero Blockbench deps
-import { cameraPublicToolDocs as cameraToolDocs } from "../server/tools/camera";
-import { exactTextureToolDocs } from "../server/tools/exact-texture";
-import { cubeToolDocs } from "../server/tools/cubes";
-import { displayPublicToolDocs as displayToolDocs } from "../server/tools/display";
-import { elementPublicToolDocs as elementToolDocs } from "../server/tools/element";
-import { importToolDocs } from "../server/tools/import";
-import { meshPublicToolDocs as meshToolDocs } from "../server/tools/mesh";
-import { paintPublicToolDocs as paintToolDocs } from "../server/tools/paint";
-import { projectPublicToolDocs as projectToolDocs } from "../server/tools/project";
-import { spatialPublicToolDocs as spatialToolDocs } from "../server/tools/spatial";
-import { texturePublicToolDocs as textureToolDocs } from "../server/tools/texture";
-import { armaturePublicToolDocs as armatureToolDocs } from "../server/tools/armature";
-import { animationPublicToolDocs as animationToolDocs } from "../server/tools/animation";
-import { hytalePublicToolDocs as hytaleToolDocs } from "../server/tools/hytale";
-import { materialInstancePublicToolDocs as materialInstanceToolDocs } from "../server/tools/material-instances";
-import { uvPublicToolDocs as uvToolDocs } from "../server/tools/uv";
-import { historyPublicToolDocs as historyToolDocs } from "../server/tools/history";
-import { exportToolDocs } from "../server/tools/export";
-import { workflowPublicToolDocs as workflowToolDocs } from "../server/tools/workflow";
-import { ysmPublicToolDocs as ysmToolDocs } from "../server/tools/ysm";
-import { validationPublicToolDoc } from "../server/tools/validation";
+import { TOOL_CATEGORIES } from "../src/runtime/toolCatalog";
 
 export interface CategoryGroup {
   category: string;
   tools: ToolSpec[];
 }
 
-export const toolManifest: CategoryGroup[] = [
-  { category: "Cubes", tools: cubeToolDocs },
-  { category: "Display Settings", tools: displayToolDocs },
-  { category: "Camera & Screenshots", tools: cameraToolDocs },
-  { category: "Animation", tools: animationToolDocs },
-  { category: "Armature", tools: armatureToolDocs },
-  { category: "Elements", tools: elementToolDocs },
-  { category: "Export", tools: exportToolDocs },
-  { category: "History", tools: historyToolDocs },
-  { category: "Import/Export", tools: importToolDocs },
-  { category: "Material Instances", tools: materialInstanceToolDocs },
-  { category: "Mesh Editing", tools: meshToolDocs },
-  { category: "Paint Tools", tools: paintToolDocs },
-  { category: "Exact Texture Editing", tools: exactTextureToolDocs },
-  { category: "Project", tools: projectToolDocs },
-  { category: "Textures", tools: textureToolDocs },
-  { category: "Spatial Inspection", tools: spatialToolDocs },
-  { category: "Model Validation", tools: [validationPublicToolDoc] },
-  { category: "UV Mapping", tools: uvToolDocs },
-  { category: "YSM Workspace (optional)", tools: ysmToolDocs },
-  { category: "YSM Workflow (optional)", tools: workflowToolDocs },
-  { category: "Hytale Integration (optional)", tools: hytaleToolDocs },
-];
+export const toolManifest: CategoryGroup[] = TOOL_CATEGORIES.map(
+  ({ category, tools, optional }) => ({
+    category: optional ? `${category} (optional)` : category,
+    tools: [...tools],
+  })
+);
 
 // Prompt specs defined inline — server/prompts.ts uses macros that complicate direct import
 export const promptDocs: PromptSpec[] = [
   {
-    name: "blockbench_native_apis",
-    description:
-      "Essential information about Blockbench v5.0 native API security model and requireNativeModule() usage. Use this when working with Node.js modules, file system access, or native APIs in Blockbench plugins.",
-    status: "stable",
-  },
-  {
     name: "model_creation_strategy",
-    title: "Safe Model Creation Strategy",
+    title: "Model Creation Strategy",
     description:
       "A staged Blockbench modeling workflow with explicit hierarchy, multi-view spatial checks, and human review checkpoints.",
     argsSchema: z.object({
@@ -126,24 +81,24 @@ export const resourceDocs: ResourceSpec[] = [
   },
   {
     name: "nodes",
-    uriTemplate: "nodes://{id}",
+    uriTemplate: "nodes://{project}/{id}",
     title: "Blockbench Nodes",
     description:
-      "Returns the current 3D nodes in the editor. List URIs use slugified names (e.g. `nodes://head`) when unique, with `~<uuid-prefix>` on collision. Reads accept UUID, exact name, or slug.",
+      "Returns 3D nodes from the visible project. Listed URIs include that project's UUID and can be read only while the same tab remains visible.",
   },
   {
     name: "textures",
-    uriTemplate: "textures://{id}",
+    uriTemplate: "textures://{project}/{id}",
     title: "Blockbench Textures",
     description:
-      "Returns information about textures. List URIs use slugified names (e.g. `textures://skin`) when unique, with `~<uuid-prefix>` on collision. Reads accept UUID, exact name, slug, or short numeric texture id.",
+      "Returns textures from the visible project. Listed URIs include that project's UUID; texture names must be unique when used instead of UUIDs.",
   },
   {
     name: "reference_models",
-    uriTemplate: "reference_models://{id}",
+    uriTemplate: "reference_models://{project}/{id}",
     title: "Reference Models",
     description:
-      "Returns reference models in the current project. Requires the Reference Models plugin. List URIs use slugified names (e.g. `reference_models://turntable`) with `~<uuid-prefix>` on collision. Reads accept UUID, exact name, or slug.",
+      "Returns reference models from the visible project. Requires the Reference Models plugin.",
   },
   {
     name: "validator-status",
@@ -175,30 +130,30 @@ export const resourceDocs: ResourceSpec[] = [
   },
   {
     name: "hytale-format",
-    uriTemplate: "hytale://format",
+    uriTemplate: "hytale://format/{project}",
     title: "Hytale Format Information",
     description:
-      "Returns comprehensive information about the current Hytale format, including format type, block size, node limits, and feature support.",
+      "Returns format, block-size, node-limit, and feature information for the visible Hytale project.",
   },
   {
     name: "hytale-attachments",
-    uriTemplate: "hytale://attachments/{id}",
+    uriTemplate: "hytale://attachments/{project}/{id}",
     title: "Hytale Attachments",
     description:
-      "Returns information about attachment collections. List URIs use slugified collection names (e.g. `hytale://attachments/helmet`) with `~<uuid-prefix>` on collision. Reads accept UUID, exact name, or slug.",
+      "Returns attachment collections from the visible Hytale project.",
   },
   {
     name: "hytale-pieces",
-    uriTemplate: "hytale://pieces/{id}",
+    uriTemplate: "hytale://pieces/{project}/{id}",
     title: "Hytale Attachment Pieces",
     description:
-      "Returns groups marked as attachment pieces — they connect to like-named bones in the main model. List URIs use slugified bone names (e.g. `hytale://pieces/hand-right`) with `~<uuid-prefix>` on collision.",
+      "Returns groups marked as attachment pieces in the visible Hytale project.",
   },
   {
     name: "hytale-cubes",
-    uriTemplate: "hytale://cubes/{id}",
+    uriTemplate: "hytale://cubes/{project}/{id}",
     title: "Hytale Cubes",
     description:
-      "Returns cubes with Hytale-specific properties (shading_mode, double_sided, stretch). List URIs use slugified cube names (e.g. `hytale://cubes/torso`) with `~<uuid-prefix>` on collision.",
+      "Returns cubes and their Hytale-specific properties from the visible Hytale project.",
   },
 ];

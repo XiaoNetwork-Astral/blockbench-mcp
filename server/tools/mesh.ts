@@ -3,8 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import {
@@ -28,6 +26,22 @@ import {
   resolveOutlinerParentOrThrow,
   rollbackCreatedOutlinerEdit,
 } from "@/lib/modelSafety";
+import {
+  applySelectionAction,
+  assertMeshVertexKeys,
+  meshEdgeId,
+  replaceArray,
+  resolveMeshSelection,
+  sameMeshEdge,
+  uniqueKeys,
+  type MeshEdge,
+} from "@/lib/meshEditing";
+
+type ThreeApi = typeof import("three");
+
+function getThreeApi(): ThreeApi {
+  return (globalThis as typeof globalThis & { THREE: ThreeApi }).THREE;
+}
 
 // ============================================================================
 // Mesh Tool Parameter Schemas
@@ -39,8 +53,8 @@ export const placeMeshParameters = z.object({
     .min(1)
     .describe("Array of meshes to place."),
   texture: textureIdOptionalSchema.describe("Texture ID or name to apply to the mesh."),
-  group: z.string().min(1).describe(
-    "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level mesh."
+  group: z.string().min(1).optional().default("root").describe(
+    "Parent group/bone UUID or unique name. Defaults to the Outliner root."
   ),
 });
 
@@ -97,8 +111,8 @@ export const createSphereParameters = z.object({
     .min(1)
     .describe("Array of spheres to create."),
   texture: textureIdOptionalSchema.describe("Texture ID or name to apply to the sphere."),
-  group: z.string().min(1).describe(
-    "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level sphere."
+  group: z.string().min(1).optional().default("root").describe(
+    "Parent group/bone UUID or unique name. Defaults to the Outliner root."
   ),
 });
 
@@ -185,8 +199,8 @@ export const createCylinderParameters = z.object({
     )
     .min(1),
   texture: textureIdOptionalSchema,
-  group: z.string().min(1).describe(
-    "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for an intentional root-level cylinder."
+  group: z.string().min(1).optional().default("root").describe(
+    "Parent group/bone UUID or unique name. Defaults to the Outliner root."
   ),
 });
 
@@ -211,8 +225,8 @@ export const createPyramidParameters = z.object({
     )
     .min(1),
   texture: textureIdOptionalSchema,
-  group: z.string().min(1).describe(
-    "Required parent group/bone UUID or unique name. Use the exact literal 'root' only for intentional root placement."
+  group: z.string().min(1).optional().default("root").describe(
+    "Parent group/bone UUID or unique name. Defaults to the Outliner root."
   ),
 });
 
@@ -224,13 +238,294 @@ export const knifeToolParameters = z.object({
         position: vec3("3D position of the cut point."),
         face: z
           .string()
-          .optional()
-          .describe("Face key to attach the point to."),
+          .min(1)
+          .describe("Existing face key containing this mesh-local cut point."),
       })
     )
     .min(2)
     .describe("Points defining the cut path."),
 });
+
+type MeshSelectionSnapshot = {
+  vertices: string[];
+  edges: MeshEdge[];
+  faces: string[];
+};
+
+function selectionSnapshot(mesh: Mesh): MeshSelectionSnapshot {
+  return {
+    vertices: [...mesh.getSelectedVertices()],
+    edges: mesh.getSelectedEdges().map((edge) => [edge[0], edge[1]]),
+    faces: [...mesh.getSelectedFaces()],
+  };
+}
+
+function updateMeshGeometry(mesh: Mesh): void {
+  mesh.preview_controller.updateGeometry(mesh);
+  mesh.preview_controller.updateUV(mesh);
+  Canvas.updateView({
+    elements: [mesh],
+    selection: true,
+    element_aspects: { geometry: true, uv: true, faces: true },
+  });
+}
+
+function faceNormal(mesh: Mesh, vertexKey: string, faceKeys: readonly string[]): [number, number, number] {
+  const normals = faceKeys
+    .map((key) => mesh.faces[key])
+    .filter((face) => face?.vertices.includes(vertexKey))
+    .map((face) => face.getNormal(true));
+  if (!normals.length) {
+    for (const face of Object.values(mesh.faces)) {
+      if (face.vertices.includes(vertexKey) && face.vertices.length >= 3) {
+        normals.push(face.getNormal(true));
+      }
+    }
+  }
+  const result: [number, number, number] = [0, 0, 0];
+  for (const normal of normals) {
+    result[0] += normal[0];
+    result[1] += normal[1];
+    result[2] += normal[2];
+  }
+  const length = Math.hypot(...result);
+  if (!length) return [0, 1, 0];
+  return [result[0] / length, result[1] / length, result[2] / length];
+}
+
+function extrudeSelection(
+  mesh: Mesh,
+  mode: "faces" | "edges" | "vertices",
+  distance: number
+) {
+  const selectedFaces = mode === "faces" ? [...mesh.getSelectedFaces()] : [];
+  const selectedEdges = mode === "edges"
+    ? mesh.getSelectedEdges().map((edge) => [edge[0], edge[1]] as MeshEdge)
+    : [];
+  let originalVertices = mode === "vertices" ? [...mesh.getSelectedVertices()] : [];
+  if (mode === "faces") {
+    if (!selectedFaces.length) throw new Error("Select at least one mesh face before extrusion.");
+    const invalidFace = selectedFaces.find((key) => !mesh.faces[key]);
+    if (invalidFace) throw new Error(`Selected mesh face key "${invalidFace}" no longer exists.`);
+    originalVertices = uniqueKeys(selectedFaces.flatMap((key) => mesh.faces[key].vertices));
+  } else if (mode === "edges") {
+    if (!selectedEdges.length) throw new Error("Select at least one mesh edge before extrusion.");
+    originalVertices = uniqueKeys(selectedEdges.flat());
+  }
+  assertMeshVertexKeys(mesh.vertices, originalVertices);
+
+  const newVertexKeys = mesh.addVertices(...originalVertices.map((key) => {
+    const source = mesh.vertices[key];
+    const normal = faceNormal(mesh, key, selectedFaces);
+    return [
+      source[0] + normal[0] * distance,
+      source[1] + normal[1] * distance,
+      source[2] + normal[2] * distance,
+    ] as ArrayVector3;
+  }));
+  const replacement = new Map(originalVertices.map((key, index) => [key, newVertexKeys[index]]));
+  const newFaceKeys: string[] = [];
+
+  if (mode === "faces") {
+    const boundaryEdges = new Map<string, { edge: MeshEdge; face: MeshFace; count: number }>();
+    for (const key of selectedFaces) {
+      const face = mesh.faces[key];
+      for (const edge of face.getEdges()) {
+        const id = meshEdgeId(edge);
+        const existing = boundaryEdges.get(id);
+        if (existing) existing.count += 1;
+        else boundaryEdges.set(id, { edge, face, count: 1 });
+      }
+      const oldVertices = [...face.vertices];
+      const oldUv = { ...face.uv };
+      face.vertices = oldVertices.map((vertexKey) => replacement.get(vertexKey)!);
+      face.uv = Object.fromEntries(oldVertices.map((vertexKey) => [
+        replacement.get(vertexKey)!,
+        oldUv[vertexKey] ?? [0, 0],
+      ]));
+    }
+    for (const { edge: [first, second], face, count } of boundaryEdges.values()) {
+      if (count !== 1) continue;
+      const nextFirst = replacement.get(first)!;
+      const nextSecond = replacement.get(second)!;
+      const side = new MeshFace(mesh, face).extend({
+        vertices: [nextSecond, nextFirst, first, second],
+        uv: {
+          [nextSecond]: face.uv[nextSecond] ?? [0, 0],
+          [nextFirst]: face.uv[nextFirst] ?? [0, 0],
+          [first]: face.uv[nextFirst] ?? [0, 0],
+          [second]: face.uv[nextSecond] ?? [0, 0],
+        },
+      });
+      newFaceKeys.push(...mesh.addFaces(side));
+    }
+    replaceArray(mesh.getSelectedFaces(true), selectedFaces);
+  } else if (mode === "edges") {
+    for (const [first, second] of selectedEdges) {
+      const adjacent = Object.values(mesh.faces).find((face) =>
+        face.vertices.includes(first) && face.vertices.includes(second)
+      );
+      const side = new MeshFace(mesh, adjacent ?? {}).extend({
+        vertices: [replacement.get(first)!, replacement.get(second)!, second, first],
+      });
+      newFaceKeys.push(...mesh.addFaces(side));
+    }
+    replaceArray(mesh.getSelectedEdges(true), selectedEdges.map(([first, second]) => [
+      replacement.get(first)!, replacement.get(second)!,
+    ]));
+  } else {
+    for (const key of originalVertices) {
+      newFaceKeys.push(...mesh.addFaces(new MeshFace(mesh, {
+        vertices: [key, replacement.get(key)!],
+        uv: {},
+      })));
+    }
+  }
+  replaceArray(mesh.getSelectedVertices(true), newVertexKeys);
+  return { newVertexKeys, newFaceKeys, selectedFaces };
+}
+
+function interpolate(first: readonly number[], second: readonly number[], ratio: number): ArrayVector3 {
+  return [
+    first[0] + (second[0] - first[0]) * ratio,
+    first[1] + (second[1] - first[1]) * ratio,
+    first[2] + (second[2] - first[2]) * ratio,
+  ];
+}
+
+function interpolateUv(first: readonly number[] | undefined, second: readonly number[] | undefined, ratio: number): ArrayVector2 {
+  const a = first ?? [0, 0];
+  const b = second ?? [0, 0];
+  return [a[0] + (b[0] - a[0]) * ratio, a[1] + (b[1] - a[1]) * ratio];
+}
+
+function subdivideFaces(mesh: Mesh, faceKeys: readonly string[], cuts: number) {
+  if (!faceKeys.length) throw new Error("Select at least one mesh face before subdivision.");
+  const invalid = faceKeys.find((key) => !mesh.faces[key]);
+  if (invalid) throw new Error(`Selected mesh face key "${invalid}" no longer exists.`);
+  const unsupported = faceKeys.find((key) => ![2, 3, 4].includes(mesh.faces[key].vertices.length));
+  if (unsupported) throw new Error(`Mesh face "${unsupported}" has an unsupported vertex count for subdivision.`);
+
+  const segments = cuts + 1;
+  const edgeCache = new Map<string, string>();
+  const createdVertices: string[] = [];
+  const resultFaceKeys: string[] = [];
+
+  const edgePoint = (first: string, second: string, step: number): string => {
+    if (step === 0) return first;
+    if (step === segments) return second;
+    const forward = first < second;
+    const normalizedStep = forward ? step : segments - step;
+    const id = `${meshEdgeId([first, second])}\u0000${normalizedStep}/${segments}`;
+    const existing = edgeCache.get(id);
+    if (existing) return existing;
+    const [key] = mesh.addVertices(interpolate(mesh.vertices[first], mesh.vertices[second], step / segments));
+    edgeCache.set(id, key);
+    createdVertices.push(key);
+    return key;
+  };
+
+  for (const faceKey of faceKeys) {
+    const face = mesh.faces[faceKey];
+    const vertices = face.getSortedVertices();
+    const polygons: Array<{ vertices: string[]; uv: Record<string, ArrayVector2> }> = [];
+    const internal = new Map<string, string>();
+    const internalPoint = (id: string, position: ArrayVector3): string => {
+      const existing = internal.get(id);
+      if (existing) return existing;
+      const [key] = mesh.addVertices(position);
+      internal.set(id, key);
+      createdVertices.push(key);
+      return key;
+    };
+
+    if (vertices.length === 2) {
+      const chain = Array.from({ length: segments + 1 }, (_, step) => edgePoint(vertices[0], vertices[1], step));
+      for (let index = 0; index < segments; index += 1) {
+        const first = chain[index];
+        const second = chain[index + 1];
+        polygons.push({
+          vertices: [first, second],
+          uv: {
+            [first]: interpolateUv(face.uv[vertices[0]], face.uv[vertices[1]], index / segments),
+            [second]: interpolateUv(face.uv[vertices[0]], face.uv[vertices[1]], (index + 1) / segments),
+          },
+        });
+      }
+    } else if (vertices.length === 3) {
+      const [a, b, c] = vertices;
+      const point = (i: number, j: number) => {
+        if (j === 0) return edgePoint(a, b, i);
+        if (i === 0) return edgePoint(a, c, j);
+        if (i + j === segments) return edgePoint(b, c, j);
+        const wa = 1 - (i + j) / segments;
+        const wb = i / segments;
+        const wc = j / segments;
+        return internalPoint(`${i},${j}`, [0, 1, 2].map((axis) =>
+          mesh.vertices[a][axis] * wa + mesh.vertices[b][axis] * wb + mesh.vertices[c][axis] * wc
+        ) as ArrayVector3);
+      };
+      const uvFor = (i: number, j: number): ArrayVector2 => {
+        const wa = 1 - (i + j) / segments;
+        const wb = i / segments;
+        const wc = j / segments;
+        return [0, 1].map((axis) =>
+          (face.uv[a]?.[axis] ?? 0) * wa + (face.uv[b]?.[axis] ?? 0) * wb + (face.uv[c]?.[axis] ?? 0) * wc
+        ) as ArrayVector2;
+      };
+      for (let i = 0; i < segments; i += 1) {
+        for (let j = 0; j < segments - i; j += 1) {
+          const first = point(i, j);
+          const second = point(i + 1, j);
+          const third = point(i, j + 1);
+          polygons.push({ vertices: [first, second, third], uv: {
+            [first]: uvFor(i, j), [second]: uvFor(i + 1, j), [third]: uvFor(i, j + 1),
+          } });
+          if (i + j >= segments - 1) continue;
+          const fourth = point(i + 1, j + 1);
+          polygons.push({ vertices: [second, fourth, third], uv: {
+            [second]: uvFor(i + 1, j), [fourth]: uvFor(i + 1, j + 1), [third]: uvFor(i, j + 1),
+          } });
+        }
+      }
+    } else {
+      const [a, b, c, d] = vertices;
+      const point = (i: number, j: number) => {
+        if (j === 0) return edgePoint(a, b, i);
+        if (i === segments) return edgePoint(b, c, j);
+        if (j === segments) return edgePoint(d, c, i);
+        if (i === 0) return edgePoint(a, d, j);
+        const top = interpolate(mesh.vertices[a], mesh.vertices[b], i / segments);
+        const bottom = interpolate(mesh.vertices[d], mesh.vertices[c], i / segments);
+        return internalPoint(`${i},${j}`, interpolate(top, bottom, j / segments));
+      };
+      const uvFor = (i: number, j: number) => {
+        const top = interpolateUv(face.uv[a], face.uv[b], i / segments);
+        const bottom = interpolateUv(face.uv[d], face.uv[c], i / segments);
+        return interpolateUv(top, bottom, j / segments);
+      };
+      for (let j = 0; j < segments; j += 1) {
+        for (let i = 0; i < segments; i += 1) {
+          const polygon = [point(i, j), point(i + 1, j), point(i + 1, j + 1), point(i, j + 1)];
+          polygons.push({ vertices: polygon, uv: Object.fromEntries([
+            [polygon[0], uvFor(i, j)], [polygon[1], uvFor(i + 1, j)],
+            [polygon[2], uvFor(i + 1, j + 1)], [polygon[3], uvFor(i, j + 1)],
+          ]) });
+        }
+      }
+    }
+
+    const [first, ...rest] = polygons;
+    face.extend(first);
+    resultFaceKeys.push(faceKey);
+    for (const polygon of rest) {
+      resultFaceKeys.push(...mesh.addFaces(new MeshFace(mesh, face).extend(polygon)));
+    }
+  }
+  replaceArray(mesh.getSelectedFaces(true), resultFaceKeys);
+  replaceArray(mesh.getSelectedVertices(true), createdVertices);
+  return { createdVertices, resultFaceKeys };
+}
 
 // ============================================================================
 // Mesh Tool Docs
@@ -240,7 +535,7 @@ export const meshToolDocs: ToolSpec[] = [
   {
     name: "place_mesh",
     description:
-      "Places one or more meshes under a mandatory explicit parent. Use group='root' only for intentional root-level meshes; invalid or ambiguous parents are rejected before mutation.",
+      "Places one or more meshes at the Outliner root unless a parent group or bone is supplied.",
     annotations: {
       title: "Place Mesh",
       destructiveHint: true,
@@ -271,7 +566,7 @@ export const meshToolDocs: ToolSpec[] = [
   {
     name: "create_sphere",
     description:
-      "Creates one or more sphere meshes under a mandatory explicit parent. The spheres use vertices and faces generated from spherical coordinates.",
+      "Creates one or more sphere meshes at the Outliner root unless a parent is supplied. The spheres use vertices and faces generated from spherical coordinates.",
     annotations: {
       title: "Create Sphere",
       destructiveHint: true,
@@ -334,7 +629,7 @@ export const meshToolDocs: ToolSpec[] = [
   {
     name: "create_cylinder",
     description:
-      "Creates one or more cylinder meshes with optional end caps under a mandatory explicit parent.",
+      "Creates one or more cylinder meshes with optional end caps at the Outliner root unless a parent is supplied.",
     annotations: { title: "Create Cylinder", destructiveHint: true },
     parameters: createCylinderParameters,
     status: STATUS_EXPERIMENTAL,
@@ -359,42 +654,6 @@ export const meshToolDocs: ToolSpec[] = [
   },
 ];
 
-const meshCreateOperations = [
-  meshToolDocs[0],
-  meshToolDocs[3],
-  meshToolDocs[8],
-  meshToolDocs[9],
-  meshToolDocs[11],
-];
-const meshEditOperations = [
-  meshToolDocs[1],
-  meshToolDocs[2],
-  meshToolDocs[4],
-  meshToolDocs[5],
-  meshToolDocs[6],
-  meshToolDocs[7],
-  meshToolDocs[10],
-];
-
-export const meshPublicToolDocs: ToolSpec[] = [
-  {
-    name: "create_mesh",
-    description:
-      "Creates custom meshes, low-poly sphere/cylinder/pyramid/cone primitives, or individual mesh faces through one command.action.",
-    annotations: { title: "Create Mesh", destructiveHint: true },
-    parameters: createToolGroupParameters(meshCreateOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_mesh",
-    description:
-      "Selects, extrudes, subdivides, moves, deletes, merges, or knife-cuts mesh geometry through one command.action.",
-    annotations: { title: "Edit Mesh", destructiveHint: true },
-    parameters: createToolGroupParameters(meshEditOperations),
-    status: STATUS_STABLE,
-  },
-];
-
 // ============================================================================
 // Registration
 // ============================================================================
@@ -402,6 +661,7 @@ export const meshPublicToolDocs: ToolSpec[] = [
 export function registerMeshTools() {
   createInternalTool(meshToolDocs[0].name, {
     ...meshToolDocs[0],
+    parameters: placeMeshParameters,
     async execute({ elements, texture, group }, { reportProgress }) {
       const total = elements.length;
       const projectTexture = texture
@@ -410,21 +670,38 @@ export function registerMeshTools() {
       if (projectTexture) assertFaceTextureAssignmentSupported(projectTexture);
       const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
       const meshes: Mesh[] = [];
+      const created: Array<{
+        mesh: { uuid: string; name: string };
+        vertices: Array<{ input_index: number; key: string; position: ArrayVector3 }>;
+        faces: Array<{ key: string; vertices: string[] }>;
+      }> = [];
       Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
       try {
         for (const [progress, element] of elements.entries()) {
           const mesh = new Mesh({
             name: element.name,
             vertices: {},
+            origin: element.position as ArrayVector3,
+            rotation: element.rotation as ArrayVector3,
           }).init();
           meshes.push(mesh);
 
-          element.vertices.forEach((vertex) => {
-            mesh.addVertices(vertex as ArrayVector3);
+          const vertexRecords = element.vertices.map((vertex, inputIndex) => {
+            const position = vertex.map((value, axis) => value * element.scale[axis]) as ArrayVector3;
+            const [key] = mesh.addVertices(position);
+            return { input_index: inputIndex, key, position: [...position] as ArrayVector3 };
           });
 
           mesh.addTo(outlinerParent);
           if (projectTexture) mesh.applyTexture(projectTexture);
+          created.push({
+            mesh: { uuid: mesh.uuid, name: mesh.name },
+            vertices: vertexRecords,
+            faces: Object.entries(mesh.faces).map(([key, face]) => ({
+              key,
+              vertices: [...face.vertices],
+            })),
+          });
           reportProgress({ progress: progress + 1, total });
         }
       } catch (error) {
@@ -435,53 +712,54 @@ export function registerMeshTools() {
       finishCreatedOutlinerEdit("Agent placed meshes", meshes);
       Canvas.updateAll();
 
-      return await Promise.resolve(
-        JSON.stringify(
-          meshes.map((mesh) => `Added mesh ${mesh.name} with ID ${mesh.uuid}`)
-        )
-      );
+      return JSON.stringify({ created }, null, 2);
     },
   }, meshToolDocs[0].status);
 
   createInternalTool(meshToolDocs[1].name, {
     ...meshToolDocs[1],
+    parameters: extrudeMeshParameters,
     async execute({ mesh_id, distance, mode }) {
       const mesh = getMeshOrSelected(mesh_id);
-
-      // Use the extrude tool
-      const tool = BarItems.extrude_mesh_selection;
-
-      if (!tool) {
-        throw new Error(`Extrude tool for ${mode} not found.`);
-      }
-
-      // @ts-ignore
-      tool.click({}, distance);
-
-      return `Extruded ${mode} of mesh "${mesh.name}" by ${distance} units`;
+      if (distance === 0) throw new Error("Extrusion distance must be non-zero.");
+      Undo.initEdit({ elements: [mesh], selection: true });
+      const result = extrudeSelection(mesh, mode, distance);
+      Undo.finishEdit("Extrude mesh selection");
+      updateMeshGeometry(mesh);
+      return JSON.stringify({
+        mesh: { uuid: mesh.uuid, name: mesh.name },
+        mode,
+        distance,
+        added_vertices: result.newVertexKeys,
+        added_faces: result.newFaceKeys,
+        moved_faces: result.selectedFaces,
+      }, null, 2);
     },
   }, meshToolDocs[1].status);
 
   createInternalTool(meshToolDocs[2].name, {
     ...meshToolDocs[2],
+    parameters: subdivideMeshParameters,
     async execute({ mesh_id, cuts }) {
       const mesh = getMeshOrSelected(mesh_id);
-
-      // Use the loop cut tool with subdivision
-      const tool = BarItems.loop_cut;
-      if (!tool) {
-        throw new Error("Loop cut tool not found.");
-      }
-
-      // @ts-ignore
-      tool.click({}, undefined, undefined, cuts);
-
-      return `Subdivided mesh "${mesh.name}" with ${cuts} cuts`;
+      const selectedFaces = [...mesh.getSelectedFaces()];
+      Undo.initEdit({ elements: [mesh], selection: true });
+      const result = subdivideFaces(mesh, selectedFaces, cuts);
+      Undo.finishEdit("Subdivide mesh faces");
+      updateMeshGeometry(mesh);
+      return JSON.stringify({
+        mesh: { uuid: mesh.uuid, name: mesh.name },
+        cuts,
+        source_faces: selectedFaces,
+        result_faces: result.resultFaceKeys,
+        added_vertices: result.createdVertices,
+      }, null, 2);
     },
   }, meshToolDocs[2].status);
 
   createInternalTool(meshToolDocs[3].name, {
     ...meshToolDocs[3],
+    parameters: createSphereParameters,
     async execute({ elements, texture, group }, { reportProgress }) {
       const total = elements.length;
       const projectTexture = texture
@@ -609,233 +887,165 @@ export function registerMeshTools() {
 
   createInternalTool(meshToolDocs[4].name, {
     ...meshToolDocs[4],
+    parameters: selectMeshElementsParameters,
     async execute({ mesh_id, mode, elements, action }) {
       const mesh = findMeshOrThrow(mesh_id);
-
-      Undo.initEdit({
-        elements: [mesh],
-        selection: true,
-        collections: [],
-      });
-
-      // Set selection mode
-      // @ts-expect-error Selection mode setter available at runtime
-      BarItems.selection_mode.set(mode);
-      const selection = (Project?.mesh_selection[mesh.uuid] ??
-      {
-        vertices: [],
-        edges: [],
-        faces: [],
-      }) as {
-        vertices: string[];
-        edges: unknown[];
-        faces: string[];
-      };
-
-      if (action === "select") {
-        // Clear existing selection
-        selection.vertices = [];
-        selection.edges.length = 0;
-        selection.faces = [];
-      }
-
-      if (!elements || elements.length === 0) {
-        // Select all elements of the specified type
+      const requested = resolveMeshSelection(mesh, mode, elements);
+      Undo.initSelection();
+      try {
+        mesh.select();
+        // Changing the mode may replace Project.mesh_selection, so obtain its
+        // mutable arrays only after the target and mode are current.
+        // @ts-expect-error Blockbench exposes a runtime setter on this toolbar selector.
+        BarItems.selection_mode.set(mode);
+        const vertices = mesh.getSelectedVertices(true);
+        const edges = mesh.getSelectedEdges(true);
+        const faces = mesh.getSelectedFaces(true);
         if (mode === "vertex") {
-          selection.vertices = Object.keys(mesh.vertices);
-        } else if (mode === "face") {
-          selection.faces = Object.keys(mesh.faces);
+          replaceArray(vertices, applySelectionAction(vertices, requested.vertices, action));
+          replaceArray(edges, []);
+          replaceArray(faces, []);
         } else if (mode === "edge") {
-          // Collect all unique edges from faces
-          const allEdges: [string, string][] = [];
-          const seen = new Set<string>();
-          for (const fkey in mesh.faces) {
-            const face = mesh.faces[fkey];
-            const edges = (face.getEdges() as unknown as [string, string][]);
-            for (const [a, b] of edges) {
-              const key = a < b ? `${a}-${b}` : `${b}-${a}`;
-              if (!seen.has(key)) {
-                seen.add(key);
-                allEdges.push([a, b]);
-              }
-            }
-          }
-          const selEdges = selection.edges as unknown as [string, string][];
-          selEdges.length = 0;
-          selEdges.push(...allEdges);
+          const nextEdges = applySelectionAction(edges, requested.edges, action, meshEdgeId);
+          replaceArray(edges, nextEdges);
+          replaceArray(faces, []);
+          replaceArray(vertices, uniqueKeys(nextEdges.flat()));
+        } else {
+          const nextFaces = applySelectionAction(faces, requested.faces, action);
+          replaceArray(faces, nextFaces);
+          replaceArray(edges, []);
+          replaceArray(vertices, uniqueKeys(nextFaces.flatMap((key) => mesh.faces[key].vertices)));
         }
-      } else {
-        // Select specific elements
-        elements.forEach((element) => {
-          if (mode === "vertex") {
-            const vkey = String(element);
-            if (action === "add" || action === "select") {
-              if (!selection.vertices.includes(vkey)) {
-                selection.vertices.push(vkey);
-              }
-            } else if (action === "remove") {
-              selection.vertices = selection.vertices.filter((k) => k !== vkey);
-            } else if (action === "toggle") {
-              if (selection.vertices.includes(vkey)) {
-                selection.vertices = selection.vertices.filter((k) => k !== vkey);
-              } else {
-                selection.vertices.push(vkey);
-              }
-            }
-          } else if (mode === "face") {
-            const fkey = String(element);
-            if (action === "add" || action === "select") {
-              if (!selection.faces.includes(fkey)) {
-                selection.faces.push(fkey);
-              }
-            } else if (action === "remove") {
-              selection.faces = selection.faces.filter((k) => k !== fkey);
-            } else if (action === "toggle") {
-              if (selection.faces.includes(fkey)) {
-                selection.faces = selection.faces.filter((k) => k !== fkey);
-              } else {
-                selection.faces.push(fkey);
-              }
-            }
-          } else if (mode === "edge") {
-            // Parse edge format "vkey1-vkey2"
-            const edgeParts = String(element).split("-");
-            if (edgeParts.length === 2) {
-              const edge: [string, string] = [edgeParts[0], edgeParts[1]];
-              const selEdges = selection.edges as unknown as [string, string][];
-              if (action === "add" || action === "select") {
-                selEdges.push(edge);
-              } else if (action === "remove") {
-                const filtered = selEdges.filter(
-                  (e) =>
-                    !(e[0] === edge[0] && e[1] === edge[1]) &&
-                    !(e[0] === edge[1] && e[1] === edge[0])
-                );
-                selEdges.length = 0;
-                selEdges.push(...filtered);
-              } else if (action === "toggle") {
-                const exists = selEdges.some(
-                  (e) =>
-                    (e[0] === edge[0] && e[1] === edge[1]) ||
-                    (e[0] === edge[1] && e[1] === edge[0])
-                );
-                if (exists) {
-                  const filtered = selEdges.filter(
-                    (e) =>
-                      !(e[0] === edge[0] && e[1] === edge[1]) &&
-                      !(e[0] === edge[1] && e[1] === edge[0])
-                  );
-                  selEdges.length = 0;
-                  selEdges.push(...filtered);
-                } else {
-                  selEdges.push(edge);
-                }
-              }
-            }
-          }
-        });
+        Canvas.updateView({ elements: [mesh], selection: true });
+        Undo.finishSelection("Select mesh elements");
+      } catch (error) {
+        Undo.cancelSelection();
+        throw error;
       }
-
-      mesh.select();
-      Canvas.updateView({
-        elements: [mesh],
-        selection: true,
-      });
-
-      Undo.finishEdit("Select mesh elements");
-
+      const selected = selectionSnapshot(mesh);
       return JSON.stringify({
-        mesh: mesh.name,
+        mesh: { uuid: mesh.uuid, name: mesh.name },
         mode,
         selected: {
-          vertices: selection.vertices.length,
-          edges: selection.edges.length,
-          faces: selection.faces.length,
+          vertex_keys: selected.vertices,
+          edges: selected.edges,
+          face_keys: selected.faces,
+          counts: {
+            vertices: selected.vertices.length,
+            edges: selected.edges.length,
+            faces: selected.faces.length,
+          },
         },
-      });
+      }, null, 2);
     },
   }, meshToolDocs[4].status);
 
   createInternalTool(meshToolDocs[5].name, {
     ...meshToolDocs[5],
+    parameters: moveMeshVerticesParameters,
     async execute({ mesh_id, offset, vertices }) {
       const mesh = getMeshOrSelected(mesh_id);
-
-      Undo.initEdit({
-        elements: [mesh],
-        element_aspects: {
-          geometry: true,
-          uv: true,
-          faces: true,
-        },
-      });
-
-      const verticesToMove = vertices || mesh.getSelectedVertices();
-
-      verticesToMove.forEach((vkey) => {
-        if (mesh.vertices[vkey]) {
-          mesh.vertices[vkey][0] += offset[0];
-          mesh.vertices[vkey][1] += offset[1];
-          mesh.vertices[vkey][2] += offset[2];
-        }
-      });
-
-      mesh.preview_controller.updateGeometry(mesh);
-
+      if (offset.every((value) => value === 0)) throw new Error("Vertex movement offset must be non-zero.");
+      const verticesToMove = uniqueKeys(vertices ?? mesh.getSelectedVertices());
+      assertMeshVertexKeys(mesh.vertices, verticesToMove);
+      Undo.initEdit({ elements: [mesh] });
+      for (const key of verticesToMove) {
+        mesh.vertices[key][0] += offset[0];
+        mesh.vertices[key][1] += offset[1];
+        mesh.vertices[key][2] += offset[2];
+      }
       Undo.finishEdit("Move mesh vertices");
-      Canvas.updateView({
-        elements: [mesh],
-        element_aspects: {
-          geometry: true,
-          uv: true,
-          faces: true,
-        },
-      });
-
-      return `Moved ${verticesToMove.length} vertices of mesh "${mesh.name}"`;
+      updateMeshGeometry(mesh);
+      return JSON.stringify({
+        mesh: { uuid: mesh.uuid, name: mesh.name },
+        moved_vertex_keys: verticesToMove,
+        count: verticesToMove.length,
+        offset,
+      }, null, 2);
     },
   }, meshToolDocs[5].status);
 
   createInternalTool(meshToolDocs[6].name, {
     ...meshToolDocs[6],
+    parameters: deleteMeshElementsParameters,
     async execute({ mesh_id, mode, keep_vertices }) {
       const mesh = getMeshOrSelected(mesh_id);
+      const selected = selectionSnapshot(mesh);
+      if (mode === "faces" && !selected.faces.length) throw new Error("Select at least one mesh face to delete.");
+      if (mode === "edges" && !selected.edges.length) throw new Error("Select at least one mesh edge to delete.");
+      if (mode === "vertices" && !selected.vertices.length) throw new Error("Select at least one mesh vertex to delete.");
+      const before = { vertices: Object.keys(mesh.vertices).length, faces: Object.keys(mesh.faces).length };
+      const deletedFaceKeys: string[] = [];
+      const deletedVertexKeys: string[] = [];
+      Undo.initEdit({ elements: [mesh], selection: true });
 
-      // Use the delete tool
-      const tool = BarItems.delete_mesh_selection;
-      if (!tool) {
-        throw new Error("Delete mesh selection tool not found.");
+      if (mode === "faces") {
+        for (const key of selected.faces) {
+          if (!mesh.faces[key]) throw new Error(`Selected mesh face key "${key}" no longer exists.`);
+          delete mesh.faces[key];
+          deletedFaceKeys.push(key);
+        }
+      } else if (mode === "edges") {
+        for (const [key, face] of Object.entries(mesh.faces)) {
+          if (face.getEdges().some((edge) => selected.edges.some((selectedEdge) => sameMeshEdge(edge, selectedEdge)))) {
+            delete mesh.faces[key];
+            deletedFaceKeys.push(key);
+          }
+        }
+      } else {
+        assertMeshVertexKeys(mesh.vertices, selected.vertices);
+        const selectedSet = new Set(selected.vertices);
+        for (const [key, face] of Object.entries(mesh.faces)) {
+          const remaining = face.vertices.filter((vertexKey) => !selectedSet.has(vertexKey));
+          if (remaining.length < 2) {
+            delete mesh.faces[key];
+            deletedFaceKeys.push(key);
+            continue;
+          }
+          for (const vertexKey of selected.vertices) delete face.uv[vertexKey];
+          face.vertices = remaining;
+        }
+        for (const key of selected.vertices) {
+          delete mesh.vertices[key];
+          deletedVertexKeys.push(key);
+        }
       }
 
-      // @ts-ignore
-      tool.click({}, keep_vertices);
-
-      return `Deleted selected ${mode} from mesh "${mesh.name}"`;
+      if (mode !== "vertices" && !keep_vertices) {
+        const used = new Set(Object.values(mesh.faces).flatMap((face) => face.vertices));
+        for (const key of Object.keys(mesh.vertices)) {
+          if (used.has(key)) continue;
+          delete mesh.vertices[key];
+          deletedVertexKeys.push(key);
+        }
+      }
+      replaceArray(mesh.getSelectedFaces(true), []);
+      replaceArray(mesh.getSelectedEdges(true), []);
+      replaceArray(mesh.getSelectedVertices(true), []);
+      Undo.finishEdit("Delete mesh elements");
+      updateMeshGeometry(mesh);
+      return JSON.stringify({
+        mesh: { uuid: mesh.uuid, name: mesh.name },
+        mode,
+        keep_vertices,
+        deleted_face_keys: deletedFaceKeys,
+        deleted_vertex_keys: deletedVertexKeys,
+        before,
+        after: { vertices: Object.keys(mesh.vertices).length, faces: Object.keys(mesh.faces).length },
+      }, null, 2);
     },
   }, meshToolDocs[6].status);
 
   createInternalTool(meshToolDocs[7].name, {
     ...meshToolDocs[7],
+    parameters: mergeMeshVerticesParameters,
     async execute({ mesh_id, threshold, selected_only }) {
       const mesh = findMeshOrThrow(mesh_id);
-
-      Undo.initEdit({
-        elements: [mesh],
-        element_aspects: {
-          geometry: true,
-          uv: true,
-          faces: true,
-        },
-      });
-
       const verticesToCheck = selected_only
-        ? mesh.getSelectedVertices()
+        ? [...mesh.getSelectedVertices()]
         : Object.keys(mesh.vertices);
-
-      let mergedCount = 0;
+      assertMeshVertexKeys(mesh.vertices, verticesToCheck, 2);
       const mergeMap: Record<string, string> = {};
-
-      // Find vertices to merge
       for (let i = 0; i < verticesToCheck.length; i++) {
         const vkey1 = verticesToCheck[i];
         if (mergeMap[vkey1]) continue;
@@ -852,89 +1062,75 @@ export function registerMeshTools() {
 
           if (distance <= threshold) {
             mergeMap[vkey2] = vkey1;
-            mergedCount++;
           }
         }
       }
-
-      // Apply merges
+      const merges = Object.entries(mergeMap);
+      if (!merges.length) {
+        throw new Error(`No mesh vertices are within the merge threshold ${threshold}.`);
+      }
+      Undo.initEdit({ elements: [mesh], selection: true });
+      const deletedFaces: string[] = [];
       Object.entries(mergeMap).forEach(([oldKey, newKey]) => {
-        // Update faces
         for (const fkey in mesh.faces) {
           const face = mesh.faces[fkey];
-          const index = face.vertices.indexOf(oldKey);
-          if (index !== -1) {
-            face.vertices[index] = newKey;
-            face.uv[newKey] = face.uv[oldKey] || [0, 0];
-            delete face.uv[oldKey];
+          if (!face.vertices.includes(oldKey)) continue;
+          face.uv[newKey] = face.uv[oldKey] || face.uv[newKey] || [0, 0];
+          delete face.uv[oldKey];
+          const replaced = face.vertices.map((key) => key === oldKey ? newKey : key);
+          face.vertices = replaced.filter((key, index) => replaced.indexOf(key) === index);
+          if (face.vertices.length < 2) {
+            delete mesh.faces[fkey];
+            deletedFaces.push(fkey);
           }
         }
-        // Remove merged vertex
         delete mesh.vertices[oldKey];
       });
-
-      mesh.preview_controller.updateGeometry(mesh);
-
+      replaceArray(
+        mesh.getSelectedVertices(true),
+        uniqueKeys(verticesToCheck.map((key) => mergeMap[key] ?? key).filter((key) => key in mesh.vertices))
+      );
       Undo.finishEdit("Merge mesh vertices");
-      Canvas.updateView({
-        elements: [mesh],
-        element_aspects: {
-          geometry: true,
-          uv: true,
-          faces: true,
-        },
-      });
-
-      return `Merged ${mergedCount} vertices in mesh "${mesh.name}"`;
+      updateMeshGeometry(mesh);
+      return JSON.stringify({
+        mesh: { uuid: mesh.uuid, name: mesh.name },
+        merged: merges.map(([removed, retained]) => ({ removed, retained })),
+        merged_count: merges.length,
+        deleted_degenerate_face_keys: deletedFaces,
+      }, null, 2);
     },
   }, meshToolDocs[7].status);
 
   createInternalTool(meshToolDocs[8].name, {
     ...meshToolDocs[8],
+    parameters: createMeshFaceParameters,
     async execute({ mesh_id, vertices, texture }) {
       const mesh = getMeshOrSelected(mesh_id);
-
-      Undo.initEdit({
-        elements: [mesh],
-        element_aspects: {
-          geometry: true,
-          uv: true,
-          faces: true,
-        },
-      });
-
-      // Create the face
+      if (new Set(vertices).size !== vertices.length) {
+        throw new Error("A mesh face requires distinct vertex keys.");
+      }
+      assertMeshVertexKeys(mesh.vertices, vertices, 3);
       const faceTexture = texture ? findTextureOrThrow(texture) : null;
       if (faceTexture) assertFaceTextureAssignmentSupported(faceTexture);
+      Undo.initEdit({ elements: [mesh] });
       const face = new MeshFace(mesh, {
         vertices,
         texture: faceTexture?.uuid,
       });
-
       const [faceKey] = mesh.addFaces(face);
-
-      // Auto UV the new face
       UVEditor.setAutoSize(null, true, [faceKey]);
-
-      mesh.preview_controller.updateGeometry(mesh);
-      mesh.preview_controller.updateUV(mesh);
-
       Undo.finishEdit("Create mesh face");
-      Canvas.updateView({
-        elements: [mesh],
-        element_aspects: {
-          geometry: true,
-          uv: true,
-          faces: true,
-        },
-      });
-
-      return `Created face with ${vertices.length} vertices in mesh "${mesh.name}"`;
+      updateMeshGeometry(mesh);
+      return JSON.stringify({
+        mesh: { uuid: mesh.uuid, name: mesh.name },
+        face: { key: faceKey, vertices: [...vertices] },
+      }, null, 2);
     },
   }, meshToolDocs[8].status);
 
   createInternalTool(meshToolDocs[9].name, {
     ...meshToolDocs[9],
+    parameters: createCylinderParameters,
     async execute({ elements, texture, group }, { reportProgress }) {
       const total = elements.length;
       const projectTexture = texture
@@ -1021,50 +1217,56 @@ export function registerMeshTools() {
 
   createInternalTool(meshToolDocs[10].name, {
     ...meshToolDocs[10],
+    parameters: knifeToolParameters,
     async execute({ mesh_id, points }) {
       const mesh = findMeshOrThrow(mesh_id);
-
-      Undo.initEdit({
-        elements: [mesh],
-        element_aspects: {
-          geometry: true,
-          uv: true,
-          faces: true,
-        },
-      });
-
-      // Create knife tool context
-      // @ts-ignore
+      for (const [index, point] of points.entries()) {
+        if (!mesh.faces[point.face]) {
+          throw new Error(`Knife point ${index} references missing mesh face key "${point.face}".`);
+        }
+      }
+      const before = {
+        vertices: Object.keys(mesh.vertices).length,
+        faces: Object.keys(mesh.faces).length,
+      };
+      // KnifeToolContext is Blockbench's geometry algorithm. It owns its Undo
+      // edit and temporary preview lifecycle, so the MCP wrapper must not nest one.
       const knifeContext = new KnifeToolContext(mesh);
-
-      // Add points to the knife path
+      const THREE_API = getThreeApi();
       points.forEach((point) => {
         knifeContext.points.push({
-          position: new THREE.Vector3(...point.position),
+          position: new THREE_API.Vector3(...point.position),
           fkey: point.face,
-          type: point.face ? "face" : "edge",
+          type: "face",
         });
       });
-
-      // Apply the knife cut
-      knifeContext.apply();
-
-      Undo.finishEdit("Knife cut mesh");
-      Canvas.updateView({
-        elements: [mesh],
-        element_aspects: {
-          geometry: true,
-          uv: true,
-          faces: true,
-        },
-      });
-
-      return `Applied knife cut to mesh "${mesh.name}" with ${points.length} points`;
+      try {
+        knifeContext.apply();
+      } catch (error) {
+        knifeContext.remove?.();
+        throw error;
+      }
+      const after = {
+        vertices: Object.keys(mesh.vertices).length,
+        faces: Object.keys(mesh.faces).length,
+      };
+      if (after.vertices === before.vertices && after.faces === before.faces) {
+        throw new Error("The supplied knife path did not split any mesh face.");
+      }
+      return JSON.stringify({
+        mesh: { uuid: mesh.uuid, name: mesh.name },
+        points: points.length,
+        before,
+        after,
+        added_vertices: after.vertices - before.vertices,
+        added_faces: after.faces - before.faces,
+      }, null, 2);
     },
   }, meshToolDocs[10].status);
 
   createInternalTool(meshToolDocs[11].name, {
     ...meshToolDocs[11],
+    parameters: createPyramidParameters,
     async execute({ elements, texture, group }, { reportProgress }) {
       const projectTexture = texture
         ? findTextureOrThrow(texture)
@@ -1073,20 +1275,21 @@ export function registerMeshTools() {
       const outlinerParent = resolveOutlinerParentOrThrow(group, "mesh");
       const meshes: Mesh[] = [];
       Undo.initEdit({ elements: [], groups: [], outliner: true, collections: [] });
+      const THREE_API = getThreeApi();
       try {
         for (const [progress, element] of elements.entries()) {
-          const baseCenter = new THREE.Vector3(...element.base_center);
-          const axis = new THREE.Vector3(...element.apex).sub(baseCenter);
+          const baseCenter = new THREE_API.Vector3(...element.base_center);
+          const axis = new THREE_API.Vector3(...element.apex).sub(baseCenter);
           if (axis.lengthSq() < 1e-10) {
             throw new Error(`Pyramid "${element.name}" needs distinct base_center and apex positions.`);
           }
           const axisDirection = axis.clone().normalize();
           const reference = Math.abs(axisDirection.y) < 0.9
-            ? new THREE.Vector3(0, 1, 0)
-            : new THREE.Vector3(1, 0, 0);
-          const basisU = new THREE.Vector3().crossVectors(axisDirection, reference).normalize();
-          const basisV = new THREE.Vector3().crossVectors(axisDirection, basisU).normalize();
-          const rotation = THREE.MathUtils.degToRad(element.base_rotation);
+            ? new THREE_API.Vector3(0, 1, 0)
+            : new THREE_API.Vector3(1, 0, 0);
+          const basisU = new THREE_API.Vector3().crossVectors(axisDirection, reference).normalize();
+          const basisV = new THREE_API.Vector3().crossVectors(axisDirection, basisU).normalize();
+          const rotation = THREE_API.MathUtils.degToRad(element.base_rotation);
 
           const mesh = new Mesh({
             name: element.name,
@@ -1138,6 +1341,4 @@ export function registerMeshTools() {
     },
   }, meshToolDocs[11].status);
 
-  createToolGroup(meshPublicToolDocs[0], meshCreateOperations);
-  createToolGroup(meshPublicToolDocs[1], meshEditOperations);
 }

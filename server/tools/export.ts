@@ -62,7 +62,7 @@ export const exportToolDocs: ToolSpec[] = [
   {
     name: "export_model",
     description:
-      "Compiles the MCP working project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use `inspect_export_formats` first to discover codec IDs.",
+      "Compiles the visible project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use inspect_export_formats first to discover codec IDs.",
     annotations: {
       title: "Export Model",
       destructiveHint: true,
@@ -139,32 +139,12 @@ function createExportPlan(
   };
 }
 
-function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
-  return Boolean(
-    value &&
-      (typeof value === "object" || typeof value === "function") &&
-      typeof (value as PromiseLike<unknown>).then === "function"
-  );
-}
-
-/** Compile while the target project is installed as Blockbench's active data context. */
-export async function compileCodecInProject(
+export async function compileCodec(
   compile: (options?: unknown) => unknown | Promise<unknown>,
   options: unknown,
-  receiver: unknown,
-  runInProject: <T>(callback: () => T) => T,
-  background: boolean,
-  codecId: string
+  receiver: unknown
 ): Promise<unknown> {
-  const started = runInProject(() => compile.call(receiver, options));
-  if (background && isPromiseLike(started)) {
-    void Promise.resolve(started).catch(() => undefined);
-    throw new Error(
-      `Codec "${codecId}" returned an asynchronous compilation and cannot safely export an inactive tab. ` +
-        "Show the MCP working project before exporting with this codec."
-    );
-  }
-  return started;
+  return compile.call(receiver, options);
 }
 
 function nodeSignature(items: unknown): string | null {
@@ -260,20 +240,12 @@ export function registerExportTools() {
     ...exportToolDocs[1],
     async execute({ codec_id, options, path, max_content_length }, context) {
       const targetProject = context.project!;
-      const runInTarget = <T>(callback: () => T): T =>
-        context.runInProject(callback, targetProject);
+      const plan = createExportPlan(codec_id, options, targetProject.name);
 
-      const plan = runInTarget(() =>
-        createExportPlan(codec_id, options, targetProject.name)
-      );
-
-      const rawResult = await compileCodecInProject(
+      const rawResult = await compileCodec(
         plan.codec.compile,
         plan.options,
-        plan.codec,
-        runInTarget,
-        context.background,
-        plan.id
+        plan.codec
       );
 
       const exportResult = plan.id === "project"

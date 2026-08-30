@@ -1,22 +1,14 @@
 import { z } from "zod";
 import type { IMCPTool, IMCPPrompt, IMCPResource, StatusType } from "@/types";
-import { getServer } from "@/server/server";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { assertAgentMayMutateProject } from "@/lib/projectRoles";
+import { assertProjectMayBeMutated } from "@/lib/projectRoles";
 import { auditManager } from "@/lib/audit";
-import { assertToolRegistrationAllowed } from "@/lib/security";
 import {
   captureUndoEditToken,
   rollbackUndoEditStartedAfter,
 } from "@/lib/undoSafety";
-import {
-  FOREGROUND_ONLY_OPERATIONS,
-  PROJECT_CONTEXT_BYPASS_OPERATIONS,
-  getForegroundProject,
-  getSessionWorkingProjectId,
-  requireSessionWorkingProject,
-  runInProjectContext,
-} from "@/lib/projectContext";
+import { getVisibleProject } from "@/src/blockbench/projects";
+import { runMutation } from "@/src/runtime/mutationQueue";
 
 /**
  * Declarative tool spec for documentation and registration.
@@ -25,6 +17,10 @@ import {
 export interface ToolSpec {
   name: string;
   description: string;
+  /** Whether the tool needs the visible Blockbench project. Defaults to required. */
+  project?: "required" | "optional" | "none";
+  /** Set false for project navigation or metadata changes that remain available while locked. */
+  writableProject?: boolean;
   annotations?: {
     title?: string;
     destructiveHint?: boolean;
@@ -75,15 +71,8 @@ export const resources: Record<string, IMCPResource> = {};
 
 export interface ToolContext {
   reportProgress: (progress: { progress: number; total: number }) => void;
-  sessionId?: string;
-  /** Project owned by this MCP session for the current invocation. */
+  /** Project visible when this invocation began. */
   project: ModelProject | null;
-  /** Tab the user was viewing when the invocation began. */
-  foregroundProject: ModelProject | null;
-  /** Whether project and foregroundProject are different tabs. */
-  background: boolean;
-  /** Re-enter a project only for one synchronous callback after an await. */
-  runInProject: <T>(callback: () => T, project?: ModelProject) => T;
 }
 
 interface TextContent {
@@ -104,10 +93,12 @@ type ToolResult = string | { content: ToolContentItem[]; structuredContent?: unk
 interface ToolDefinition {
   title: string;
   description: string;
+  parameters: z.ZodType;
   inputSchema: Record<string, z.ZodType>;
   outputSchema?: Record<string, z.ZodType> | z.ZodType;
   execute: (args: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>;
-  resolveMutationToolName?: (args: Record<string, unknown>) => string;
+  project: "required" | "optional" | "none";
+  writableProject: boolean;
   annotations?: {
     title?: string;
     destructiveHint?: boolean;
@@ -136,22 +127,11 @@ interface ToolRegistrar {
  */
 const toolDefinitions: Record<string, ToolDefinition> = {};
 
-interface ToolRequestExtra {
-  sessionId?: string;
-}
-
-export type SessionIdProvider = () => string | undefined;
-
-/** Attach the transport-owned MCP session id to one SDK tool callback. */
-export function toolRequestExtraForSession(
-  extra: unknown,
-  getSessionId?: SessionIdProvider
-): ToolRequestExtra {
-  const requestExtra = (extra && typeof extra === "object"
-    ? extra
-    : {}) as ToolRequestExtra;
-  const sessionId = getSessionId?.();
-  return sessionId ? { ...requestExtra, sessionId } : requestExtra;
+export function parseToolArguments(
+  schema: z.ZodType,
+  rawArgs: Record<string, unknown>
+): Record<string, unknown> {
+  return schema.parse(rawArgs) as Record<string, unknown>;
 }
 
 function normalizeToolResult(result: ToolResult): unknown {
@@ -166,95 +146,63 @@ function normalizeToolResult(result: ToolResult): unknown {
 async function invokeTool(
   name: string,
   toolDef: ToolDefinition,
-  args: Record<string, unknown>,
-  extra: ToolRequestExtra
+  rawArgs: Record<string, unknown>
 ): Promise<unknown> {
+  // registerTool accepts a raw object shape, so schema-level refinements are
+  // not preserved by SDK registration. Parse the original schema once here.
+  const args = parseToolArguments(toolDef.parameters, rawArgs);
   const readOnly = toolDef.annotations?.readOnlyHint === true;
-  const operationName = toolDef.resolveMutationToolName?.(args) ?? name;
-  const bypassProjectContext = PROJECT_CONTEXT_BYPASS_OPERATIONS.has(operationName);
-  const foregroundProject = getForegroundProject();
-  let project: ModelProject | null = foregroundProject;
-
-  if (!bypassProjectContext) {
-    // Import is also valid on Blockbench's empty start screen. Every other
-    // project-scoped operation needs a real session binding.
-    const emptyImport =
-      operationName === "import_bedrock_geometry" &&
-      !getSessionWorkingProjectId(extra.sessionId) &&
-      !foregroundProject;
-    project = emptyImport ? null : requireSessionWorkingProject(extra.sessionId);
+  const operationName = name;
+  const project = toolDef.project === "none" ? null : getVisibleProject();
+  if (toolDef.project === "required" && !project) {
+    throw new Error(`Tool "${operationName}" requires an open Blockbench project.`);
   }
 
-  if (
-    project &&
-    foregroundProject &&
-    project !== foregroundProject &&
-    FOREGROUND_ONLY_OPERATIONS.has(operationName)
-  ) {
-    throw new Error(
-      `Action "${operationName}" still depends on Blockbench's visible paint/display UI. ` +
-        `The MCP working project is "${project.name}" while the foreground tab is ` +
-        `"${foregroundProject.name}". Show the working project explicitly before using this action; ` +
-        "geometry, hierarchy, UV, animation-data, inspection, Undo, and viewport capture remain background-safe."
-    );
-  }
+  const execute = async (): Promise<unknown> => {
+    if (project && getVisibleProject() !== project) {
+      throw new Error(
+        `The visible Blockbench tab changed before tool "${operationName}" could run. ` +
+          "No changes were made; call the tool again for the tab that is visible now."
+      );
+    }
 
-  const route = <T>(callback: () => T): T =>
-    project && !bypassProjectContext
-      ? runInProjectContext(project, callback)
-      : callback();
-  // Read-only tools cannot open an Undo edit, so sampling the edit token and
-  // attempting rollback on failure only adds work to high-frequency queries.
-  let undoEditAtStart: unknown;
-  let handle: ReturnType<typeof auditManager.beginMcpOperation> | undefined;
-
-  try {
-    const execution = route(() => {
+    // Read-only tools cannot open an Undo edit, so rollback bookkeeping would
+    // only add work to high-frequency queries.
+    let undoEditAtStart: unknown;
+    let handle: ReturnType<typeof auditManager.beginMcpOperation> | undefined;
+    try {
       undoEditAtStart = readOnly ? undefined : captureUndoEditToken();
       handle = auditManager.beginMcpOperation({
         toolName: operationName,
         title: toolDef.title,
         args,
-        sessionId: extra.sessionId,
         readOnly,
       });
       const reportProgress: ToolContext["reportProgress"] = () => {};
       const context: ToolContext = {
         reportProgress,
-        sessionId: extra.sessionId,
         project,
-        foregroundProject,
-        background: Boolean(project && foregroundProject && project !== foregroundProject),
-        runInProject: <T>(callback: () => T, target = project ?? undefined): T => {
-          if (!target) return callback();
-          return runInProjectContext(target, callback);
-        },
       };
-      // A reference tab is writable only through the small explicit exemption
-      // list. Tools must opt into read-only status; missing metadata never grants
-      // mutation access by accident.
-      if (!readOnly && !bypassProjectContext) {
-        assertAgentMayMutateProject(operationName);
+      if (!readOnly && toolDef.writableProject && project) {
+        assertProjectMayBeMutated(project, operationName);
       }
-      return toolDef.execute(args, context);
-    });
-    const result = await execution;
-    if (handle) route(() => auditManager.finishMcpOperation(handle!, result));
-    return normalizeToolResult(result);
-  } catch (error) {
-    route(() => {
+      const result = await toolDef.execute(args, context);
+      if (handle) auditManager.finishMcpOperation(handle, result);
+      return normalizeToolResult(result);
+    } catch (error) {
       if (!readOnly) rollbackUndoEditStartedAfter(undoEditAtStart);
       if (handle) auditManager.finishMcpOperation(handle, undefined, error);
-    });
-    throw error;
-  }
+      throw error;
+    }
+  };
+
+  return readOnly ? execute() : runMutation(execute);
 }
 
 function registerToolDefinition(
   server: unknown,
   name: string,
-  toolDef: ToolDefinition,
-  getSessionId?: SessionIdProvider
+  toolDef: ToolDefinition
 ): void {
   (server as ToolRegistrar).registerTool(
     name,
@@ -267,60 +215,8 @@ function registerToolDefinition(
         : undefined,
       annotations: toolDef.annotations,
     },
-    (args, extra) =>
-      invokeTool(
-        name,
-        toolDef,
-        args as Record<string, unknown>,
-        toolRequestExtraForSession(extra, getSessionId)
-      )
+    (args) => invokeTool(name, toolDef, args as Record<string, unknown>)
   );
-}
-
-type ToolGroupOption = z.ZodObject<{
-  action: z.ZodLiteral<string>;
-  input: z.ZodTypeAny;
-}>;
-
-/** Versioned structured-output envelope used by grouped public tools. */
-export const groupedToolOutputSchema = z
-  .object({
-    schema_version: z.literal("1"),
-    action: z.string().min(1),
-    result: z.unknown(),
-  })
-  .strict();
-
-/**
- * Builds a compact command envelope from existing precise operation schemas.
- * A discriminated union validates only the selected action instead of walking
- * every branch, which keeps grouped tools inexpensive on slower machines.
- */
-export function createToolGroupParameters(
-  operations: readonly ToolSpec[]
-): z.ZodObject<{ command: z.ZodTypeAny }> {
-  if (operations.length === 0) {
-    throw new Error("A tool group must contain at least one operation.");
-  }
-  const options = operations.map((operation) =>
-    z.object({
-      action: z.literal(operation.name),
-      input: operation.parameters,
-    })
-  ) as ToolGroupOption[];
-  const command = options.length === 1
-    ? options[0]
-    : z.discriminatedUnion(
-        "action",
-        options as [ToolGroupOption, ToolGroupOption, ...ToolGroupOption[]]
-      );
-  return z.object({
-    command: command.describe(
-      `Select one action and provide only that action's input object. Supported actions: ${operations
-        .map((operation) => operation.name)
-        .join(", ")}.`
-    ),
-  });
 }
 
 /**
@@ -343,14 +239,13 @@ function extractShape(schema: z.ZodType): Record<string, z.ZodType> {
 
 /**
  * Creates a new MCP tool and registers it with the server using the official SDK.
- * @param name - The tool name suffix (will be prefixed with "blockbench_").
+ * @param name - The public tool name.
  * @param tool - The tool configuration.
  * @param tool.description - The description of the tool.
  * @param tool.annotations - Annotations for the tool (title, hints).
  * @param tool.parameters - Zod schema for input parameters (supports ZodObject or ZodEffects from .refine()).
  * @param tool.execute - The async function to execute when the tool is called.
  * @param status - The status of the tool (stable, experimental, deprecated).
- * @param enabled - Whether the tool is enabled.
  * @returns - The created tool metadata.
  * @throws - If a tool with the same name already exists.
  */
@@ -366,14 +261,13 @@ export function createTool<T extends z.ZodType>(
       readOnlyHint?: boolean;
     };
     parameters: T;
+    project?: "required" | "optional" | "none";
+    writableProject?: boolean;
     outputSchema?: z.AnyZodObject;
     execute: (args: z.infer<T>, context: ToolContext) => Promise<ToolResult>;
-    resolveMutationToolName?: (args: z.infer<T>) => string;
   },
-  status: IMCPTool["status"] = "stable",
-  enabled: boolean = true
+  status: IMCPTool["status"] = "stable"
 ) {
-  assertToolRegistrationAllowed(name);
   if (tools[name] || toolDefinitions[name]) {
     throw new Error(`Tool with name "${name}" already exists.`);
   }
@@ -383,38 +277,28 @@ export function createTool<T extends z.ZodType>(
   const toolDef: ToolDefinition = {
     title: tool.annotations?.title ?? tool.description,
     description: tool.description,
+    parameters: tool.parameters,
     inputSchema,
     outputSchema: tool.outputSchema,
     execute: tool.execute,
-    resolveMutationToolName: tool.resolveMutationToolName as
-      | ((args: Record<string, unknown>) => string)
-      | undefined,
+    project: tool.project ?? "required",
+    writableProject: tool.writableProject ?? true,
     annotations: tool.annotations,
   };
 
-  // Store tool definition
   toolDefinitions[name] = toolDef;
-
-  // Register with server if enabled
-  if (enabled) {
-    registerToolDefinition(getServer(), name, toolDef);
-  }
 
   tools[name] = {
     name,
-    description: toolDef.title,
-    enabled,
+    description: toolDef.description,
+    enabled: true,
     status,
   };
 
   return tools[name];
 }
 
-/**
- * Stores an operation for dispatch by a compact public tool without exposing
- * another MCP tool name. The operation keeps its original schema and handler,
- * while the outer grouped tool owns audit, project-role, and rollback checks.
- */
+/** Domain-module alias; all operations are direct tools. */
 export function createInternalTool<T extends z.ZodType>(
   name: string,
   tool: {
@@ -427,88 +311,21 @@ export function createInternalTool<T extends z.ZodType>(
       readOnlyHint?: boolean;
     };
     parameters: T;
+    project?: "required" | "optional" | "none";
+    writableProject?: boolean;
     execute: (args: z.infer<T>, context: ToolContext) => Promise<ToolResult>;
   },
-  _status: IMCPTool["status"] = "stable"
+  status: IMCPTool["status"] = "stable"
 ): void {
-  assertToolRegistrationAllowed(name);
-  if (tools[name] || toolDefinitions[name]) {
-    throw new Error(`Tool operation with name "${name}" already exists.`);
-  }
-  toolDefinitions[name] = {
-    title: tool.annotations?.title ?? tool.description,
-    description: tool.description,
-    inputSchema: extractShape(tool.parameters),
-    execute: tool.execute as ToolDefinition["execute"],
-    annotations: tool.annotations,
-  };
-}
-
-/** Registers one public domain tool that dispatches to internal operations. */
-export function createToolGroup(
-  spec: ToolSpec,
-  operations: readonly ToolSpec[]
-) {
-  return createTool(
-    spec.name,
-    {
-      description: spec.description,
-      annotations: spec.annotations,
-      parameters: spec.parameters,
-      outputSchema: spec.outputSchema,
-      async execute(args, context) {
-        const command = (args as {
-          command: { action: string; input: Record<string, unknown> };
-        }).command;
-        const result = await toolDefinitions[command.action].execute(command.input, context);
-        if (!spec.outputSchema) return result;
-
-        let structuredResult: unknown = null;
-        if (typeof result === "string") {
-          try {
-            structuredResult = JSON.parse(result);
-          } catch {
-            structuredResult = { text: result };
-          }
-          return {
-            content: [{ type: "text", text: result }],
-            structuredContent: {
-              schema_version: "1",
-              action: command.action,
-              result: structuredResult,
-            },
-          };
-        }
-
-        structuredResult = result.structuredContent ?? null;
-        return {
-          ...result,
-          structuredContent: {
-            schema_version: "1",
-            action: command.action,
-            result: structuredResult,
-          },
-        };
-      },
-      resolveMutationToolName(args) {
-        return (args as { command: { action: string } }).command.action;
-      },
-    },
-    spec.status
-  );
+  createTool(name, tool, status);
 }
 
 /**
- * Registers all enabled tools on a server instance
- * Used to set up new session servers with the same tools
+ * Registers the declarative tool catalog on one stateless request server.
  */
-export function registerToolsOnServer(
-  server: unknown,
-  getSessionId?: SessionIdProvider
-) {
+export function registerToolsOnServer(server: unknown) {
   for (const [name, toolDef] of Object.entries(toolDefinitions)) {
-    if (!tools[name]?.enabled) continue;
-    registerToolDefinition(server, name, toolDef, getSessionId);
+    registerToolDefinition(server, name, toolDef);
   }
 }
 
@@ -610,7 +427,6 @@ export function createResource(
   };
 
   resourceDefinitions[name] = resourceDef;
-  registerResourceDefinition(getServer(), name, resourceDef);
 
   resources[name] = {
     name,
@@ -622,8 +438,7 @@ export function createResource(
 }
 
 /**
- * Registers all resources on a server instance
- * Used to set up new session servers with the same resources
+ * Registers the declarative resource catalog on one stateless request server.
  */
 export function registerResourcesOnServer(server: unknown) {
   for (const [name, resourceDef] of Object.entries(resourceDefinitions)) {
@@ -672,8 +487,7 @@ function registerPromptDefinition(
 }
 
 /**
- * Creates a prompt definition and registers it on the reference server.
- * Session servers are reconstructed from the stored definition below.
+ * Stores a prompt definition for registration on each stateless request server.
  */
 export function createPrompt<T extends z.ZodRawShape>(
   name: string,
@@ -685,36 +499,32 @@ export function createPrompt<T extends z.ZodRawShape>(
       args: z.infer<z.ZodObject<T>>
     ) => { messages: PromptMessage[] } | Promise<{ messages: PromptMessage[] }>;
   },
-  status: IMCPPrompt["status"] = "stable",
-  enabled: boolean = true
+  status: IMCPPrompt["status"] = "stable"
 ) {
   if (prompts[name]) {
     throw new Error(`Prompt with name "${name}" already exists.`);
   }
 
   const argsSchema = prompt.argsSchema.shape;
-  if (enabled) {
-    const promptDef: PromptDefinition = {
-      title: prompt.title ?? prompt.description,
-      description: prompt.description,
-      argsSchema,
-      generate: async (args) => prompt.generate(args as z.infer<z.ZodObject<T>>),
-    };
-    promptDefinitions[name] = promptDef;
-    registerPromptDefinition(getServer(), name, promptDef);
-  }
+  const promptDef: PromptDefinition = {
+    title: prompt.title ?? prompt.description,
+    description: prompt.description,
+    argsSchema,
+    generate: async (args) => prompt.generate(args as z.infer<z.ZodObject<T>>),
+  };
+  promptDefinitions[name] = promptDef;
 
   prompts[name] = {
     name,
     description: prompt.description,
     arguments: argsSchema,
-    enabled,
+    enabled: true,
     status,
   };
   return prompts[name];
 }
 
-/** Register all enabled prompts on a newly-created MCP session server. */
+/** Register all prompts on a newly-created request server. */
 export function registerPromptsOnServer(server: unknown) {
   for (const [name, promptDef] of Object.entries(promptDefinitions)) {
     registerPromptDefinition(server, name, promptDef);

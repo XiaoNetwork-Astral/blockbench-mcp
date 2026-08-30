@@ -3,8 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL } from "@/lib/constants";
@@ -78,32 +76,12 @@ export const displayToolDocs: ToolSpec[] = [
     name: "enter_display_mode",
     description:
       "Switches the editor preview to a display slot, optionally loads a validated reference model, and returns a screenshot for multi-view fit checks. It does not change exported transform data.",
+    writableProject: false,
     annotations: {
       title: "Enter Display Mode",
       destructiveHint: false,
     },
     parameters: enterDisplayModeParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-];
-
-const displayReadOperations = [displayToolDocs[0]];
-const displayEditOperations = [displayToolDocs[1], displayToolDocs[2]];
-
-export const displayPublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_display",
-    description: "Reads one or all Java Edition display transforms.",
-    annotations: { title: "Inspect Display", readOnlyHint: true },
-    parameters: createToolGroupParameters(displayReadOperations),
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "edit_display",
-    description:
-      "Writes display transforms or enters a display preview slot through one command.action.",
-    annotations: { title: "Edit Display", destructiveHint: true },
-    parameters: createToolGroupParameters(displayEditOperations),
     status: STATUS_EXPERIMENTAL,
   },
 ];
@@ -139,12 +117,12 @@ function serializeDisplaySlot(slot: DisplaySlot) {
   };
 }
 
-function getDisplaySettings(): DisplaySettings {
-  return Project.display_settings as unknown as DisplaySettings;
+function getDisplaySettings(project: ModelProject): DisplaySettings {
+  return project.display_settings as unknown as DisplaySettings;
 }
 
-function assertDisplayModeSupported(): void {
-  if (!Format?.display_mode) {
+function assertDisplayModeSupported(project: ModelProject): void {
+  if (!project.format.display_mode) {
     throw new Error(
       "The active format does not support display transforms. Use a Java Block/Item or another format with display mode enabled."
     );
@@ -224,8 +202,9 @@ export function hasDisplayTransformChange(
 export function registerDisplayTools() {
   createInternalTool(displayToolDocs[0].name, {
     ...displayToolDocs[0],
-    async execute({ slot }) {
-      const settings = getDisplaySettings();
+    async execute({ slot }, { project }) {
+      const target = project!;
+      const settings = getDisplaySettings(target);
       if (slot) {
         const displaySlot = settings[slot];
         return JSON.stringify(
@@ -247,7 +226,7 @@ export function registerDisplayTools() {
         }));
       return JSON.stringify(
         {
-          format_supports_display: Boolean(Format?.display_mode),
+          format_supports_display: Boolean(target.format.display_mode),
           populated_count: slots.length,
           slots,
         },
@@ -259,9 +238,10 @@ export function registerDisplayTools() {
 
   createInternalTool(displayToolDocs[1].name, {
     ...displayToolDocs[1],
-    async execute(args) {
-      const settings = getDisplaySettings();
-      assertDisplayModeSupported();
+    async execute(args, { project }) {
+      const target = project!;
+      const settings = getDisplaySettings(target);
+      assertDisplayModeSupported(target);
       assertRuntimeSlotAvailable(args.slot);
       if (!hasDisplayTransformChange(args)) {
         throw new Error(
@@ -315,7 +295,7 @@ export function registerDisplayTools() {
   createInternalTool(displayToolDocs[2].name, {
     ...displayToolDocs[2],
     async execute({ slot, reference }, context) {
-      assertDisplayModeSupported();
+      assertDisplayModeSupported(context.project!);
       assertRuntimeSlotAvailable(slot);
       const referenceModel = reference
         ? getReferenceModelOrThrow(reference)
@@ -345,12 +325,7 @@ export function registerDisplayTools() {
         notes.push(`Loaded reference "${reference}".`);
       }
 
-      const screenshot = await captureScreenshot(
-        undefined,
-        2,
-        context.sessionId,
-        context.project
-      );
+      const screenshot = await captureScreenshot({ workingProject: context.project });
       return {
         content: [
           { type: "text" as const, text: notes.join(" ") },
@@ -360,6 +335,4 @@ export function registerDisplayTools() {
     },
   }, displayToolDocs[2].status);
 
-  createToolGroup(displayPublicToolDocs[0], displayReadOperations);
-  createToolGroup(displayPublicToolDocs[1], displayEditOperations);
 }

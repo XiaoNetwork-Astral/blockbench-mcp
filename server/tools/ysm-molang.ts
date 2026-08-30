@@ -7,7 +7,8 @@ import { discoverYsmDocuments, inventoryYsmMolangExpressions } from "@/lib/ysmMo
 import { editYsmMolangExpressions } from "@/lib/ysmMolangEditing";
 import { parseMolang } from "@/lib/molang/parser";
 import {
-  getMolangCatalogMetadata,
+  getMolangCatalogProvenance,
+  getMolangCatalogSourceFiles,
   listMolangCatalog,
   validateMolangSemantics,
 } from "@/lib/molang/catalog";
@@ -17,8 +18,12 @@ import {
   type MolangEvaluatorState,
 } from "@/lib/molang/evaluator";
 import type { MolangDiagnostic, MolangDialect, MolangValue } from "@/lib/molang/types";
-import { resolveOpenProject } from "@/lib/projectContext";
-import { getYsmBinding, setYsmBinding } from "@/lib/ysmBindings";
+import {
+  getYsmBinding,
+  getYsmBindingWorkspaceState,
+  setYsmBinding,
+} from "@/lib/ysmBindings";
+import { getPluginWorkspaceRoot } from "@/lib/pluginWorkspace";
 import {
   captureOffscreenValidationPass,
   getEffectiveCameraState,
@@ -67,7 +72,13 @@ const evaluatorStateSchema = z.object({
   random_state: z.number().int().min(0).max(0xffffffff),
 }).strict();
 
-const bindingsSchema = z.record(molangValueSchema).optional().default({});
+const bindingsSchema = z
+  .record(molangValueSchema)
+  .optional()
+  .default({})
+  .describe(
+    "Runtime bindings as nested objects or flat dotted paths. A flat dotted entry overrides the equivalent nested value."
+  );
 
 const paginationSchema = {
   cursor: z.string().max(64).optional().describe("Opaque cursor returned by the previous page."),
@@ -98,6 +109,13 @@ export const ysmGetMolangCatalogParameters = z.object({
   name: z.string().min(1).optional(),
   kind: z.enum(["function", "variable", "namespace"]).optional(),
   runtime_availability: z.enum(["all", "standalone", "runtime_only"]).optional().default("all"),
+  include_source_files: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Include one explicitly paginated page of source-file provenance for the selected dialect."),
+  source_cursor: z.string().max(64).optional(),
+  source_limit: z.number().int().min(1).max(100).optional().default(50),
   ...paginationSchema,
 }).strict();
 
@@ -114,7 +132,6 @@ export const ysmValidateMolangParameters = z.object({
   dialect: dialectSchema,
   bindings: bindingsSchema,
   function_results: z.record(molangValueSchema).optional().default({}),
-  project: z.string().optional().describe("Optional open project used to validate referenced animation bones."),
 }).strict().refine(
   ({ expression, expression_id }) => Boolean(expression) !== Boolean(expression_id),
   { message: "Provide exactly one of expression or expression_id." }
@@ -122,7 +139,12 @@ export const ysmValidateMolangParameters = z.object({
 
 const simulationStepSchema = z.object({
   delta_seconds: z.number().finite().min(0).max(60),
-  bindings: z.record(molangValueSchema).optional(),
+  bindings: z
+    .record(molangValueSchema)
+    .optional()
+    .describe(
+      "Per-step bindings as nested objects or flat dotted paths. A flat dotted entry overrides the equivalent nested value."
+    ),
 }).strict();
 
 export const ysmSimulateMolangParameters = z.object({
@@ -148,37 +170,43 @@ export const ysmPreviewMolangParameters = ysmSimulateMolangParameters.extend({
     mode: z.enum(["add", "replace"]).optional().default("add"),
     sample_index: z.number().int().min(0).optional(),
   }).strict().optional(),
-  project: z.string().optional().describe(
-    "Explicit open project UUID, exact name, or save path for visual pose mapping. Trace-only previews do not require a project."
-  ),
   width: z.number().int().min(64).max(1600).optional().default(800),
   height: z.number().int().min(64).max(1200).optional().default(600),
 }).strict();
 
 const molangEditSchema = z.object({
   operation: z.enum(["create", "replace", "remove"]),
-  expression_id: z.string().length(64).optional(),
-  json_pointer: z.string().optional(),
-  expected_literal_sha256: z.string().length(64).optional(),
+  expression_id: z
+    .string()
+    .length(64)
+    .optional()
+    .describe("Current ID from ysm_list_molang_expressions; required for replace and remove."),
+  json_pointer: z
+    .string()
+    .optional()
+    .describe("Target JSON pointer. Required when creating a new expression."),
   value: z.union([z.string().max(262_144), z.number().finite()]).optional(),
 }).strict().refine(
-  ({ expression_id, json_pointer }) => Boolean(expression_id) || json_pointer !== undefined,
-  { message: "Each edit requires expression_id or json_pointer." }
+  ({ operation, expression_id, json_pointer }) =>
+    operation === "create" ? json_pointer !== undefined : Boolean(expression_id),
+  { message: "Create requires json_pointer; replace and remove require a current expression_id." }
 );
 
-export const ysmEditMolangExpressionsParameters = z.object({
+const ysmMolangEditParameters = z.object({
   manifest: z.string().min(1).optional().default("ysm.json"),
   file: z.string().min(1),
-  expected_file_sha256: z.string().length(64),
   dialect: dialectSchema,
-  dry_run: z.boolean().optional().default(true),
   edits: z.array(molangEditSchema).min(1).max(64),
 }).strict();
+
+export const previewYsmMolangEditsParameters = ysmMolangEditParameters;
+export const editYsmMolangParameters = ysmMolangEditParameters;
 
 export const ysmMolangReadToolDocs: ToolSpec[] = [
   {
     name: "ysm_discover_documents",
     description: "Discovers the manifest and referenced Molang-bearing YSM sidecars without rewriting them.",
+    project: "none",
     annotations: { title: "Discover YSM Documents", readOnlyHint: true, openWorldHint: true },
     parameters: ysmDiscoverDocumentsParameters,
     status: STATUS_EXPERIMENTAL,
@@ -186,6 +214,7 @@ export const ysmMolangReadToolDocs: ToolSpec[] = [
   {
     name: "ysm_list_molang_expressions",
     description: "Inventories exact Molang locations, owners, source ranges, and hashes in a YSM package.",
+    project: "none",
     annotations: { title: "List YSM Molang Expressions", readOnlyHint: true, openWorldHint: true },
     parameters: ysmListMolangExpressionsParameters,
     status: STATUS_EXPERIMENTAL,
@@ -193,6 +222,7 @@ export const ysmMolangReadToolDocs: ToolSpec[] = [
   {
     name: "ysm_get_molang_catalog",
     description: "Queries the source-derived OpenYSM Molang symbol catalog and its audited provenance.",
+    project: "none",
     annotations: { title: "Get YSM Molang Catalog", readOnlyHint: true },
     parameters: ysmGetMolangCatalogParameters,
     status: STATUS_EXPERIMENTAL,
@@ -200,6 +230,7 @@ export const ysmMolangReadToolDocs: ToolSpec[] = [
   {
     name: "ysm_parse_molang",
     description: "Tokenizes and parses the audited YSM Molang grammar with source ranges and diagnostics.",
+    project: "none",
     annotations: { title: "Parse YSM Molang", readOnlyHint: true },
     parameters: ysmParseMolangParameters,
     status: STATUS_EXPERIMENTAL,
@@ -207,6 +238,7 @@ export const ysmMolangReadToolDocs: ToolSpec[] = [
   {
     name: "ysm_validate_molang",
     description: "Validates syntax, source-backed symbols and arity, runtime availability, and inventoried bone ownership.",
+    project: "optional",
     annotations: { title: "Validate YSM Molang", readOnlyHint: true, openWorldHint: true },
     parameters: ysmValidateMolangParameters,
     status: STATUS_EXPERIMENTAL,
@@ -214,6 +246,7 @@ export const ysmMolangReadToolDocs: ToolSpec[] = [
   {
     name: "ysm_simulate_molang",
     description: "Evaluates a deterministic sequence with explicit bindings, timestep, and serializable state.",
+    project: "none",
     annotations: { title: "Simulate YSM Molang", readOnlyHint: true },
     parameters: ysmSimulateMolangParameters,
     status: STATUS_EXPERIMENTAL,
@@ -221,19 +254,31 @@ export const ysmMolangReadToolDocs: ToolSpec[] = [
   {
     name: "ysm_preview_molang",
     description: "Produces a bounded clone-safe Molang sample trace; it never changes saved model or visible editor state.",
+    project: "optional",
     annotations: { title: "Preview YSM Molang", readOnlyHint: true },
     parameters: ysmPreviewMolangParameters,
     status: STATUS_EXPERIMENTAL,
   },
 ];
 
-export const ysmMolangEditToolDoc: ToolSpec = {
-  name: "ysm_edit_molang_expressions",
-  description: "Dry-runs or atomically applies one-file, hash-guarded targeted Molang JSONC edits.",
-  annotations: { title: "Edit YSM Molang Expressions", destructiveHint: true, openWorldHint: true },
-  parameters: ysmEditMolangExpressionsParameters,
-  status: STATUS_EXPERIMENTAL,
-};
+export const ysmMolangEditToolDocs: ToolSpec[] = [
+  {
+    name: "preview_ysm_molang_edits",
+    description: "Previews targeted Molang JSONC edits without writing the file.",
+    project: "none",
+    annotations: { title: "Preview YSM Molang Edits", readOnlyHint: true, openWorldHint: true },
+    parameters: previewYsmMolangEditsParameters,
+    status: STATUS_EXPERIMENTAL,
+  },
+  {
+    name: "edit_ysm_molang",
+    description: "Atomically applies targeted Molang JSONC edits after a successful preview.",
+    project: "none",
+    annotations: { title: "Edit YSM Molang", destructiveHint: true, openWorldHint: true },
+    parameters: editYsmMolangParameters,
+    status: STATUS_EXPERIMENTAL,
+  },
+];
 
 function cursorOffset(cursor: string | undefined): number {
   if (!cursor) return 0;
@@ -291,13 +336,10 @@ function resolveValidationExpression(
 }
 
 function projectBoneDiagnostics(
-  projectReference: string | undefined,
+  project: ModelProject | null,
   bone: string | null
 ): MolangDiagnostic[] {
-  // These actions deliberately bypass foreground project context so that file-only
-  // validation cannot accidentally inspect whichever tab happens to be visible.
-  if (!bone || !projectReference) return [];
-  const project = resolveOpenProject(projectReference);
+  if (!bone || !project) return [];
   const matches = project.groups.filter((group) => group.name === bone || group.uuid === bone);
   if (matches.length === 1) return [];
   return [{
@@ -386,7 +428,11 @@ function refreshBindingsAfterMolangEdit(manifest: string): Array<{ project_uuid:
   const refreshed: Array<{ project_uuid: string; project_name: string }> = [];
   for (const project of ModelProject.all) {
     const binding = getYsmBinding(project);
-    if (!binding || binding.manifest !== manifest) continue;
+    if (
+      !binding ||
+      binding.manifest !== manifest ||
+      getYsmBindingWorkspaceState(binding, getPluginWorkspaceRoot()) !== "current"
+    ) continue;
     setYsmBinding(project, {
       ...binding,
       manifestSha256: discovery.manifest.sha256,
@@ -427,7 +473,18 @@ export function registerYsmMolangOperations(): void {
 
   createInternalTool(ysmMolangReadToolDocs[2].name, {
     ...ysmMolangReadToolDocs[2],
-    async execute({ dialect, namespace, name, kind, runtime_availability, cursor, limit }) {
+    async execute({
+      dialect,
+      namespace,
+      name,
+      kind,
+      runtime_availability,
+      include_source_files,
+      source_cursor,
+      source_limit,
+      cursor,
+      limit,
+    }) {
       const loweredName = name?.toLocaleLowerCase();
       const entries = listMolangCatalog(dialect, namespace?.toLocaleLowerCase()).filter((entry) =>
         (!loweredName || entry.name === loweredName)
@@ -438,7 +495,10 @@ export function registerYsmMolangOperations(): void {
       return json({
         schema_version: "1",
         dialect,
-        provenance: getMolangCatalogMetadata(),
+        provenance: getMolangCatalogProvenance(dialect),
+        source_files: include_source_files
+          ? page(getMolangCatalogSourceFiles(dialect), source_cursor, source_limit)
+          : undefined,
         ...page(entries, cursor, limit),
       });
     },
@@ -461,7 +521,7 @@ export function registerYsmMolangOperations(): void {
 
   createInternalTool(ysmMolangReadToolDocs[4].name, {
     ...ysmMolangReadToolDocs[4],
-    async execute({ expression, expression_id, manifest, dialect, bindings, function_results, project }) {
+    async execute({ expression, expression_id, manifest, dialect, bindings, function_results }, context) {
       const resolved = resolveValidationExpression(expression, expression_id, manifest);
       const parsed = parseMolang(resolved.source);
       const diagnostics = validateMolangSemantics(parsed, dialect, {
@@ -469,7 +529,7 @@ export function registerYsmMolangOperations(): void {
         available_binding_paths: suppliedBindingPaths(bindings),
         available_function_results: Object.keys(function_results),
       });
-      diagnostics.push(...projectBoneDiagnostics(project, resolved.inventoried?.owner.bone ?? null));
+      diagnostics.push(...projectBoneDiagnostics(context.project, resolved.inventoried?.owner.bone ?? null));
       return json({
         schema_version: "1",
         dialect,
@@ -509,10 +569,8 @@ export function registerYsmMolangOperations(): void {
         },
       };
       if (!input.pose_mapping) return json(preview);
-      if (!input.project) {
-        throw new Error("Visual Molang pose mapping requires an explicit project UUID, exact name, or save path.");
-      }
-      const project = resolveOpenProject(input.project);
+      const project = context.project;
+      if (!project) throw new Error("Visual Molang pose mapping requires a visible project.");
       const matches = project.groups.filter((group) =>
         group.uuid === input.pose_mapping!.bone || group.name === input.pose_mapping!.bone
       );
@@ -527,13 +585,12 @@ export function registerYsmMolangOperations(): void {
       if (typeof sample.value !== "number" || !Number.isFinite(sample.value)) {
         throw new Error("The selected Molang sample is not a finite number and cannot drive a bone component.");
       }
-      const camera = getEffectiveCameraState(project, context.sessionId, [input.width, input.height]);
+      const camera = getEffectiveCameraState(project, [input.width, input.height]);
       const capture = await captureOffscreenValidationPass(
         project,
         camera,
         input.width,
         input.height,
-        context.sessionId,
         {
           pass: "color",
           cloneTransforms: [{
@@ -570,16 +627,25 @@ export function registerYsmMolangOperations(): void {
     },
   }, ysmMolangReadToolDocs[6].status);
 
-  createInternalTool(ysmMolangEditToolDoc.name, {
-    ...ysmMolangEditToolDoc,
+  createInternalTool(ysmMolangEditToolDocs[0].name, {
+    ...ysmMolangEditToolDocs[0],
     async execute(input) {
-      const result = editYsmMolangExpressions(input);
+      const result = editYsmMolangExpressions({ ...input, dry_run: true });
       return json({
         ...result,
-        refreshed_bindings: result.applied
-          ? refreshBindingsAfterMolangEdit(input.manifest)
-          : [],
+        refreshed_bindings: [],
       });
     },
-  }, ysmMolangEditToolDoc.status);
+  }, ysmMolangEditToolDocs[0].status);
+
+  createInternalTool(ysmMolangEditToolDocs[1].name, {
+    ...ysmMolangEditToolDocs[1],
+    async execute(input) {
+      const result = editYsmMolangExpressions({ ...input, dry_run: false });
+      return json({
+        ...result,
+        refreshed_bindings: refreshBindingsAfterMolangEdit(input.manifest),
+      });
+    },
+  }, ysmMolangEditToolDocs[1].status);
 }

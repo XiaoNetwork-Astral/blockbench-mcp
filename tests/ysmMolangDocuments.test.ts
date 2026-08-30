@@ -116,11 +116,9 @@ describe("YSM Molang package discovery and editing", () => {
     const request = {
       manifest: "ysm.json",
       file: "animations/main.animation.json",
-      expected_file_sha256: hash(before),
       edits: [{
         operation: "replace" as const,
         expression_id: target!.expression_id,
-        expected_literal_sha256: target!.literal_sha256,
         value: replacement,
       }],
       dry_run: true,
@@ -143,22 +141,35 @@ describe("YSM Molang package discovery and editing", () => {
     expect(after.replace(JSON.stringify(replacement), JSON.stringify(target!.decoded))).toBe(before);
   });
 
-  test("rejects stale hashes and malformed duplicate-key documents", () => {
+  test("rejects stale expression IDs and malformed duplicate-key documents", () => {
     const file = path.join(workspace, "animations", "main.animation.json");
-    fs.writeFileSync(file, animationText());
+    const before = animationText();
+    fs.writeFileSync(file, before);
     const inventory = inventoryYsmMolangExpressions("ysm.json");
     const target = inventory.expressions.find((item) => item.owner.bone === "BeretStrap" && item.json_pointer.endsWith("/2"))!;
+    fs.writeFileSync(
+      file,
+      before.replace(JSON.stringify(target.decoded), JSON.stringify("0"))
+    );
     expect(() => editYsmMolangExpressions({
       manifest: "ysm.json",
       file: "animations/main.animation.json",
-      expected_file_sha256: "0".repeat(64),
       edits: [{
         operation: "replace",
         expression_id: target.expression_id,
-        expected_literal_sha256: target.literal_sha256,
         value: "0",
       }],
-    })).toThrow(/changed outside this request/i);
+    })).toThrow(/expression id.*not current/i);
+
+    expect(() => editYsmMolangExpressions({
+      manifest: "ysm.json",
+      file: "animations/main.animation.json",
+      edits: [{
+        operation: "replace",
+        json_pointer: target.json_pointer,
+        value: "1",
+      }],
+    })).toThrow(/requires a current expression_id/i);
 
     fs.writeFileSync(file, '{"animations": {}, "animations": {}}\n');
     const malformed = inventoryYsmMolangExpressions("ysm.json");
@@ -190,11 +201,9 @@ describe("YSM Molang package discovery and editing", () => {
     const result = editYsmMolangExpressions({
       manifest: "ysm.json",
       file: "animations/main.animation.json",
-      expected_file_sha256: hash(before),
       edits: [{
         operation: "replace",
         expression_id: target.expression_id,
-        expected_literal_sha256: target.literal_sha256,
         value: replacement,
       }],
       dry_run: false,

@@ -120,6 +120,51 @@ export function getMolangCatalogMetadata(): GeneratedCatalog["generated_from"] {
   return CATALOG.generated_from;
 }
 
+type CatalogSource = GeneratedCatalog["generated_from"]["stable"];
+
+export interface MolangCatalogProvenanceSummary {
+  declared_version: string;
+  commit: null;
+  root_digest: string;
+  file_count: number;
+}
+
+function summarizeCatalogSource(source: CatalogSource): MolangCatalogProvenanceSummary {
+  return {
+    declared_version: source.declared_version,
+    commit: source.commit,
+    root_digest: source.root_digest,
+    file_count: source.files.length,
+  };
+}
+
+export function getMolangCatalogProvenance(
+  dialect: MolangDialect
+): MolangCatalogProvenanceSummary;
+export function getMolangCatalogProvenance(): {
+  stable: MolangCatalogProvenanceSummary;
+  dev: MolangCatalogProvenanceSummary;
+};
+export function getMolangCatalogProvenance(
+  dialect?: MolangDialect
+): MolangCatalogProvenanceSummary | {
+  stable: MolangCatalogProvenanceSummary;
+  dev: MolangCatalogProvenanceSummary;
+} {
+  if (dialect === "stable_2_6_5") return summarizeCatalogSource(CATALOG.generated_from.stable);
+  if (dialect === "dev_3_0_experimental") return summarizeCatalogSource(CATALOG.generated_from.dev);
+  return {
+    stable: summarizeCatalogSource(CATALOG.generated_from.stable),
+    dev: summarizeCatalogSource(CATALOG.generated_from.dev),
+  };
+}
+
+export function getMolangCatalogSourceFiles(dialect: MolangDialect) {
+  return dialect === "stable_2_6_5"
+    ? CATALOG.generated_from.stable.files
+    : CATALOG.generated_from.dev.files;
+}
+
 export function listMolangCatalog(
   dialect: MolangDialect,
   namespace?: string

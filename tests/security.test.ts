@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-  assertToolRegistrationAllowed,
   isAuthorizedMcpRequest,
   isLoopbackMcpHost,
 } from "@/lib/security";
@@ -12,9 +11,8 @@ import {
   normalizeMcpAuthToken,
   normalizeMcpBindHost,
 } from "@/lib/pluginSettings";
-import promptManifest from "@/prompts/manifest.json";
 
-describe("local MCP security policy", () => {
+describe("local MCP network boundary", () => {
   test("defaults to loopback but accepts explicit bind addresses", () => {
     expect(DEFAULT_MCP_BIND_HOST).toBe("127.0.0.1");
     expect(normalizeMcpBindHost(" 192.168.1.20 ")).toBe("192.168.1.20");
@@ -56,24 +54,4 @@ describe("local MCP security policy", () => {
     expect(isValidMcpAuthToken("short")).toBe(false);
   });
 
-  test("cannot register arbitrary JavaScript evaluation", () => {
-    expect(() => assertToolRegistrationAllowed("risky_eval")).toThrow("permanently disabled");
-    expect(() => assertToolRegistrationAllowed("create_cube")).not.toThrow();
-  });
-
-  test("cannot register generic UI automation bypasses", () => {
-    for (const tool of ["trigger_action", "emulate_clicks", "fill_dialog"]) {
-      expect(() => assertToolRegistrationAllowed(tool)).toThrow("permanently disabled");
-    }
-    expect(() => assertToolRegistrationAllowed("set_preview_state")).not.toThrow();
-  });
-
-  test("bundled prompts cannot reintroduce disabled tool guidance", () => {
-    const bundledText = Object.values(promptManifest.prompts).join("\n");
-    for (const tool of ["risky_eval", "trigger_action", "emulate_clicks", "fill_dialog"]) {
-      expect(bundledText).not.toContain(tool);
-    }
-    expect(bundledText).toContain("explicit parent");
-    expect(bundledText).toContain("front, side, top");
-  });
 });

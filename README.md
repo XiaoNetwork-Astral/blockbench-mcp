@@ -7,14 +7,14 @@ This repository is derived from Jason J. Gardner's `blockbench-mcp-plugin` and i
 ## Features
 
 - Modeling, texturing, UVs, animation, materials, projects, and import/export.
-- 37 core tools; three YSM tools are added after configuring the plugin workspace, and two experimental tools are added when the Hytale plugin is installed.
-- Tools are grouped by domain and read/write boundaries, with public names consistently using `inspect_*`, `edit_*`, `create_*`, `import_*`, and `export_*`.
-- Each MCP session binds to its working project independently; background modeling and offscreen screenshots do not switch away from the tab the user is viewing.
-- Experimental model validation actions provide transformed contact analysis, typed UV checks, session-scoped in-memory snapshots (the latest eight per session), repeatable camera/debug passes, occluder evidence, and native-animation pose sweeps.
-- Optional YSM actions discover JSONC sidecars, inventory and validate source-backed Molang, run deterministic simulations, preview clone-only pose mappings, and perform hash-guarded one-file edits that dry-run by default.
-- Projects can be explicitly made read-only for everyone, or unsaved content can be discarded and the project closed within an explicitly defined scope.
+- 118 core direct tools and 17 YSM tools; 12 additional experimental tools appear when the Hytale plugin is installed.
+- Every tool has an operation-specific schema. There are no grouped `command.action` envelopes.
+- Project tools act on the Blockbench tab visible when each call begins. `select_project` is the only way an MCP call chooses another open tab.
+- Experimental validation tools provide transformed contact analysis, typed UV checks, project-scoped in-memory snapshots (the latest eight per project), repeatable camera/debug passes, occluder evidence, and native-animation pose sweeps.
+- YSM tools configure a folder-scoped workspace, synchronize model extensions, discover JSONC sidecars, inspect and simulate source-backed Molang, render clone-only pose previews, and preview or apply targeted one-file edits.
+- Projects can be explicitly made read-only for both the user and MCP while camera navigation and inspection remain available.
 - The local MCP server listens on `127.0.0.1` by default and uses Bearer authentication.
-- Per-project operation records, Undo/Redo, and Collection organization that does not change the bone hierarchy.
+- Persistent per-project operation records, Undo/Redo, and Collection organization that does not change the bone hierarchy.
 
 ## Build
 

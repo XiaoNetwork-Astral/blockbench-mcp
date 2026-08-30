@@ -4,7 +4,6 @@ import { z } from "zod";
 import { createTool, type ToolSpec } from "@/lib/factories";
 import { captureScreenshot } from "@/lib/util";
 import { STATUS_STABLE } from "@/lib/constants";
-import { setSessionWorkingProject } from "@/lib/projectContext";
 import {
   assertGeometryJsonSize,
   classifyGeometryJsonSource,
@@ -22,7 +21,8 @@ export const importToolDocs: ToolSpec[] = [
   {
     name: "import_bedrock_geometry",
     description:
-      "Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the MCP working project without changing the foreground tab. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.",
+      "Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the visible project. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.",
+    project: "optional",
     annotations: {
       title: "Import Bedrock Geometry",
       destructiveHint: true,
@@ -114,7 +114,7 @@ function readLocalGeometryJson(path: string): Promise<string> {
 export function registerImportTools() {
   createTool(importToolDocs[0].name, {
     ...importToolDocs[0],
-    async execute({ geojson }, context) {
+    async execute({ geojson }) {
       const source = classifyGeometryJsonSource(geojson);
       const jsonText = source.kind === "inline"
         ? source.text
@@ -145,20 +145,12 @@ export function registerImportTools() {
             : null;
         return { destination, importedProject };
       };
-      const { destination, importedProject } = context.project
-        ? context.runInProject(load, context.project)
-        : load();
+      const { destination, importedProject } = load();
       if (!importedProject) {
         throw new Error("Blockbench did not create or select an imported project.");
       }
-      setSessionWorkingProject(context.sessionId, importedProject);
 
-      const screenshot = await captureScreenshot(
-        undefined,
-        2,
-        context.sessionId,
-        importedProject
-      );
+      const screenshot = await captureScreenshot({ workingProject: importedProject });
       return {
         content: [
           {

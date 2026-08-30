@@ -1,4 +1,3 @@
-import { sessionManager } from "@/lib/sessions";
 import {
   getProjectProtectionState,
   setProjectReadOnly,
@@ -19,7 +18,6 @@ interface StatusBarUi {
 
 let statusBarUi: StatusBarUi | undefined;
 let cssHandle: Deletable | undefined;
-let unsubscribeSessions: (() => void) | undefined;
 let unsubscribeServerState: (() => void) | undefined;
 let unsubscribeProtection: (() => void) | undefined;
 const projectListeners: Array<{
@@ -119,22 +117,13 @@ export function statusBarSetup(): void {
 
   const updateStatus = () => {
     const state = getMcpServerState();
-    const clientCount = sessionManager.getClientCount();
-    const sessionCount = sessionManager.getCount();
     statusDot.className = `mcp-status-dot ${state}`;
-    const clientUnit = tl(clientCount === 1
-      ? "mcp.client_manager.client"
-      : "mcp.client_manager.clients");
-    const sessionUnit = tl(sessionCount === 1
-      ? "mcp.client_manager.session"
-      : "mcp.client_manager.sessions");
     statusText.textContent = `${tl("mcp.status.server")}: ${tl(
       `mcp.server_controls.state_${state}`
     )}`;
-    serverInfo.textContent = `(${clientCount} ${clientUnit} · ${sessionCount} ${sessionUnit})`;
+    serverInfo.textContent = "";
   };
 
-  unsubscribeSessions = sessionManager.subscribe(updateStatus);
   unsubscribeServerState = subscribeMcpServerState(updateStatus);
   unsubscribeProtection = subscribeProjectProtection((project) => {
     if (project === Project) updateProtectionButton();
@@ -148,8 +137,6 @@ export function statusBarSetup(): void {
 }
 
 export function statusBarTeardown(): void {
-  unsubscribeSessions?.();
-  unsubscribeSessions = undefined;
   unsubscribeServerState?.();
   unsubscribeServerState = undefined;
   unsubscribeProtection?.();

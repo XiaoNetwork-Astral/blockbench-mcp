@@ -21,9 +21,10 @@ import {
   getMcpServerState,
   setMcpServerState,
 } from "@/lib/serverRuntime";
-import { sessionManager } from "@/lib/sessions";
-import type { NetServer, SessionTransports } from "@/server/net";
-import createNetServer, { stopNetServer } from "@/server/net";
+import {
+  createStatelessHttpServer,
+  type StatelessHttpRuntime,
+} from "@/server/http";
 import { teardownPluginWorkspace } from "@/lib/pluginWorkspace";
 import { auditManager } from "@/lib/audit";
 import { setupProjectProtection, teardownProjectProtection } from "@/lib/projectProtection";
@@ -32,17 +33,14 @@ import {
   getMcpAuthToken,
   getMcpBindHost,
   getMcpPort,
-  getSessionTimeoutMinutes,
-  getSseHeartbeatSeconds,
   formatMcpHostForUrl,
 } from "@/lib/pluginSettings";
 import { isLoopbackMcpHost } from "@/lib/security";
 import { initPromptLoader } from "@/lib/promptLoader";
 import { getIcon } from "@/macros/getIcon" with { type: "macro" };
 
-let httpServer: NetServer | null = null;
-let sessionTransports: SessionTransports | null = null;
-let netModule: Parameters<typeof createNetServer>[0] | null = null;
+let httpRuntime: StatelessHttpRuntime | null = null;
+let netModule: Parameters<typeof createStatelessHttpServer>[0] | null = null;
 let stoppingServer: Promise<void> | null = null;
 let pluginLoaded = false;
 let activeServerUrl: string | null = null;
@@ -57,8 +55,6 @@ function getServerStatus(): McpServerStatus {
     state: getMcpServerState(),
     url: activeServerUrl ?? currentServerUrl(),
     authenticationEnabled: activeAuthenticationEnabled ?? Boolean(getMcpAuthToken()),
-    connectedClients: sessionManager.getClientCount(),
-    connectedSessions: sessionManager.getCount(),
   };
 }
 
@@ -88,7 +84,7 @@ function warnAboutServerExposure(host: string, authToken: string): void {
 
 async function startMcpServer(showFeedback = true): Promise<void> {
   if (stoppingServer) await stoppingServer;
-  if (httpServer || getMcpServerState() === "starting") {
+  if (httpRuntime || getMcpServerState() === "starting") {
     if (showFeedback) Blockbench.showQuickMessage(tl("mcp.server_controls.already_running"), 2500);
     return;
   }
@@ -100,30 +96,22 @@ async function startMcpServer(showFeedback = true): Promise<void> {
   setMcpServerState("starting");
   const host = getMcpBindHost();
   const authToken = getMcpAuthToken();
-  const sessionTimeoutMin = getSessionTimeoutMinutes();
-  const sseHeartbeatSec = getSseHeartbeatSeconds();
   warnAboutServerExposure(host, authToken);
 
   try {
-    const [server, transports] = createNetServer(netModule, {
+    const runtime = createStatelessHttpServer(netModule, {
       host,
       port: getMcpPort(),
       endpoint: getMcpEndpoint(),
       authToken,
-      keepAlive: {
-        sseHeartbeatIntervalMs: Math.max(0, sseHeartbeatSec) * 1000,
-      },
-      sessionConfig: {
-        inactivityTimeoutMs: Math.max(1, sessionTimeoutMin) * 60 * 1000,
-      },
     });
-    httpServer = server;
-    sessionTransports = transports;
+    const server = runtime.server;
+    httpRuntime = runtime;
     activeServerUrl = `http://${formatMcpHostForUrl(host)}:${getMcpPort()}${getMcpEndpoint()}`;
     activeAuthenticationEnabled = Boolean(authToken);
 
     server.once("listening", () => {
-      if (httpServer === server) {
+      if (httpRuntime === runtime) {
         setMcpServerState("running");
         if (showFeedback && pluginLoaded) {
           Blockbench.showQuickMessage(
@@ -134,18 +122,16 @@ async function startMcpServer(showFeedback = true): Promise<void> {
       }
     });
     server.once("close", () => {
-      if (httpServer === server) {
-        httpServer = null;
-        sessionTransports = null;
+      if (httpRuntime === runtime) {
+        httpRuntime = null;
         setMcpServerState("stopped");
         activeServerUrl = null;
         activeAuthenticationEnabled = null;
       }
     });
     server.on("error", () => {
-      if (httpServer === server && !server.listening) {
-        httpServer = null;
-        sessionTransports = null;
+      if (httpRuntime === runtime && !server.listening) {
+        httpRuntime = null;
         setMcpServerState("stopped");
         activeServerUrl = null;
         activeAuthenticationEnabled = null;
@@ -165,18 +151,16 @@ async function startMcpServer(showFeedback = true): Promise<void> {
 
 async function stopMcpServer(showFeedback = true): Promise<void> {
   if (stoppingServer) return stoppingServer;
-  const serverToStop = httpServer;
-  const transportsToStop = sessionTransports;
-  if (!serverToStop || !transportsToStop) {
+  const runtimeToStop = httpRuntime;
+  if (!runtimeToStop) {
     setMcpServerState("stopped");
     if (showFeedback) Blockbench.showQuickMessage(tl("mcp.server_controls.already_stopped"), 2500);
     return;
   }
 
-  httpServer = null;
-  sessionTransports = null;
+  httpRuntime = null;
   setMcpServerState("stopping");
-  stoppingServer = stopNetServer(serverToStop, transportsToStop, 5000)
+  stoppingServer = runtimeToStop.stop()
     .then(() => {
       if (showFeedback && pluginLoaded) {
         Blockbench.showQuickMessage(tl("mcp.server_controls.stopped"), 2500);
@@ -222,16 +206,15 @@ BBPlugin.register(PLUGIN_ID, {
       getStatus: getServerStatus,
     });
 
-    // Get network module with Blockbench permission handling
-    // @ts-ignore - requireNativeModule is a Blockbench global
+    // Blockbench exposes raw TCP networking to plugins, but not Node's HTTP
+    // module. The server's small HTTP adapter is implemented over this socket API.
     netModule = requireNativeModule("net", {
-      message: "Network access is required for the MCP server to accept connections.",
-      detail: "The MCP plugin needs to create a local server that AI assistants can connect to.",
+      message: "The MCP plugin needs to accept local connections from AI assistants.",
       optional: false,
-    }) as Parameters<typeof createNetServer>[0] | null;
+    }) ?? null;
 
     if (!netModule) {
-      console.error("[MCP] Failed to get net module - server will not start");
+      console.error("[MCP] Failed to get network access - server will not start");
       Blockbench.showQuickMessage(tl("mcp.server_controls.network_unavailable"), 3000);
       return;
     }
@@ -247,7 +230,6 @@ BBPlugin.register(PLUGIN_ID, {
       console.error("[Blockbench MCP] Failed to stop server cleanly:", error);
     });
     netModule = null;
-    if (!httpServer && !stoppingServer) sessionManager.clear();
 
     uiTeardown();
     settingsTeardown();

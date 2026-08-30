@@ -6,6 +6,8 @@ import {
 const STORAGE_KEY = "blockbench_mcp.ysm_bindings";
 
 export interface YsmBinding {
+  /** Absolute workspace identity used to interpret every relative path in this binding. */
+  workspaceRoot?: string;
   geometry: string;
   geometryIdentifier: string | null;
   texture: string | null;
@@ -31,8 +33,55 @@ export interface YsmBinding {
 
 type StoredBindings = Record<string, YsmBinding>;
 
+export type YsmBindingWorkspaceState = "current" | "legacy" | "stale" | "unconfigured";
+
+export interface YsmBindingPathStatus {
+  kind: string;
+  path: string;
+  state: "valid" | "missing" | "outside_scope" | "unchecked";
+}
+
 function normalizePath(value: string): string {
   return value.replace(/\\/g, "/").replace(/\/+$/, "").toLocaleLowerCase();
+}
+
+export function getYsmBindingWorkspaceState(
+  binding: Pick<YsmBinding, "workspaceRoot">,
+  currentWorkspaceRoot: string
+): YsmBindingWorkspaceState {
+  if (!currentWorkspaceRoot) return "unconfigured";
+  if (!binding.workspaceRoot) return "legacy";
+  return normalizePath(binding.workspaceRoot) === normalizePath(currentWorkspaceRoot)
+    ? "current"
+    : "stale";
+}
+
+export function getYsmBindingPathStates(
+  binding: YsmBinding,
+  currentWorkspaceRoot: string,
+  fileExists: (path: string) => boolean
+): YsmBindingPathStatus[] {
+  const identity = getYsmBindingWorkspaceState(binding, currentWorkspaceRoot);
+  const paths: Array<[string, string | null]> = [
+    ["geometry", binding.geometry],
+    ["texture", binding.texture],
+    ["bbmodel", binding.bbmodel],
+    ["manifest", binding.manifest ?? null],
+    ...(binding.molangDocuments ?? []).map((document): [string, string] => [
+      `molang:${document.kind}`,
+      document.path,
+    ]),
+  ];
+
+  return paths.flatMap<YsmBindingPathStatus>(([kind, path]) => {
+    if (!path) return [];
+    if (identity !== "current") return [{ kind, path, state: "unchecked" as const }];
+    try {
+      return [{ kind, path, state: fileExists(path) ? "valid" as const : "missing" as const }];
+    } catch {
+      return [{ kind, path, state: "outside_scope" as const }];
+    }
+  });
 }
 
 function projectKey(project: ModelProject): string {

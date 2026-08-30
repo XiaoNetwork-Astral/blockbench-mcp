@@ -2,6 +2,11 @@ import {
   LEGACY_PROJECT_ROLES_STORAGE_KEY,
   readMigratedStorageItem,
 } from "@/lib/brandingMigration";
+import {
+  isProjectReadOnly,
+  projectReadOnlyKey,
+  setProjectReadOnly as setExplicitProjectReadOnly,
+} from "@/src/features/readOnly/service";
 
 export const PROJECT_ROLES = [
   "unassigned",
@@ -15,16 +20,10 @@ export type ProjectRole = (typeof PROJECT_ROLES)[number];
 const STORAGE_KEY = "blockbench_mcp.project_roles";
 const protectedRoles = new Set<ProjectRole>(["legacy_reference", "new_baseline"]);
 const protectionListeners = new Set<(project: ModelProject) => void>();
-const viewOnlyMutationTools = new Set([
-  "edit_camera",
-  "set_preview_state",
-  "enter_display_mode",
-]);
 
 interface StoredProjectRole {
   role?: string;
-  readOnly?: boolean;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 type StoredProjectRoles = Record<string, StoredProjectRole>;
@@ -39,13 +38,8 @@ export interface ProjectProtectionState {
 let cachedStorage: Storage | undefined;
 let cachedRoles: StoredProjectRoles | undefined;
 
-function normalizePath(value: string): string {
-  return value.replace(/\\/g, "/").replace(/\/+$/, "").toLocaleLowerCase();
-}
-
 export function getProjectRoleKey(project: ModelProject): string {
-  if (project.save_path) return `path:${normalizePath(project.save_path)}`;
-  return `uuid:${project.uuid}`;
+  return projectReadOnlyKey(project);
 }
 
 function loadStoredRoles(): StoredProjectRoles {
@@ -98,18 +92,14 @@ export function getProjectRole(project: ModelProject | null | undefined): Projec
 }
 
 export function setProjectRole(project: ModelProject, role: ProjectRole): void {
+  // Migrate any legacy explicit lock before rewriting the old shared record.
+  isProjectReadOnly(project);
   const roles = loadStoredRoles();
   const key = getProjectRoleKey(project);
-  const existing = roles[key];
   if (role === "unassigned") {
-    if (existing?.readOnly) {
-      roles[key] = { readOnly: true, updatedAt: new Date().toISOString() };
-    } else {
-      delete roles[key];
-    }
+    delete roles[key];
   } else {
     roles[key] = {
-      ...existing,
       role,
       updatedAt: new Date().toISOString(),
     };
@@ -121,28 +111,11 @@ export function setProjectRole(project: ModelProject, role: ProjectRole): void {
 export function isProjectExplicitlyReadOnly(
   project: ModelProject | null | undefined
 ): boolean {
-  return getProjectProtectionState(project).explicitReadOnly;
+  return isProjectReadOnly(project);
 }
 
 export function setProjectReadOnly(project: ModelProject, readOnly: boolean): void {
-  const roles = loadStoredRoles();
-  const key = getProjectRoleKey(project);
-  const existing = roles[key];
-  if (readOnly) {
-    roles[key] = {
-      ...existing,
-      readOnly: true,
-      updatedAt: new Date().toISOString(),
-    };
-  } else if (existing?.role) {
-    roles[key] = {
-      role: existing.role,
-      updatedAt: new Date().toISOString(),
-    };
-  } else {
-    delete roles[key];
-  }
-  saveStoredRoles(roles);
+  setExplicitProjectReadOnly(project, readOnly);
   notifyProtectionChanged(project);
 }
 
@@ -159,7 +132,7 @@ export function getProjectProtectionState(
   }
   const stored = loadStoredRoles()[getProjectRoleKey(project)];
   const role = normalizeRole(stored?.role);
-  const explicitReadOnly = stored?.readOnly === true;
+  const explicitReadOnly = isProjectReadOnly(project);
   const roleProtected = protectedRoles.has(role);
   return {
     role,
@@ -171,15 +144,6 @@ export function getProjectProtectionState(
 
 export function isProjectProtected(project: ModelProject | null | undefined): boolean {
   return getProjectProtectionState(project).readOnly;
-}
-
-/**
- * Central mutation guard for all MCP tools. Both reference tabs reject agent
- * mutations; only the working copy is writable during the three-tab workflow.
- */
-export function assertAgentMayMutateProject(toolName: string): void {
-  if (viewOnlyMutationTools.has(toolName)) return;
-  assertProjectMayBeMutated(Project, toolName);
 }
 
 /** Guard an explicitly resolved project when an operation manages its own routing. */
@@ -194,7 +158,7 @@ export function assertProjectMayBeMutated(
     : protection.role;
   throw new Error(
     `Tool "${toolName}" cannot modify project "${project.name}" ` +
-      `because it is ${reason}. Bind a writable project or turn off its explicit read-only flag first.`
+      `because it is ${reason}. Select a writable tab or turn off its explicit read-only flag first.`
   );
 }
 

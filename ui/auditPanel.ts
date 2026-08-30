@@ -18,7 +18,7 @@ import {
 import auditPanelCss from "@/ui/auditPanel.css";
 import auditPanelTemplate from "@/ui/auditPanel.html";
 
-let panel: Panel | undefined;
+let panel: EventfulPanel | undefined;
 let showAction: Action | undefined;
 let cssHandle: Deletable | undefined;
 let rawDataDialog: Dialog | undefined;
@@ -29,12 +29,57 @@ let sidebarMutationObserver: MutationObserver | undefined;
 const AUDIT_PANEL_LAYOUT_EPSILON = 8;
 
 type ProjectScope = "current" | "all" | string;
+type EventfulPanel = Panel & {
+  on(event: string, callback: () => void): Deletable;
+};
 const NO_PROJECT_SCOPE = "__blockbench_mcp_no_project__";
 
 interface AuditPanelProject {
   id: string;
   name: string;
   role: string;
+}
+
+interface AuditPanelVm {
+  items: AuditOperationSummary[];
+  details: Record<string, AuditOperationDetails | null>;
+  expanded: Record<string, boolean>;
+  loading: boolean;
+  error: string;
+  page: number;
+  pageSize: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  projectScope: ProjectScope;
+  projects: AuditPanelProject[];
+  filters: { search: string; toolName: string };
+  toolOptions: Array<{ name: string; label: string; title: string }>;
+  rawDataLoading: Record<string, boolean>;
+  loadRevision: number;
+  searchTimer: ReturnType<typeof setTimeout> | null;
+  refreshTimer: ReturnType<typeof setTimeout> | null;
+  unsubscribeAudit: (() => void) | null;
+  timelineProjectId: string | null;
+  timelineUndoIndex: number | null;
+  timelineAnchorId: string | null;
+  timelineAnchorPhase: "before" | "after" | null;
+  readonly viewingAllProjects: boolean;
+  readonly currentProjectLabel: string;
+  readonly timelineStates: Record<string, AuditTimelineState>;
+  $nextTick(callback: () => void): void;
+  $set(target: Record<string, unknown>, key: string, value: unknown): void;
+  applyAuditSettings(): void;
+  refreshProjects(): void;
+  scheduleRefresh(delay?: number): void;
+  onSearchInput(): void;
+  onFilterChanged(): void;
+  loadPage(): Promise<void>;
+  toggleDetails(item: AuditOperationSummary): void;
+  showRawData(item: AuditOperationSummary): Promise<void>;
+  refreshTimelineCursor(): void;
+  timelineState(item: AuditOperationSummary): AuditTimelineState;
+  statusLabel(status: AuditStatus): string;
+  canRestore(item: AuditOperationSummary): boolean;
 }
 
 export type AuditTimelineState = "applied" | "current" | "undone";
@@ -305,8 +350,6 @@ export function buildAuditRawData(
       finishedAt: item.finishedAt === null ? null : new Date(item.finishedAt).toISOString(),
       durationMs: item.durationMs,
       readOnly: item.readOnly,
-      sessionId: item.sessionId,
-      clientName: item.clientName,
     },
     model: item.projectId
       ? {
@@ -414,28 +457,23 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         timelineAnchorPhase: null as "before" | "after" | null,
       }),
       computed: {
-        viewingAllProjects(): boolean {
-          // @ts-ignore - Vue component context
+        viewingAllProjects(this: AuditPanelVm): boolean {
           return this.projectScope === "all";
         },
-        currentProjectLabel(): string {
+        currentProjectLabel(this: AuditPanelVm): string {
           const project = selectedProject();
           return project?.name
             ? tl("mcp.audit.current_model_named", [project.name])
             : tl("mcp.audit.current_model");
         },
-        timelineStates(): Record<string, AuditTimelineState> {
-          // @ts-ignore - Vue component context
+        timelineStates(this: AuditPanelVm): Record<string, AuditTimelineState> {
           const anchor = this.timelineAnchorId && this.timelineAnchorPhase
-            // @ts-ignore - Vue component context
             ? { id: this.timelineAnchorId, phase: this.timelineAnchorPhase }
             : null;
-          // @ts-ignore - Vue component context
           return buildAuditTimelineStates(this.items, this.timelineProjectId, this.timelineUndoIndex, anchor);
         },
       },
-      mounted() {
-        // @ts-ignore - Vue component context
+      mounted(this: AuditPanelVm) {
         const vm = this;
         vm.unsubscribeAudit = auditManager.subscribe((change: AuditChange) => {
           if (change.type === "storage") return;
@@ -460,12 +498,9 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         void vm.loadPage();
         vm.$nextTick(scheduleAuditPanelLayout);
       },
-      beforeDestroy() {
-        // @ts-ignore - Vue component context
+      beforeDestroy(this: AuditPanelVm) {
         if (this.unsubscribeAudit) this.unsubscribeAudit();
-        // @ts-ignore - Vue component context
         if (this.searchTimer) clearTimeout(this.searchTimer);
-        // @ts-ignore - Vue component context
         if (this.refreshTimer) clearTimeout(this.refreshTimer);
       },
       methods: {
@@ -478,117 +513,73 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
           if (category) category.open = true;
           Settings.openDialog();
         },
-        applyAuditSettings(): void {
-          // @ts-ignore - Vue component context
+        applyAuditSettings(this: AuditPanelVm): void {
           this.pageSize = configuredPageSize();
-          // @ts-ignore - Vue component context
           this.projectScope = configuredProjectScope();
-          // @ts-ignore - Vue component context
           this.timelineAnchorId = null;
-          // @ts-ignore - Vue component context
           this.timelineAnchorPhase = null;
-          // @ts-ignore - Vue component context
           this.page = 0;
-          // @ts-ignore - Vue component context
           void this.loadPage();
         },
-        refreshProjects(): void {
-          // @ts-ignore - Vue component context
+        refreshProjects(this: AuditPanelVm): void {
           this.projects = projectOptions();
         },
-        scheduleRefresh(delay = 180): void {
-          // @ts-ignore - Vue component context
+        scheduleRefresh(this: AuditPanelVm, delay = 180): void {
           if (this.refreshTimer) clearTimeout(this.refreshTimer);
-          // @ts-ignore - Vue component context
           this.refreshTimer = setTimeout(() => {
-            // @ts-ignore - Vue component context
             this.refreshTimer = null;
-            // @ts-ignore - Vue component context
             void this.loadPage();
           }, delay);
         },
-        onSearchInput(): void {
-          // @ts-ignore - Vue component context
+        onSearchInput(this: AuditPanelVm): void {
           if (this.searchTimer) clearTimeout(this.searchTimer);
-          // @ts-ignore - Vue component context
           this.searchTimer = setTimeout(() => {
-            // @ts-ignore - Vue component context
             this.page = 0;
-            // @ts-ignore - Vue component context
             void this.loadPage();
           }, 250);
         },
-        onFilterChanged(): void {
-          // @ts-ignore - Vue component context
+        onFilterChanged(this: AuditPanelVm): void {
           this.page = 0;
-          // @ts-ignore - Vue component context
           this.details = {};
-          // @ts-ignore - Vue component context
           this.expanded = {};
-          // @ts-ignore - Vue component context
           this.timelineAnchorId = null;
-          // @ts-ignore - Vue component context
           this.timelineAnchorPhase = null;
-          // @ts-ignore - Vue component context
           void this.loadPage();
         },
-        async loadPage(): Promise<void> {
-          // @ts-ignore - Vue component context
+        async loadPage(this: AuditPanelVm): Promise<void> {
           const revision = ++this.loadRevision;
-          // @ts-ignore - Vue component context
           this.loading = true;
-          // @ts-ignore - Vue component context
           this.error = "";
           try {
-            // @ts-ignore - Vue component context
             const result = await auditManager.queryPage({
-              // @ts-ignore - Vue component context
               page: this.page,
-              // @ts-ignore - Vue component context
               pageSize: Number(this.pageSize),
-              // @ts-ignore - Vue component context
               search: this.filters.search,
-              // @ts-ignore - Vue component context
               source: "mcp",
               status: "all",
-              // @ts-ignore - Vue component context
               toolName: this.filters.toolName,
-              // @ts-ignore - Vue component context
               projectId: selectedScopeProjectId(this.projectScope),
             });
-            // @ts-ignore - Vue component context
             if (revision !== this.loadRevision) return;
-            // @ts-ignore - Vue component context
             this.items = result.items;
-            // @ts-ignore - Vue component context
             this.refreshTimelineCursor();
-            // @ts-ignore - Vue component context
             this.hasPrevious = result.hasPrevious;
-            // @ts-ignore - Vue component context
             this.hasNext = result.hasNext;
           } catch (error) {
-            // @ts-ignore - Vue component context
             if (revision !== this.loadRevision) return;
-            // @ts-ignore - Vue component context
             this.error = error instanceof Error ? error.message : String(error);
           } finally {
-            // @ts-ignore - Vue component context
             if (revision === this.loadRevision) this.loading = false;
           }
         },
-        toggleDetails(item: AuditOperationSummary): void {
-          // @ts-ignore - Vue component context
+        toggleDetails(this: AuditPanelVm, item: AuditOperationSummary): void {
           const isOpen = !this.expanded[item.id];
-          // @ts-ignore - Vue component context
           this.$set(this.expanded, item.id, isOpen);
         },
-        async showRawData(item: AuditOperationSummary): Promise<void> {
-          // @ts-ignore - Vue component context
+        async showRawData(this: AuditPanelVm, item: AuditOperationSummary): Promise<void> {
           if (this.rawDataLoading[item.id]) return;
-          // @ts-ignore - Vue component context
           this.$set(this.rawDataLoading, item.id, true);
           try {
-            // @ts-ignore - Vue component context
             let details = this.details[item.id] as AuditOperationDetails | undefined;
             if (!details) {
               details = (await auditManager.getDetails(item.id)) ?? {
@@ -598,7 +589,6 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
                 errorText: tl("mcp.audit.details_unavailable"),
                 undoEntries: [],
               };
-              // @ts-ignore - Vue component context
               this.$set(this.details, item.id, details);
             }
             showRawDataDialog(item, details);
@@ -610,7 +600,6 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
               buttons: [tl("mcp.audit.ok")],
             });
           } finally {
-            // @ts-ignore - Vue component context
             this.$set(this.rawDataLoading, item.id, false);
           }
         },
@@ -625,35 +614,31 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
         statusLabel(status: AuditStatus): string {
           return tl(`mcp.audit.status_${status}`);
         },
-        refreshTimelineCursor(): void {
-          // @ts-ignore - Vue component context
+        refreshTimelineCursor(this: AuditPanelVm): void {
           const cursor = timelineCursor(this.projectScope);
-          // @ts-ignore - Vue component context
           this.timelineProjectId = cursor.projectId;
-          // @ts-ignore - Vue component context
           this.timelineUndoIndex = cursor.undoIndex;
         },
-        timelineState(item: AuditOperationSummary): AuditTimelineState {
-          // @ts-ignore - Vue component context
+        timelineState(this: AuditPanelVm, item: AuditOperationSummary): AuditTimelineState {
           return this.timelineStates[item.id] ?? "applied";
         },
-        timelineLabel(item: AuditOperationSummary): string {
-          // @ts-ignore - Vue component context
+        timelineLabel(this: AuditPanelVm, item: AuditOperationSummary): string {
           const state = this.timelineState(item);
           if (state === "current") return tl("mcp.audit.timeline_current");
           if (state === "undone") return tl("mcp.audit.timeline_undone");
           return this.statusLabel(item.status);
         },
-        canRestore(item: AuditOperationSummary): boolean {
+        canRestore(this: AuditPanelVm, item: AuditOperationSummary): boolean {
           // The all-model view is intentionally search-only: every history
           // action must occur inside one explicitly selected model timeline.
-          // @ts-ignore - Vue component context
           if (this.projectScope === "all") return false;
-          // @ts-ignore - Vue component context
           return Boolean(item.reversible && item.projectId === selectedScopeProjectId(this.projectScope));
         },
-        async restore(item: AuditOperationSummary, phase: "before" | "after"): Promise<void> {
-          // @ts-ignore - Vue component context
+        async restore(
+          this: AuditPanelVm,
+          item: AuditOperationSummary,
+          phase: "before" | "after"
+        ): Promise<void> {
           if (!this.canRestore(item)) return;
           let restored = false;
           try {
@@ -704,34 +689,24 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
               // Preserve the exact chronological boundary selected by the
               // user; native Undo indices alone cannot order read-only calls
               // that share an index with a reversible edit.
-              // @ts-ignore - Vue component context
               this.timelineAnchorId = item.id;
-              // @ts-ignore - Vue component context
               this.timelineAnchorPhase = phase;
             }
-            // @ts-ignore - Vue component context
             this.projects = projectOptions();
-            // @ts-ignore - Vue component context
             await this.loadPage();
           }
         },
-        previousPage(): void {
-          // @ts-ignore - Vue component context
+        previousPage(this: AuditPanelVm): void {
           if (!this.hasPrevious) return;
-          // @ts-ignore - Vue component context
           this.page -= 1;
-          // @ts-ignore - Vue component context
           void this.loadPage();
         },
-        nextPage(): void {
-          // @ts-ignore - Vue component context
+        nextPage(this: AuditPanelVm): void {
           if (!this.hasNext) return;
-          // @ts-ignore - Vue component context
           this.page += 1;
-          // @ts-ignore - Vue component context
           void this.loadPage();
         },
-        async clearHistory(): Promise<void> {
+        async clearHistory(this: AuditPanelVm): Promise<void> {
           const confirmed = await confirmMessage({
             title: tl("mcp.audit.clear_title"),
             icon: "delete_sweep",
@@ -740,19 +715,15 @@ export function auditPanelSetup(tools: Record<string, IMCPTool>): Panel {
           });
           if (!confirmed) return;
           await auditManager.clearHistory();
-          // @ts-ignore - Vue component context
           this.page = 0;
-          // @ts-ignore - Vue component context
           this.details = {};
-          // @ts-ignore - Vue component context
           this.expanded = {};
-          // @ts-ignore - Vue component context
           await this.loadPage();
         },
       },
       template: auditPanelTemplate,
     },
-  });
+  }) as EventfulPanel;
 
   movedToListener = panel.on("moved_to", handleAuditPanelMoved);
   observeAuditPanelSidebar();

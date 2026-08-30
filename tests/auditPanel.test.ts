@@ -194,8 +194,6 @@ describe("operations panel presentation", () => {
       startedAt: Date.parse("2026-08-21T10:00:00.000Z"),
       finishedAt: Date.parse("2026-08-21T10:00:00.025Z"),
       durationMs: 25,
-      sessionId: "session",
-      clientName: "blockbench-mcp-client",
       readOnly: false,
       projectId: "project",
       projectName: "Model",

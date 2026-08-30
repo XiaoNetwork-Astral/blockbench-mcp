@@ -3,10 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
-  groupedToolOutputSchema,
-  type ToolContext,
   type ToolSpec,
 } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL } from "@/lib/constants";
@@ -31,16 +27,10 @@ import { analyzeUvIntegrity, type UvFaceRecord, type UvPoint } from "@/lib/uvInt
 import { bytesSha256, stableSha256 } from "@/lib/stableDigest";
 import {
   getValidationSnapshot,
-  MAX_VALIDATION_SNAPSHOTS_PER_SESSION,
+  MAX_VALIDATION_SNAPSHOTS_PER_PROJECT,
   storeValidationSnapshot,
 } from "@/lib/validationSnapshots";
-import {
-  type McpCameraState,
-} from "@/lib/projectContext";
-import {
-  getSessionPreviewAnimationState,
-  getSessionPreviewVisibilityState,
-} from "@/lib/previewState";
+import type { McpCameraState } from "@/src/blockbench/camera";
 import { describeProject } from "@/lib/projectRoles";
 import { resolveUniqueReference } from "@/lib/modelSafety";
 import { fitBoundingSpherePerspectiveDistance } from "@/lib/cameraFraming";
@@ -60,6 +50,18 @@ const MAX_VALIDATION_SNAPSHOT_PIXEL_BYTES = 64 * 1024 * 1024;
 const MAX_VALIDATION_VIEW_RENDERS = 300;
 const MAX_VALIDATION_RENDER_PIXELS = 150_000_000;
 const MAX_VALIDATION_OUTPUT_PIXELS = 64_000_000;
+
+export function validationViewRenderCount(
+  views: readonly { passes: readonly string[] }[],
+  hasContext: boolean
+): number {
+  return views.reduce((total, view) =>
+    total
+      + view.passes.length
+      + (view.passes.includes("element_id") ? 0 : 1)
+      + (hasContext ? 1 : 0),
+  0);
+}
 
 const contactPairSchema = z.object({
   first: z.string().min(1),
@@ -176,7 +178,7 @@ export const validationOperationDocs: ToolSpec[] = [
   },
   {
     name: "create_validation_snapshot",
-    description: "Creates an in-memory, session/project-scoped read-only evidence snapshot with component digests; it is not a save or model checkpoint, and each session retains its latest eight snapshots.",
+    description: "Creates an in-memory read-only evidence snapshot with component digests; it is not a save or model checkpoint, and each project retains its latest eight snapshots.",
     annotations: { title: "Create Validation Snapshot", readOnlyHint: true },
     parameters: createValidationSnapshotParameters,
     status: STATUS_EXPERIMENTAL,
@@ -204,15 +206,6 @@ export const validationOperationDocs: ToolSpec[] = [
   },
 ];
 
-export const validationPublicToolDoc: ToolSpec = {
-  name: "inspect_model_validation",
-  description: "Runs reproducible, read-only contact, UV, snapshot, camera-evidence, and pose-sweep validation through one command.action.",
-  annotations: { title: "Inspect Model Validation", readOnlyHint: true },
-  parameters: createToolGroupParameters(validationOperationDocs),
-  outputSchema: groupedToolOutputSchema,
-  status: STATUS_EXPERIMENTAL,
-};
-
 function rounded(value: number): number {
   return Math.abs(value) < 1e-12 ? 0 : Number(value.toFixed(6));
 }
@@ -234,7 +227,7 @@ function midpoint(
 
 type ContactExpected = z.infer<typeof expectedContactSchema>;
 
-function evaluateExpected(
+export function evaluateExpected(
   classification: string,
   separation: number | null,
   penetration: number | null,
@@ -256,6 +249,21 @@ function evaluateExpected(
     if (classification === "separate" && (separation ?? Number.POSITIVE_INFINITY) > maximum) {
       passed = false;
       messages.push(`Separation exceeds the allowed ${maximum} model units.`);
+    }
+    const connectedPenetration = classification === "intersecting" ? penetration : 0;
+    if (
+      expected.minimum_penetration > 0
+      && (connectedPenetration ?? 0) < expected.minimum_penetration
+    ) {
+      passed = false;
+      messages.push(`Penetration is below ${expected.minimum_penetration} model units.`);
+    }
+    if (
+      expected.maximum_penetration !== undefined
+      && (connectedPenetration ?? 0) > expected.maximum_penetration
+    ) {
+      passed = false;
+      messages.push(`Penetration exceeds ${expected.maximum_penetration} model units.`);
     }
   } else if (expected.relation === "separate") {
     if (classification === "intersecting") {
@@ -680,8 +688,8 @@ interface ValidationState {
   textures: TextureSnapshot[];
   texture_digest: string | null;
   camera: McpCameraState | null;
-  visibility: ReturnType<typeof getSessionPreviewVisibilityState>;
-  animation: ReturnType<typeof getSessionPreviewAnimationState>;
+  visibility: null;
+  animation: null;
   pose_digest: string;
   camera_digest: string;
   history_index: number | null;
@@ -724,7 +732,6 @@ function currentHistoryIndex(): number | null {
 function collectValidationState(
   project: ModelProject,
   input: z.infer<typeof createValidationSnapshotParameters>,
-  context: ToolContext,
   allowMissingRoots = false
 ): ValidationState {
   const targets = allowMissingRoots
@@ -756,9 +763,9 @@ function collectValidationState(
           return snapshot;
         })
     : [];
-  const camera = getEffectiveCameraState(project, context.sessionId);
-  const visibility = getSessionPreviewVisibilityState(context.sessionId, project.uuid);
-  const animation = getSessionPreviewAnimationState(context.sessionId, project.uuid);
+  const camera = getEffectiveCameraState(project);
+  const visibility = null;
+  const animation = null;
   const stateWithoutRoot = {
     project: describeProject(project),
     target_uuids: targets.map((node) => node.uuid),
@@ -1116,15 +1123,6 @@ function rgbKey(red: number, green: number, blue: number): string {
   return `${red},${green},${blue}`;
 }
 
-function nonBlackPixels(rgba: Uint8Array | null): number {
-  if (!rgba) return 0;
-  let count = 0;
-  for (let offset = 0; offset < rgba.length; offset += 4) {
-    if (rgba[offset] || rgba[offset + 1] || rgba[offset + 2]) count++;
-  }
-  return count;
-}
-
 async function captureViewEvidence(
   project: ModelProject,
   target: InspectableGeometryNode,
@@ -1132,8 +1130,7 @@ async function captureViewEvidence(
   view: ValidationView,
   camera: McpCameraState,
   width: number,
-  height: number,
-  context: ToolContext
+  height: number
 ) {
   const targetElements = geometricDescendants(target).filter((node) => node instanceof Cube || node instanceof Mesh);
   const contextElements = contexts.flatMap(geometricDescendants).filter((node) => node instanceof Cube || node instanceof Mesh);
@@ -1146,7 +1143,6 @@ async function captureViewEvidence(
       camera,
       width,
       height,
-      context.sessionId,
       { pass, includedNodeIds: includedIds, idNodeIds }
     ));
   }
@@ -1157,29 +1153,35 @@ async function captureViewEvidence(
       camera,
       width,
       height,
-      context.sessionId,
       { pass: "element_id", includedNodeIds: includedIds, idNodeIds }
     );
   }
+  const targetIds = targetElements.map((node) => node.uuid);
+  const targetOnlyIds = contexts.length
+    ? await captureOffscreenValidationPass(
+        project,
+        camera,
+        width,
+        height,
+        { pass: "element_id", includedNodeIds: [target.uuid], idNodeIds: targetIds }
+      )
+    : fullIds;
   const fullLegend = new Map(fullIds.id_legend.map((entry) => [rgbKey(...entry.rgb), entry]));
+  const targetLegend = new Map(targetOnlyIds.id_legend.map((entry) => [rgbKey(...entry.rgb), entry]));
   const fullPixels = fullIds.rgba;
+  const targetPixels = targetOnlyIds.rgba;
   const visibility = [];
-  const maximumAnalyzed = 64;
-  for (const element of targetElements.slice(0, maximumAnalyzed)) {
-    const solo = await captureOffscreenValidationPass(
-      project,
-      camera,
-      width,
-      height,
-      context.sessionId,
-      { pass: "element_id", includedNodeIds: [element.uuid], idNodeIds: [element.uuid] }
-    );
-    const potential = nonBlackPixels(solo.rgba);
+  for (const element of targetElements) {
+    let potential = 0;
     let visible = 0;
     const occluders = new Map<string, number>();
-    if (solo.rgba && fullPixels) {
-      for (let offset = 0; offset < solo.rgba.length; offset += 4) {
-        if (!solo.rgba[offset] && !solo.rgba[offset + 1] && !solo.rgba[offset + 2]) continue;
+    if (targetPixels && fullPixels) {
+      for (let offset = 0; offset < targetPixels.length; offset += 4) {
+        const targetEntry = targetLegend.get(rgbKey(
+          targetPixels[offset], targetPixels[offset + 1], targetPixels[offset + 2]
+        ));
+        if (targetEntry?.uuid !== element.uuid) continue;
+        potential++;
         const entry = fullLegend.get(rgbKey(fullPixels[offset], fullPixels[offset + 1], fullPixels[offset + 2]));
         if (entry?.uuid === element.uuid) visible++;
         else if (entry) occluders.set(entry.uuid, (occluders.get(entry.uuid) ?? 0) + 1);
@@ -1207,11 +1209,12 @@ async function captureViewEvidence(
       framed_bounds: boundsForNodes([target, ...contexts]),
       passes: view.passes,
       visibility,
-      visibility_analysis_truncated: targetElements.length > maximumAnalyzed,
-      visibility_analysis_limit: maximumAnalyzed,
+      visibility_analysis_truncated: false,
+      visibility_analysis_limit: null,
       depth_collision_regions: null,
       limitations: [
         "Depth and color passes are evidence surfaces; geometry collision is reported only by analyze_model_contacts.",
+        "Potential pixels are target-only raster coverage; visible pixels include the supplied context. Internal target occlusion is retained in both passes.",
         "Per-element visibility is exact at the requested raster resolution; sub-pixel geometry has zero pixel coverage.",
       ],
     },
@@ -1328,14 +1331,13 @@ export function registerValidationTools(): void {
     ...validationOperationDocs[2],
     async execute(input, context) {
       const project = context.project!;
-      const state = collectValidationState(project, input, context);
+      const state = collectValidationState(project, input);
       const normalizedInput = {
         ...input,
         targets: state.target_uuids,
         neighbors: state.neighbor_uuids,
       };
       const stored = storeValidationSnapshot(
-        context.sessionId,
         project.uuid,
         state.root_digest,
         { input: normalizedInput, state } satisfies ValidationSnapshotValue
@@ -1343,10 +1345,9 @@ export function registerValidationTools(): void {
       return JSON.stringify({
         schema_version: "1",
         snapshot_id: stored.id,
-        session_id: stored.session_id,
         created_at: stored.created_at,
         retention: {
-          maximum_snapshots_per_session: MAX_VALIDATION_SNAPSHOTS_PER_SESSION,
+          maximum_snapshots_per_project: MAX_VALIDATION_SNAPSHOTS_PER_PROJECT,
           evicted_snapshot_ids: stored.evicted_snapshot_ids,
         },
         evidence_labels: input.evidence_labels,
@@ -1361,11 +1362,10 @@ export function registerValidationTools(): void {
     async execute({ snapshot_id, authorized_pixel_regions }, context) {
       const project = context.project!;
       const stored = getValidationSnapshot<ValidationSnapshotValue>(
-        context.sessionId,
         snapshot_id,
         project.uuid
       );
-      const current = collectValidationState(project, stored.value.input, context, true);
+      const current = collectValidationState(project, stored.value.input, true);
       return JSON.stringify({
         schema_version: "1",
         snapshot_id: stored.id,
@@ -1392,13 +1392,7 @@ export function registerValidationTools(): void {
         if (names.has(view.name)) throw new Error(`Validation view name '${view.name}' is duplicated.`);
         names.add(view.name);
       }
-      const visibilityElementCount = Math.min(
-        geometricDescendants(target).filter((node) => node instanceof Cube || node instanceof Mesh).length,
-        64
-      );
-      const renderCount = configuredViews.reduce((total, view) =>
-        total + view.passes.length + (view.passes.includes("element_id") ? 0 : 1) + visibilityElementCount,
-      0);
+      const renderCount = validationViewRenderCount(configuredViews, contexts.length > 0);
       const outputPixels = configuredViews.reduce((total, view) => total + view.passes.length, 0)
         * width * height;
       if (
@@ -1407,7 +1401,8 @@ export function registerValidationTools(): void {
         || outputPixels > MAX_VALIDATION_OUTPUT_PIXELS
       ) {
         throw new Error(
-          "The requested validation suite exceeds the bounded render budget. Reduce views, passes, resolution, or target descendants."
+          `The requested validation suite needs ${renderCount} renders and exceeds the bounded render budget. ` +
+            "Reduce views, passes, or resolution."
         );
       }
       const framedBounds = boundsForNodes([target, ...contexts]);
@@ -1422,8 +1417,7 @@ export function registerValidationTools(): void {
           view,
           camera,
           width,
-          height,
-          context
+          height
         );
         const passes = [];
         for (const pass of view.passes) {
@@ -1542,5 +1536,4 @@ export function registerValidationTools(): void {
     },
   }, validationOperationDocs[5].status);
 
-  createToolGroup(validationPublicToolDoc, validationOperationDocs);
 }

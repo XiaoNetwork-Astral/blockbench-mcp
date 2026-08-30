@@ -257,6 +257,12 @@ export function analyzeUvIntegrity(
     record.texel_density !== null
     && Math.max(record.texel_density / medianDensity, medianDensity / record.texel_density) > densityLimit
   ).map((record) => record.face_id);
+  const unexpectedOverlaps = overlaps.filter(
+    (overlap) => overlap.relation === "unexpected" || overlap.relation === "expected_separate"
+  );
+  const missingExpectedOverlaps = overlaps.filter(
+    (overlap) => overlap.relation === "missing_expected_overlap"
+  );
 
   return {
     faces: records,
@@ -268,8 +274,10 @@ export function analyzeUvIntegrity(
       out_of_bounds_faces: records.filter((record) => record.out_of_bounds).map((record) => record.face_id),
       mirrored_faces: records.filter((record) => record.mirrored === true).map((record) => record.face_id),
       mirror_unknown_faces: records.filter((record) => record.mirrored === null).map((record) => record.face_id),
-      unexpected_overlaps: overlaps.filter((overlap) => overlap.relation === "unexpected" || overlap.relation === "expected_separate"),
+      unexpected_overlaps: unexpectedOverlaps,
+      missing_expected_overlaps: missingExpectedOverlaps,
       unknown_overlaps: overlaps.filter((overlap) => overlap.relation === "unknown"),
+      contract_failure_count: unexpectedOverlaps.length + missingExpectedOverlaps.length,
       density_median: medianDensity,
       density_outliers: densityOutliers,
       outside_authorized_regions: records.filter((record) => record.outside_authorized_pixel_regions).map((record) => record.face_id),

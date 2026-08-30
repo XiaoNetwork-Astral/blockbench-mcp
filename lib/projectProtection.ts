@@ -3,6 +3,7 @@ import {
   subscribeProjectProtection,
 } from "@/lib/projectRoles";
 import { isolateProjectTextures } from "@/lib/textureSafety";
+import { getVisibleProject } from "@/src/blockbench/projects";
 
 type LockableNode = OutlinerElement | Group;
 type PrototypeMethod = (this: any, ...args: any[]) => any;
@@ -46,10 +47,6 @@ const SAVE_ACTION_IDS = [
 
 function projectNodes(project: ModelProject): LockableNode[] {
   return [...project.groups, ...project.elements];
-}
-
-function foregroundProject(): ModelProject | null {
-  return ModelProject.all.find((project) => project.selected) ?? Project ?? null;
 }
 
 function withNodesUnlocked<T>(nodes: LockableNode[], callback: () => T): T {
@@ -146,7 +143,7 @@ function setupProtectedSelection(): void {
   protectedTransformer = transformer;
   originalTransformerAttach = originalAttach;
   transformer.attach = function (...args: any[]) {
-    const visibleProject = foregroundProject();
+    const visibleProject = getVisibleProject();
     if (visibleProject && isProjectProtected(visibleProject)) {
       this.detach();
       return;
@@ -209,7 +206,7 @@ export function refreshProjectProtection(project: ModelProject): void {
     if (!snapshot.has(node)) snapshot.set(node, node.locked);
     node.locked = true;
   }
-  if (project === foregroundProject()) {
+  if (project === getVisibleProject()) {
     (globalThis as typeof globalThis & {
       Transformer: { detach: () => void };
     }).Transformer.detach();

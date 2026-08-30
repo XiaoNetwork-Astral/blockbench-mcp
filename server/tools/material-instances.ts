@@ -3,8 +3,6 @@
 import { z } from "zod";
 import {
   createInternalTool,
-  createToolGroup,
-  createToolGroupParameters,
   type ToolSpec,
 } from "@/lib/factories";
 import { findElementOrThrow } from "@/lib/util";
@@ -123,34 +121,6 @@ export const materialInstanceToolDocs: ToolSpec[] = [
     },
     parameters: clearMaterialInstancesParametersSchema,
     status: STATUS_EXPERIMENTAL,
-  },
-];
-
-const materialInstanceReadOperations = [
-  materialInstanceToolDocs[0],
-  materialInstanceToolDocs[1],
-];
-const materialInstanceEditOperations = [
-  materialInstanceToolDocs[2],
-  materialInstanceToolDocs[3],
-];
-
-export const materialInstancePublicToolDocs: ToolSpec[] = [
-  {
-    name: "inspect_material_instances",
-    description:
-      "Lists material instance names or reads face assignments through one read-only command.action.",
-    annotations: { title: "Inspect Material Instances", readOnlyHint: true },
-    parameters: createToolGroupParameters(materialInstanceReadOperations),
-    status: STATUS_STABLE,
-  },
-  {
-    name: "edit_material_instances",
-    description:
-      "Assigns one or many material instances with bulk_set_material_instances, or clears assignments.",
-    annotations: { title: "Edit Material Instances", destructiveHint: true },
-    parameters: createToolGroupParameters(materialInstanceEditOperations),
-    status: STATUS_STABLE,
   },
 ];
 
@@ -331,12 +301,4 @@ export function registerMaterialInstanceTools() {
     materialInstanceToolDocs[3].status
   );
 
-  createToolGroup(
-    materialInstancePublicToolDocs[0],
-    materialInstanceReadOperations
-  );
-  createToolGroup(
-    materialInstancePublicToolDocs[1],
-    materialInstanceEditOperations
-  );
 }

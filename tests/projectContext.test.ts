@@ -1,15 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { clearAllValidationSnapshots } from "@/lib/validationSnapshots";
 import {
-  clearAllProjectSessionState,
-  getSessionCameraState,
-  getSessionWorkingProjectId,
-  peekSessionWorkingProject,
-  requireSessionWorkingProject,
+  getVisibleProject,
   resolveOpenProject,
-  runInProjectContext,
-  setSessionCameraState,
-  setSessionWorkingProject,
-} from "@/lib/projectContext";
+} from "@/src/blockbench/projects";
 import {
   isProjectExplicitlyReadOnly,
   isProjectProtected,
@@ -75,11 +69,11 @@ function project(uuid: string, selected = false) {
 
 beforeEach(() => {
   for (const key of keys) originalGlobals.set(key, (globalThis as any)[key]);
-  clearAllProjectSessionState();
+  clearAllValidationSnapshots();
 });
 
 afterEach(() => {
-  clearAllProjectSessionState();
+  clearAllValidationSnapshots();
   for (const key of keys) {
     const value = originalGlobals.get(key);
     if (value === undefined) delete (globalThis as any)[key];
@@ -88,20 +82,7 @@ afterEach(() => {
   originalGlobals.clear();
 });
 
-describe("per-session project routing", () => {
-  test("keeps arbitrary sessions bound to independent project UUIDs", () => {
-    const first = project("first", true);
-    const second = project("second");
-    (globalThis as any).ModelProject = { all: [first, second] };
-    (globalThis as any).Blockbench = { Project: first, Format: first.format };
-
-    setSessionWorkingProject("session-a", first);
-    setSessionWorkingProject("session-b", second);
-    expect(peekSessionWorkingProject("session-a")).toBe(first);
-    expect(peekSessionWorkingProject("session-b")).toBe(second);
-    expect(getSessionWorkingProjectId("session-a")).toBe("first");
-  });
-
+describe("visible project context", () => {
   test("resolves one open project consistently and rejects ambiguous names", () => {
     const first = project("first");
     const second = project("second");
@@ -112,120 +93,17 @@ describe("per-session project routing", () => {
     expect(() => resolveOpenProject("duplicate")).toThrow(/ambiguous/i);
   });
 
-  test("requires an explicit binding and never retargets a stale one", () => {
-    const foreground = project("foreground", true);
-    (globalThis as any).ModelProject = { all: [foreground] };
-    (globalThis as any).Blockbench = {
-      Project: foreground,
-      Format: foreground.format,
-    };
-
-    expect(() => requireSessionWorkingProject("session")).toThrow(
-      /never adopts the foreground tab/i
-    );
-    setSessionWorkingProject("session", foreground);
-    expect(requireSessionWorkingProject("session")).toBe(foreground);
-    (globalThis as any).ModelProject.all = [];
-    expect(() => requireSessionWorkingProject("session")).toThrow(/no longer open/i);
-  });
-
-  test("routes synchronous globals and restores the visible project immediately", () => {
+  test("uses the visible tab", () => {
     const foreground = project("foreground", true);
     const background = project("background");
-    const foregroundRoot = [{ uuid: "front-root" }];
-    const backgroundRoot = [{ uuid: "back-root" }];
-    (foreground as any).outliner = foregroundRoot;
-    (background as any).outliner = backgroundRoot;
     (globalThis as any).ModelProject = { all: [foreground, background] };
     (globalThis as any).Blockbench = {
       Project: foreground,
       Format: foreground.format,
     };
-    (globalThis as any).Outliner = { root: foregroundRoot };
-    (globalThis as any).OutlinerNode = { uuids: { front: foregroundRoot[0] } };
-    (globalThis as any).Canvas = {
-      updateView() {},
-      updateAll() {},
-      updateAllPositions() {},
-      updateVisibility() {},
-      updateAllBones() {},
-      updateAllFaces() {},
-      updateAllUVs() {},
-      updateLayeredTextures() {},
-    };
-    (globalThis as any).Animation = { selected: "front-animation" };
-    (globalThis as any).AnimationController = { selected: null };
-    (globalThis as any).Timeline = {
-      time: 4,
-      animators: ["front"],
-      vue: {
-        animators: ["front"],
-        _data: { markers: ["front-marker"], animation_length: 8 },
-      },
-    };
-    const headerFreeBar = { innerText: "foreground header" };
-    (globalThis as any).document = {
-      title: "foreground title",
-      getElementById(id: string) {
-        return id === "header_free_bar" ? headerFreeBar : null;
-      },
-    };
-    (globalThis as any).Prop = {
-      file_name: "foreground file",
-      file_name_alt: "foreground alternate file",
-    };
 
-    const observed = runInProjectContext(background, () => {
-      (globalThis as any).Timeline.vue._data.markers = ["background-marker"];
-      (globalThis as any).Timeline.vue._data.animation_length = 2;
-      (globalThis as any).document.title = "background title";
-      headerFreeBar.innerText = "background header";
-      (globalThis as any).Prop.file_name = "background file";
-      (globalThis as any).Prop.file_name_alt = "background alternate file";
-      return {
-        project: (globalThis as any).Blockbench.Project,
-        format: (globalThis as any).Blockbench.Format,
-        root: (globalThis as any).Outliner.root,
-      };
-    });
-    expect(observed.project).toBe(background);
-    expect(observed.format).toBe(background.format);
-    expect(observed.root).toBe(backgroundRoot);
+    expect(getVisibleProject()).toBe(foreground);
     expect((globalThis as any).Blockbench.Project).toBe(foreground);
-    expect((globalThis as any).Outliner.root).toBe(foregroundRoot);
-    expect((globalThis as any).Timeline.time).toBe(4);
-    expect((globalThis as any).Timeline.vue._data.markers).toEqual(["front-marker"]);
-    expect((globalThis as any).Timeline.vue._data.animation_length).toBe(8);
-    expect((globalThis as any).document.title).toBe("foreground title");
-    expect(headerFreeBar.innerText).toBe("foreground header");
-    expect((globalThis as any).Prop.file_name).toBe("foreground file");
-    expect((globalThis as any).Prop.file_name_alt).toBe(
-      "foreground alternate file"
-    );
-  });
-
-  test("stores offscreen cameras per session and project", () => {
-    setSessionCameraState("a", "project", {
-      position: [1, 2, 3],
-      target: [4, 5, 6],
-      projection: "perspective",
-      fov: 55,
-      viewport: [1200, 900],
-    });
-    setSessionCameraState("b", "project", {
-      position: [7, 8, 9],
-      projection: "orthographic",
-    });
-    expect(getSessionCameraState("a", "project")?.position).toEqual([1, 2, 3]);
-    const camera = getSessionCameraState("a", "project")!;
-    camera.position[0] = 99;
-    camera.viewport![0] = 64;
-    expect(getSessionCameraState("a", "project")).toMatchObject({
-      position: [1, 2, 3],
-      fov: 55,
-      viewport: [1200, 900],
-    });
-    expect(getSessionCameraState("b", "project")?.position).toEqual([7, 8, 9]);
   });
 });
 

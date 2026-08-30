@@ -3,25 +3,23 @@
 - Repository: https://github.com/XiaoNetwork-Astral/blockbench-mcp
 - Upstream: https://github.com/jasonjgardner/blockbench-mcp-plugin
 - License: GPL-3.0-only
-- Version: 1.7.0-blockbench.40
+- Version: 2.0.0-blockbench.1
 - Artifact: `dist/blockbench_mcp.js`
 - Default MCP URL: `http://127.0.0.1:3000/bb-mcp`
 
 ## Interface
 
-- 37 core tools, 3 optional YSM tools, and 2 optional Hytale tools.
-- `inspect_model_validation` provides experimental transformed-contact, UV-integrity, snapshot/diff (the latest eight in-memory snapshots per session), repeatable view/debug-pass, visibility, and native-animation sweep actions.
-- Optional YSM grouped tools provide source-backed Molang discovery, parsing, semantic/runtime validation, deterministic simulation, clone-only preview, and hash-guarded JSONC editing.
-- Public names use `inspect_*`, `edit_*`, `create_*`, `import_*`, and `export_*`.
-- Grouped operations use `{ "command": { "action": "<action>", "input": { ... } } }` and retain action-specific schemas.
-- Each MCP session binds its own working project independently from the foreground Blockbench tab.
-- YSM tools are exposed only when a plugin workspace is configured in Blockbench settings.
+- 118 core direct tools and 17 YSM tools, plus 12 Hytale tools when its plugin is installed.
+- Validation tools provide transformed-contact, UV-integrity, snapshot/diff (the latest eight in-memory snapshots per project), repeatable view/debug-pass, visibility, and native-animation sweep operations.
+- YSM tools provide workspace synchronization, source-backed Molang discovery, parsing, semantic/runtime validation, deterministic simulation, clone-only preview, and targeted JSONC editing.
+- Every tool accepts its operation-specific input object directly.
+- Project-scoped calls use the Blockbench tab visible when execution begins; `select_project` visibly changes the tab.
 - API docs are generated with `bun run docs` at `docs/index.html` and `docs/api.json`.
 
 ## Modeling
 
 - Read `AGENTS.md` before modeling. Apply project-specific instructions only when the current workspace supplies them.
-- Every created, duplicated, or moved Outliner node needs an explicit parent. Use literal `root` only intentionally.
+- Creation defaults to the Outliner root and duplication stays beside the original; supply a parent when building hierarchy, and always name the destination when reparenting.
 - Check important attachments with coordinates and front, side, top, and three-quarter views.
 - Work in small stages and ask the user to inspect when structure or depth is uncertain.
 - Do not overwrite baselines or discard unsaved work without explicit authorization.

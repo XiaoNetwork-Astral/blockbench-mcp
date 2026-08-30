@@ -11,7 +11,7 @@ import {
   setProjectRole,
   type ProjectRole,
 } from "@/lib/projectRoles";
-import { getForegroundProject, runInProjectContext } from "@/lib/projectContext";
+import { getVisibleProject } from "@/src/blockbench/projects";
 import { portableBbmodelText } from "@/lib/projectFiles";
 import { isolateProjectTextures } from "@/lib/textureSafety";
 import {
@@ -101,7 +101,7 @@ function openBbmodel(relativePath: string): ModelProject {
 }
 
 function assignRole(project: ModelProject, role: Exclude<ProjectRole, "unassigned">, skinName: string): void {
-  runInProjectContext(project, () => isolateProjectTextures(project));
+  isolateProjectTextures(project);
   setProjectRole(project, role);
   project.name = `${roleTitles[role]}｜${skinName}`;
   project.saved = true;
@@ -187,10 +187,12 @@ export async function openYsmWorkflowTabs(options: OpenWorkflowOptions): Promise
 export function workflowStatus(): Record<string, unknown> {
   const state = loadState();
   const byRole = projectsByRole();
+  const visible = getVisibleProject();
   return {
     state,
     exact_three_tabs: ModelProject.all.length === 3,
-    active_role: getProjectRole(Project),
+    visible_role: getProjectRole(visible),
+    visible_project: visible?.uuid ?? null,
     projects: ModelProject.all.map(describeProject),
     role_counts: {
       legacy_reference: byRole.legacy_reference?.length ?? 0,
@@ -205,14 +207,16 @@ function compileProject(project: ModelProject): string {
   if (!Codecs.project || typeof Codecs.project.compile !== "function") {
     throw new Error("Blockbench's project codec is unavailable.");
   }
-  const compiled = runInProjectContext(
-    project,
-    () => Codecs.project.compile({ bitmaps: true, absolute_paths: false })
-  );
+  if (getVisibleProject() !== project) {
+    throw new Error("The YSM working-copy tab must remain visible while it is compiled.");
+  }
+  const compiled = Codecs.project.compile({ bitmaps: true, absolute_paths: false });
   return portableBbmodelText(compiled);
 }
 
-export async function mergeWorkingIntoBaseline(): Promise<Record<string, unknown>> {
+export async function mergeWorkingIntoBaseline(
+  visibleProject: ModelProject
+): Promise<Record<string, unknown>> {
   const state = loadState();
   if (!state) throw new Error("No active YSM three-tab workflow. Open the workflow tabs first.");
   if (ModelProject.all.length !== 3) {
@@ -222,7 +226,9 @@ export async function mergeWorkingIntoBaseline(): Promise<Record<string, unknown
   const legacy = exactRoleProject(byRole, "legacy_reference");
   const baseline = exactRoleProject(byRole, "new_baseline");
   const working = exactRoleProject(byRole, "working_copy");
-  const foreground = getForegroundProject();
+  if (visibleProject !== working || getVisibleProject() !== working) {
+    throw new Error("Select the YSM working-copy tab before merging it into the baseline.");
+  }
   assertProjectPath(legacy, state.legacyBbmodel, "legacy reference");
   assertProjectPath(baseline, state.baselineBbmodel, "new baseline");
   assertProjectPath(working, state.workingBbmodel, "working copy");
@@ -252,10 +258,7 @@ export async function mergeWorkingIntoBaseline(): Promise<Record<string, unknown
   if (appendedIndex >= 0) ModelProject.all.splice(appendedIndex, 1);
   const workingIndex = ModelProject.all.indexOf(working);
   ModelProject.all.splice(Math.max(0, workingIndex), 0, reopenedBaseline);
-  const restoredForeground = foreground === baseline ? reopenedBaseline : foreground;
-  if (restoredForeground && ModelProject.all.includes(restoredForeground)) {
-    restoredForeground.select();
-  }
+  working.select();
 
   state.baselineSha256 = sha256WorkspaceFile(state.baselineBbmodel);
   state.workingSha256 = sha256WorkspaceFile(state.workingBbmodel);

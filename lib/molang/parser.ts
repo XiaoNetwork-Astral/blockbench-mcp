@@ -40,10 +40,7 @@ class Parser {
   private index = 0;
   readonly diagnostics: MolangDiagnostic[] = [];
 
-  constructor(
-    private readonly source: string,
-    private readonly tokens: MolangToken[]
-  ) {}
+  constructor(private readonly tokens: MolangToken[]) {}
 
   private current(): MolangToken {
     return this.tokens[this.index] ?? this.tokens[this.tokens.length - 1];
@@ -372,7 +369,7 @@ class Parser {
 
 export function parseMolang(source: string): MolangParseResult {
   const lexed = lexMolang(source);
-  const parser = new Parser(source, lexed.tokens);
+  const parser = new Parser(lexed.tokens);
   const ast = parser.parseProgram();
   const diagnostics = [...lexed.diagnostics, ...parser.diagnostics];
   return {
