@@ -7,7 +7,7 @@
 ## 功能
 
 - 建模、贴图、UV、动画、材质、工程与导入导出。
-- 118 个核心直接工具和 17 个 YSM 工具；安装 Hytale 插件后另有 12 个实验性工具。
+- 118 个核心直接工具和 14 个 YSM 工具；安装 Hytale 插件后另有 12 个实验性工具。
 - 每个工具直接接收本操作所需的参数，不再使用分组的 `command.action` 封装。
 - 涉及项目的工具在调用开始时使用 Blockbench 当前可见的标签页；只有 `select_project` 会选择另一个已打开项目。
 - 实验性的模型验证工具支持变换后接触分析、类型化 UV 检查、项目内存快照（每个项目保留最新 8 个）、可复现相机/调试通道、遮挡证据和原生动画姿态扫描。
@@ -40,7 +40,7 @@ bun run build
 ## 开发文档
 
 - [CONTRIBUTING.md](CONTRIBUTING.md)：构建、代码结构和提交要求。
-- [AGENTS.md](AGENTS.md)：通用 Blockbench 建模规则。
+- [AGENTS.md](AGENTS.md)：仓库工作规则与通用 Blockbench 建模规则。
 
 ## 许可
 

@@ -22,7 +22,6 @@ import { spatialToolDocs } from "@/server/tools/spatial";
 import { textureToolDocs } from "@/server/tools/texture";
 import { uvToolDocs } from "@/server/tools/uv";
 import { validationOperationDocs } from "@/server/tools/validation";
-import { workflowToolDocs } from "@/server/tools/workflow";
 import {
   ysmMolangEditToolDocs,
   ysmMolangReadToolDocs,
@@ -65,7 +64,6 @@ export const CORE_TOOL_CATEGORIES: readonly ToolCategory[] = [
 
 export const YSM_TOOL_CATEGORIES: readonly ToolCategory[] = [
   { category: "YSM workspace", tools: ysmToolDocs },
-  { category: "YSM workflow", tools: workflowToolDocs },
   {
     category: "YSM Molang",
     tools: [...ysmMolangReadToolDocs, ...ysmMolangEditToolDocs],

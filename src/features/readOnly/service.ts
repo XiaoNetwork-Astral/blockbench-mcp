@@ -1,14 +1,25 @@
 /// <reference types="blockbench-types" />
 
 const STORAGE_KEY = "blockbench_mcp.read_only_projects";
-const LEGACY_STORAGE_KEYS = [
+const RETIRED_ROLE_STORAGE_KEYS = [
   "blockbench_mcp.project_roles",
   "codex_blockbench_mcp.project_roles",
 ] as const;
+const RETIRED_WORKFLOW_STORAGE_KEYS = [
+  "blockbench_mcp.ysm_workflow.v1",
+  "codex_blockbench_mcp.ysm_workflow.v1",
+] as const;
+const RETIRED_PROTECTED_ROLES = new Set([
+  "legacy_reference",
+  "new_baseline",
+  "reference",
+  "manual",
+]);
 
 type StoredLocks = Record<string, true>;
 
 const activeLocks = new WeakMap<ModelProject, boolean>();
+const listeners = new Set<(project: ModelProject) => void>();
 let cachedStorage: Storage | undefined;
 let cachedLocks: StoredLocks | undefined;
 
@@ -37,31 +48,43 @@ function parseLocks(raw: string | null): StoredLocks {
   }
 }
 
-function migrateLegacyLocks(storage: Storage): StoredLocks {
+function consumeRetiredWorkflowState(storage: Storage): {
+  locks: StoredLocks;
+  found: boolean;
+} {
   const migrated: StoredLocks = {};
-  for (const legacyKey of LEGACY_STORAGE_KEYS) {
+  let found = false;
+  for (const legacyKey of RETIRED_ROLE_STORAGE_KEYS) {
     const raw = storage.getItem(legacyKey);
-    if (!raw) continue;
+    if (raw === null) continue;
+    found = true;
     try {
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         for (const [key, value] of Object.entries(parsed)) {
+          const record = value && typeof value === "object"
+            ? value as { readOnly?: unknown; role?: unknown }
+            : null;
           if (
             value === true ||
-            (value && typeof value === "object" && (value as { readOnly?: unknown }).readOnly === true)
+            record?.readOnly === true ||
+            (typeof record?.role === "string" && RETIRED_PROTECTED_ROLES.has(record.role))
           ) {
             migrated[key] = true;
           }
         }
       }
     } catch {
-      // A malformed retired record contains no recoverable explicit locks.
+      // A malformed retired record contains no recoverable lock.
     }
+    storage.removeItem(legacyKey);
   }
-  storage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-  // Workflow-role metadata still belongs to the role service. It will remove
-  // legacy readOnly fields when that metadata is next rewritten.
-  return migrated;
+  for (const legacyKey of RETIRED_WORKFLOW_STORAGE_KEYS) {
+    if (storage.getItem(legacyKey) === null) continue;
+    found = true;
+    storage.removeItem(legacyKey);
+  }
+  return { locks: migrated, found };
 }
 
 function loadLocks(): StoredLocks {
@@ -71,7 +94,14 @@ function loadLocks(): StoredLocks {
 
   cachedStorage = storage;
   const current = storage.getItem(STORAGE_KEY);
-  cachedLocks = current === null ? migrateLegacyLocks(storage) : parseLocks(current);
+  const retired = consumeRetiredWorkflowState(storage);
+  cachedLocks = {
+    ...retired.locks,
+    ...parseLocks(current),
+  };
+  if (current === null || retired.found) {
+    storage.setItem(STORAGE_KEY, JSON.stringify(cachedLocks));
+  }
   return cachedLocks;
 }
 
@@ -97,4 +127,12 @@ export function setProjectReadOnly(project: ModelProject, readOnly: boolean): vo
   else delete locks[key];
   activeLocks.set(project, readOnly);
   saveLocks(locks);
+  for (const listener of listeners) listener(project);
+}
+
+export function subscribeProjectReadOnly(
+  listener: (project: ModelProject) => void
+): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }

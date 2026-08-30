@@ -8,7 +8,6 @@ import {
   type AuditStatus,
   type UndoOwnership,
 } from "@/lib/auditCore";
-import { getProjectRole } from "@/lib/projectRoles";
 import {
   DEFAULT_AUDIT_RETENTION,
   getAuditRetention,
@@ -35,7 +34,6 @@ export interface AuditUndoPoint {
   runtimeId: string;
   projectId: string | null;
   projectName: string | null;
-  projectRole: string | null;
   index: number;
   total: number;
   prefixHash: string;
@@ -57,7 +55,6 @@ export interface AuditOperationSummary {
   readOnly: boolean;
   projectId: string | null;
   projectName: string | null;
-  projectRole: string | null;
   argumentsSummary: string;
   resultSummary: string;
   errorSummary: string;
@@ -659,7 +656,6 @@ class AuditManager {
       readOnly,
       projectId: beforeRuntime.point.projectId,
       projectName: beforeRuntime.point.projectName,
-      projectRole: beforeRuntime.point.projectRole,
       argumentsSummary: summarizeAuditValue(options.args ?? {}),
       resultSummary: "",
       errorSummary: "",
@@ -721,7 +717,6 @@ class AuditManager {
     active.summary.after = afterRuntime.point;
     active.summary.projectId = afterRuntime.point.projectId ?? active.beforeRuntime.point.projectId;
     active.summary.projectName = afterRuntime.point.projectName ?? active.beforeRuntime.point.projectName;
-    active.summary.projectRole = afterRuntime.point.projectRole ?? active.beforeRuntime.point.projectRole;
     active.summary.resultSummary = error === undefined ? summarizeAuditValue(result ?? "") : "";
     active.summary.errorSummary = error === undefined ? "" : summarizeAuditValue(error);
     active.summary.undoEntryCount = active.observedEntryIds.size;
@@ -758,7 +753,6 @@ class AuditManager {
       summary.toolName,
       summary.title,
       summary.projectName ?? "",
-      summary.projectRole ?? "",
       summary.argumentsSummary,
       summary.resultSummary,
       summary.errorSummary,
@@ -806,7 +800,6 @@ class AuditManager {
           runtimeId: this.runtimeId,
           projectId: null,
           projectName: null,
-          projectRole: null,
           index: 0,
           total: 0,
           prefixHash: hashUndoPrefix([]),
@@ -824,7 +817,6 @@ class AuditManager {
           runtimeId: this.runtimeId,
           projectId: project.uuid,
           projectName: project.name || "Untitled",
-          projectRole: getProjectRole(project),
           index,
           total: history.length,
           // Read-only records are not restore points. Avoid hashing the full
@@ -842,7 +834,6 @@ class AuditManager {
         runtimeId: this.runtimeId,
         projectId: project.uuid,
         projectName: project.name || "Untitled",
-        projectRole: getProjectRole(project),
         index,
         total: history.length,
         prefixHash: hashUndoPrefix(entryIds.slice(0, index)),

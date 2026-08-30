@@ -33,7 +33,7 @@ import {
 import {
   assertProjectMayBeMutated,
   describeProject,
-} from "@/lib/projectRoles";
+} from "@/lib/projectAccess";
 import { portableBbmodelText } from "@/lib/projectFiles";
 import {
   assertExternalWriteAllowed,
@@ -90,7 +90,7 @@ export const ysmToolDocs: ToolSpec[] = [
   {
     name: "ysm_workspace_status",
     description:
-      "Reports the plugin workspace, open Blockbench tabs, project roles, and YSM source bindings.",
+      "Reports the plugin workspace, open Blockbench tabs, read-only state, and YSM source bindings.",
     project: "none",
     annotations: { title: "YSM Workspace Status", readOnlyHint: true },
     parameters: ysmWorkspaceStatusParameters,

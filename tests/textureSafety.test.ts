@@ -7,7 +7,7 @@ import {
   prepareTextureForMutation,
   rememberProjectTextureDependencies,
 } from "@/lib/textureSafety";
-import { setProjectReadOnly } from "@/lib/projectRoles";
+import { setProjectReadOnly } from "@/src/features/readOnly/service";
 
 const originalGlobals = new Map<string, unknown>();
 

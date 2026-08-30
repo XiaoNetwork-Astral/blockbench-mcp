@@ -1,4 +1,4 @@
-import { isProjectProtected } from "@/lib/projectRoles";
+import { isProjectReadOnly } from "@/src/features/readOnly/service";
 
 type TextureWithExternalState = Texture & {
   relative_path?: string;
@@ -165,7 +165,7 @@ export function assertExternalWriteAllowed(
   if (!isLocalPath(path)) throw new Error(`${operation} requires a non-empty local path.`);
   const normalized = normalizeExternalPath(path);
 
-  if (writerProject && isProjectProtected(writerProject)) {
+  if (writerProject && isProjectReadOnly(writerProject)) {
     throw new Error(
       `${operation} cannot write for read-only project "${writerProject.name}".`
     );
@@ -192,7 +192,7 @@ export function assertExternalWriteAllowed(
     }
 
     const targetKind = projectPathKind ?? "texture dependency";
-    if (isProjectProtected(project)) {
+    if (isProjectReadOnly(project)) {
       throw new Error(
         `${operation} cannot write ${path}: it is a ${targetKind} of read-only project ` +
           `"${project.name}" (${project.uuid}).`

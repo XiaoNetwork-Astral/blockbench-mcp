@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { IMCPTool, IMCPPrompt, IMCPResource, StatusType } from "@/types";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { assertProjectMayBeMutated } from "@/lib/projectRoles";
+import { assertProjectMayBeMutated } from "@/lib/projectAccess";
 import { auditManager } from "@/lib/audit";
 import {
   captureUndoEditToken,

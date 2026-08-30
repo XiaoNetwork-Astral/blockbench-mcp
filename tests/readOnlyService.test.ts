@@ -19,8 +19,8 @@ function installStorage(initial: Record<string, string> = {}) {
   return values;
 }
 
-describe("explicit project read-only service", () => {
-  test("persists only explicit locks by normalized path", () => {
+describe("project read-only service", () => {
+  test("persists locks by normalized path", () => {
     const values = installStorage();
     const first = project("first", "D:\\Models\\Hero.bbmodel");
     setProjectReadOnly(first, true);
@@ -35,16 +35,25 @@ describe("explicit project read-only service", () => {
     expect(isProjectReadOnly(first)).toBe(false);
   });
 
-  test("migrates readOnly flags without taking ownership of workflow roles", () => {
+  test("preserves protected projects while removing retired workflow state", () => {
     const values = installStorage({
+      "blockbench_mcp.read_only_projects": JSON.stringify({
+        "uuid:current": true,
+      }),
       "blockbench_mcp.project_roles": JSON.stringify({
         "uuid:locked": { role: "working_copy", readOnly: true },
         "uuid:legacy": { role: "legacy_reference" },
+        "uuid:working": { role: "working_copy" },
       }),
+      "blockbench_mcp.ysm_workflow.v1": JSON.stringify({ version: 1 }),
     });
 
+    expect(isProjectReadOnly(project("current"))).toBe(true);
     expect(isProjectReadOnly(project("locked"))).toBe(true);
-    expect(isProjectReadOnly(project("legacy"))).toBe(false);
-    expect(values.get("blockbench_mcp.project_roles")).toContain("working_copy");
+    expect(isProjectReadOnly(project("legacy"))).toBe(true);
+    expect(isProjectReadOnly(project("working"))).toBe(false);
+    expect(values.has("blockbench_mcp.project_roles")).toBe(false);
+    expect(values.has("blockbench_mcp.ysm_workflow.v1")).toBe(false);
+    expect(values.get("blockbench_mcp.read_only_projects")).toContain("uuid:legacy");
   });
 });

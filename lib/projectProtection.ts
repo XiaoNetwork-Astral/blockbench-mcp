@@ -1,7 +1,7 @@
 import {
-  isProjectProtected,
-  subscribeProjectProtection,
-} from "@/lib/projectRoles";
+  isProjectReadOnly,
+  subscribeProjectReadOnly,
+} from "@/src/features/readOnly/service";
 import { isolateProjectTextures } from "@/lib/textureSafety";
 import { getVisibleProject } from "@/src/blockbench/projects";
 
@@ -71,7 +71,7 @@ function isProtectedViewportSelection(
   const mode = Modes.selected as unknown as { selectElements?: unknown };
   return event.type === "pointerdown"
     && event.button === 0
-    && isProjectProtected(project)
+    && isProjectReadOnly(project)
     && Boolean(tool.selectElements)
     && Boolean(mode.selectElements)
     && !tool.paintTool
@@ -107,7 +107,7 @@ function setupProtectedSelection(): void {
   originalElementClickSelect = originalClickSelect;
   elementPrototype.clickSelect = function (...args: any[]) {
     const project = Project;
-    if (!project || !isProjectProtected(project)) {
+    if (!project || !isProjectReadOnly(project)) {
       return originalClickSelect.apply(this, args);
     }
     return withNodesUnlocked(projectNodes(project), () => {
@@ -127,7 +127,7 @@ function setupProtectedSelection(): void {
     originalGroupSelectionMethods.set(method, original);
     groupPrototype[method] = function (...args: any[]) {
       const project = Project;
-      if (!project || !isProjectProtected(project) || !this.locked) {
+      if (!project || !isProjectReadOnly(project) || !this.locked) {
         return original.apply(this, args);
       }
       return withNodesUnlocked(projectNodes(project), () =>
@@ -144,7 +144,7 @@ function setupProtectedSelection(): void {
   originalTransformerAttach = originalAttach;
   transformer.attach = function (...args: any[]) {
     const visibleProject = getVisibleProject();
-    if (visibleProject && isProjectProtected(visibleProject)) {
+    if (visibleProject && isProjectReadOnly(visibleProject)) {
       this.detach();
       return;
     }
@@ -186,7 +186,7 @@ function restoreLocks(project: ModelProject): void {
 }
 
 export function refreshProjectProtection(project: ModelProject): void {
-  if (!isProjectProtected(project)) {
+  if (!isProjectReadOnly(project)) {
     restoreLocks(project);
     return;
   }
@@ -224,7 +224,7 @@ function reverseProtectedHistory(
   savedBefore?: boolean
 ): void {
   const project = Project;
-  if (!project || !isProjectProtected(project) || reversingProtectedChange) return;
+  if (!project || !isProjectReadOnly(project) || reversingProtectedChange) return;
   reversingProtectedChange = true;
   try {
     if (kind === "undo") project.undo.redo();
@@ -238,7 +238,7 @@ function reverseProtectedHistory(
 }
 
 export function blockProtectedProjectSave(): false | undefined {
-  if (!Project || !isProjectProtected(Project)) return;
+  if (!Project || !isProjectReadOnly(Project)) return;
   Blockbench.showQuickMessage(tl("mcp.project.save_blocked"), 2500);
   return false;
 }
@@ -262,9 +262,9 @@ export function setupProjectProtection(): void {
   if (setupComplete) return;
   setupComplete = true;
   setupProtectedSelection();
-  unsubscribeProtection = subscribeProjectProtection(refreshProjectProtection);
+  unsubscribeProtection = subscribeProjectReadOnly(refreshProjectProtection);
   listen("init_edit", () => {
-    if (Project && isProjectProtected(Project)) {
+    if (Project && isProjectReadOnly(Project)) {
       savedBeforeProtectedEdit.set(Project, Project.saved);
     }
   });

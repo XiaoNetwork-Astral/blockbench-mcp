@@ -21,7 +21,6 @@ const formerGroups = new Set([
   "edit_hytale",
   "inspect_ysm",
   "edit_ysm_workspace",
-  "edit_ysm_workflow",
 ]);
 
 function objectShape(schema: z.ZodType): Record<string, z.ZodType> {
@@ -39,10 +38,10 @@ function objectShape(schema: z.ZodType): Record<string, z.ZodType> {
 describe("direct tool schemas", () => {
   test("publishes the intended v2 catalog", () => {
     expect(CORE_TOOL_SPECS).toHaveLength(118);
-    expect(YSM_TOOL_SPECS).toHaveLength(17);
+    expect(YSM_TOOL_SPECS).toHaveLength(14);
     expect(HYTALE_TOOL_SPECS).toHaveLength(12);
-    expect(ALL_TOOL_SPECS).toHaveLength(147);
-    expect(new Set(ALL_TOOL_SPECS.map(({ name }) => name)).size).toBe(147);
+    expect(ALL_TOOL_SPECS).toHaveLength(144);
+    expect(new Set(ALL_TOOL_SPECS.map(({ name }) => name)).size).toBe(144);
   });
 
   test("uses direct input objects and contains no former grouped tool", () => {

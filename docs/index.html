@@ -18,7 +18,7 @@
 
       <div class="nav-group">
         <p class="nav-heading">Overview</p>
-        <a href="#tools" class="nav-link">Tools <span class="count">(147)</span></a>
+        <a href="#tools" class="nav-link">Tools <span class="count">(144)</span></a>
         <a href="#prompts" class="nav-link">Prompts <span class="count">(4)</span></a>
         <a href="#resources" class="nav-link">Resources <span class="count">(12)</span></a>
       </div>
@@ -44,7 +44,6 @@
         <a href="#cat-import" class="nav-link">Import <span class="count">(1)</span></a>
         <a href="#cat-export" class="nav-link">Export <span class="count">(2)</span></a>
         <a href="#cat-ysm-workspace" class="nav-link">YSM workspace <span class="count">(5)</span></a>
-        <a href="#cat-ysm-workflow" class="nav-link">YSM workflow <span class="count">(3)</span></a>
         <a href="#cat-ysm-molang" class="nav-link">YSM Molang <span class="count">(9)</span></a>
         <a href="#cat-hytale-optional" class="nav-link">Hytale (optional) <span class="count">(12)</span></a>
       </div>
@@ -55,7 +54,7 @@
         <h1>Blockbench MCP Plugin</h1>
         <p class="subtitle">API Reference — v2.0.0-blockbench.1</p>
         <nav class="stats">
-          <a href="#tools"><strong>147</strong> tools (66 stable, 81 experimental)</a>
+          <a href="#tools"><strong>144</strong> tools (63 stable, 81 experimental)</a>
           <a href="#prompts"><strong>4</strong> prompts</a>
           <a href="#resources"><strong>12</strong> resources</a>
         </nav>
@@ -130,7 +129,7 @@
         </div>
       </div>
       <p class="card-title">List Projects</p>
-      <p class="card-desc">Lists every open Blockbench project tab, its active state, persistent workflow role, and whether MCP model mutations are allowed.</p>
+      <p class="card-desc">Lists every open Blockbench project tab, its active state, read-only state, and whether MCP model mutations are allowed.</p>
       <div class="overflow-x">
         <p class="empty-params">No parameters</p>
       </div>
@@ -202,7 +201,7 @@
         </div>
       </div>
       <p class="card-title">Set Project Read Only</p>
-      <p class="card-desc">Turns project editing on or off for both the user and MCP while preserving tab switching and camera navigation. Turning it off removes only this explicit lock, not workflow-role protection.</p>
+      <p class="card-desc">Turns the visible project's read-only lock on or off for both the user and MCP while preserving tab switching and camera navigation.</p>
       <div class="overflow-x">
         <table class="param-table">
       <thead>
@@ -4847,7 +4846,7 @@
         </div>
       </div>
       <p class="card-title">YSM Workspace Status</p>
-      <p class="card-desc">Reports the plugin workspace, open Blockbench tabs, project roles, and YSM source bindings.</p>
+      <p class="card-desc">Reports the plugin workspace, open Blockbench tabs, read-only state, and YSM source bindings.</p>
       <div class="overflow-x">
         <p class="empty-params">No parameters</p>
       </div>
@@ -4947,101 +4946,6 @@
       <p class="card-desc">Removes the persisted YSM source binding from an open project tab without changing model files.</p>
       <div class="overflow-x">
         <p class="empty-params">No parameters</p>
-      </div>
-    </div>
-        </section>
-<section id="cat-ysm-workflow" class="category-section">
-          <h3 class="category-title">YSM workflow</h3>
-          <div id="tool-ysm_open_workflow_tabs" class="card tool-card">
-      <div class="card-header">
-        <h3 class="card-name">ysm_open_workflow_tabs</h3>
-        <div class="card-badges">
-          <span class="badge badge-stable">stable</span>
-          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
-        </div>
-      </div>
-      <p class="card-title">Open YSM Three-Tab Workflow</p>
-      <p class="card-desc">Validates and opens exactly three YSM .bbmodel tabs in order: old-skin reference (read-only), new-skin baseline (read-only), and writable working copy. It never changes pose or animation state.</p>
-      <div class="overflow-x">
-        <table class="param-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody><tr>
-      <td class="col-name">skin_name</td>
-      <td class="col-type">string</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">Human-readable character/skin label used in the three tab titles. <span class="param-meta">[minLength: 1]</span></td>
-    </tr><tr>
-      <td class="col-name">legacy_bbmodel</td>
-      <td class="col-type">string</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">Workspace-relative old-skin reference .bbmodel.</td>
-    </tr><tr>
-      <td class="col-name">baseline_bbmodel</td>
-      <td class="col-type">string</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">Workspace-relative new-skin baseline .bbmodel.</td>
-    </tr><tr>
-      <td class="col-name">working_bbmodel</td>
-      <td class="col-type">string</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">Workspace-relative writable new-skin working .bbmodel.</td>
-    </tr><tr>
-      <td class="col-name">discard_unsaved_tabs</td>
-      <td class="col-type">boolean</td>
-      <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Close and discard any currently unsaved tabs. False refuses before closing anything. <span class="param-meta">(default: <code>false</code>)</span></td>
-    </tr></tbody>
-    </table>
-      </div>
-    </div>
-<div id="tool-ysm_workflow_status" class="card tool-card">
-      <div class="card-header">
-        <h3 class="card-name">ysm_workflow_status</h3>
-        <div class="card-badges">
-          <span class="badge badge-stable">stable</span>
-          <span class="badge badge-readonly">read-only</span>
-        </div>
-      </div>
-      <p class="card-title">Get YSM Workflow Status</p>
-      <p class="card-desc">Reports the current three-tab workflow, paths, roles, protection state, and whether exactly one tab of each role is open.</p>
-      <div class="overflow-x">
-        <p class="empty-params">No parameters</p>
-      </div>
-    </div>
-<div id="tool-ysm_merge_working_into_baseline" class="card tool-card">
-      <div class="card-header">
-        <h3 class="card-name">ysm_merge_working_into_baseline</h3>
-        <div class="card-badges">
-          <span class="badge badge-stable">stable</span>
-          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
-        </div>
-      </div>
-      <p class="card-title">Merge YSM Working Copy</p>
-      <p class="card-desc">After explicit user approval, saves the working copy, closes the baseline, replaces its .bbmodel with the working copy, reopens it read-only, and returns focus to the still-writable working tab.</p>
-      <div class="overflow-x">
-        <table class="param-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody><tr>
-      <td class="col-name">confirmation</td>
-      <td class="col-type">string</td>
-      <td><span class="param-required">required</span></td>
-      <td class="col-desc">Explicit confirmation required after the user says the current adjustment should be merged.</td>
-    </tr></tbody>
-    </table>
       </div>
     </div>
         </section>
@@ -6118,7 +6022,7 @@
       </section>
 
       <footer class="page-footer">
-        Generated 2026-08-30T15:02:02.614Z from Zod schemas
+        Generated 2026-08-30T17:35:29.560Z from Zod schemas
       </footer>
     </main>
   </div>

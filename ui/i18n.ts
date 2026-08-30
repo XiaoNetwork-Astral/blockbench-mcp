@@ -122,7 +122,6 @@ const en: Record<string, string> = {
   "mcp.project.state_writable": "Writable",
   "mcp.project.make_read_only": "Make project read-only",
   "mcp.project.make_writable": "Make project writable",
-  "mcp.project.workflow_protected": "Protected by workflow role",
   "mcp.project.save_blocked": "Read-only project cannot be saved",
 
   "mcp.dialog.cancel": "Cancel",
@@ -254,7 +253,6 @@ const de: Record<string, string> = {
   "mcp.project.state_writable": "Beschreibbar",
   "mcp.project.make_read_only": "Projekt schreibschützen",
   "mcp.project.make_writable": "Projekt beschreibbar machen",
-  "mcp.project.workflow_protected": "Durch Workflow-Rolle geschützt",
   "mcp.project.save_blocked": "Schreibgeschütztes Projekt kann nicht gespeichert werden",
 
   "mcp.dialog.cancel": "Abbrechen",
@@ -386,7 +384,6 @@ const ja: Record<string, string> = {
   "mcp.project.state_writable": "書き込み可能",
   "mcp.project.make_read_only": "プロジェクトを読み取り専用にする",
   "mcp.project.make_writable": "プロジェクトを書き込み可能にする",
-  "mcp.project.workflow_protected": "ワークフローロールにより保護されています",
   "mcp.project.save_blocked": "読み取り専用プロジェクトは保存できません",
 
   "mcp.dialog.cancel": "キャンセル",
@@ -518,7 +515,6 @@ const zh: Record<string, string> = {
   "mcp.project.state_writable": "可写",
   "mcp.project.make_read_only": "将项目设为只读",
   "mcp.project.make_writable": "将项目设为可写",
-  "mcp.project.workflow_protected": "项目受工作流角色保护",
   "mcp.project.save_blocked": "只读项目无法保存",
 
   "mcp.dialog.cancel": "取消",

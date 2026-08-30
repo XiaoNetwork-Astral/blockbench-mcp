@@ -21,7 +21,6 @@ import { registerHistoryTools } from "./tools/history";
 import { registerExportTools } from "./tools/export";
 import { registerExactTextureTools } from "./tools/exact-texture";
 import { registerYsmTools } from "./tools/ysm";
-import { registerWorkflowTools } from "./tools/workflow";
 import { registerSpatialTools } from "./tools/spatial";
 import { registerValidationTools } from "./tools/validation";
 
@@ -63,7 +62,6 @@ for (const register of registrationFunctions) {
 
 // YSM tools stay discoverable so ysm_set_workspace can configure first use.
 registerYsmTools();
-registerWorkflowTools();
 
 for (const register of [
   registerHytaleTools,

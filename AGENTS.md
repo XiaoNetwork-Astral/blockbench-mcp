@@ -19,6 +19,7 @@ The user's latest explicit request takes priority. Reading and analysis do not a
 
 ## Project instruction hygiene
 
+- Keep the plugin workflow-neutral. Project-specific tab roles, file promotion procedures, and approval stages belong in that project's external memo; implement only the reusable operations needed to carry them out.
 - Do not create or expand skills, prompt packs, policy files, reminder files, or mandatory instruction chains unless the user explicitly requests one.
 - Keep behavior in source, tests, types, and ordinary documentation. State a rule once; do not duplicate it across skills, prompts, comments, and the project memo.
 - Prefer a small invariant and a focused test over caller-supplied authorization tokens, hashes, UUID ceremonies, confirmation strings, or broad defensive wrappers.
@@ -38,5 +39,5 @@ The user's latest explicit request takes priority. Reading and analysis do not a
 - If the references are insufficient, structural meaning is unclear, multiple views still do not resolve the question, or repeated changes are not converging, stop modifying the model and preserve its current state.
 - Give the user the relevant objects, coordinates, expected relationship, and most informative view. After the user corrects the interpretation, validate one small example first.
 - A successful tool response does not prove the model is correct. Verify only the objects, data, and views that affect the current conclusion; do not mechanically repeat full inspections.
-- Overwriting a baseline, closing an unsaved tab, deleting material, committing, packaging, or publishing requires clear authorization for that target and scope.
+- Overwriting an existing file, closing an unsaved tab, deleting material, committing, packaging, or publishing requires clear authorization for that target and scope.
 - When the current stage is complete, state what was completed, what uncertainty remains, and what the user should inspect, then stop.

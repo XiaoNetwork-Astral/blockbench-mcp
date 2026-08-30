@@ -5,11 +5,9 @@ import {
   resolveOpenProject,
 } from "@/src/blockbench/projects";
 import {
-  isProjectExplicitlyReadOnly,
-  isProjectProtected,
+  isProjectReadOnly,
   setProjectReadOnly,
-  setProjectRole,
-} from "@/lib/projectRoles";
+} from "@/src/features/readOnly/service";
 import {
   blockProtectedProjectSave,
   isProtectedViewOnlyEdit,
@@ -94,16 +92,16 @@ describe("visible project context", () => {
   });
 
   test("uses the visible tab", () => {
-    const foreground = project("foreground", true);
-    const background = project("background");
-    (globalThis as any).ModelProject = { all: [foreground, background] };
+    const visible = project("visible", true);
+    const other = project("other");
+    (globalThis as any).ModelProject = { all: [visible, other] };
     (globalThis as any).Blockbench = {
-      Project: foreground,
-      Format: foreground.format,
+      Project: visible,
+      Format: visible.format,
     };
 
-    expect(getVisibleProject()).toBe(foreground);
-    expect((globalThis as any).Blockbench.Project).toBe(foreground);
+    expect(getVisibleProject()).toBe(visible);
+    expect((globalThis as any).Blockbench.Project).toBe(visible);
   });
 });
 
@@ -137,8 +135,7 @@ describe("project read-only lock", () => {
 
     setProjectReadOnly(target, true);
     refreshProjectProtection(target);
-    expect(isProjectExplicitlyReadOnly(target)).toBe(true);
-    expect(isProjectProtected(target)).toBe(true);
+    expect(isProjectReadOnly(target)).toBe(true);
     expect(unlocked.locked).toBe(true);
     expect(alreadyLocked.locked).toBe(true);
 
@@ -275,20 +272,6 @@ describe("project read-only lock", () => {
     } finally {
       teardownProjectProtection();
     }
-  });
-
-  test("removing an explicit lock does not remove workflow-role protection", () => {
-    const values = new Map<string, string>();
-    (globalThis as any).localStorage = {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => values.set(key, value),
-    };
-    const target = project("reference");
-    setProjectRole(target, "legacy_reference");
-    setProjectReadOnly(target, true);
-    setProjectReadOnly(target, false);
-    expect(isProjectExplicitlyReadOnly(target)).toBe(false);
-    expect(isProjectProtected(target)).toBe(true);
   });
 
   test("blocks every native project save action while protected", () => {

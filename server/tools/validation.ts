@@ -31,7 +31,7 @@ import {
   storeValidationSnapshot,
 } from "@/lib/validationSnapshots";
 import type { McpCameraState } from "@/src/blockbench/camera";
-import { describeProject } from "@/lib/projectRoles";
+import { describeProject } from "@/lib/projectAccess";
 import { resolveUniqueReference } from "@/lib/modelSafety";
 import { fitBoundingSpherePerspectiveDistance } from "@/lib/cameraFraming";
 

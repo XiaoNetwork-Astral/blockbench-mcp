@@ -62,28 +62,54 @@ describe("PBR material configuration", () => {
     expect(textures.map((texture) => texture.group)).toEqual(["material", "material"]);
   });
 
-  test("resolves explicit, texture-relative, and project-relative config paths", () => {
-    const explicit = path.resolve("D:/output/steel.texture_set.json");
+  test("resolves Windows config paths", () => {
+    const pathApi = path.win32;
+    const explicit = "D:\\output\\steel.texture_set.json";
     expect(resolveMaterialConfigPath({
       explicitPath: explicit,
       materialName: "Steel",
-      pathApi: path,
+      pathApi,
+    })).toBe(explicit);
+
+    expect(resolveMaterialConfigPath({
+      nativePath: ".texture_set.json",
+      colorTexturePath: "textures\\katana.png",
+      projectSavePath: "D:\\models\\katana.bbmodel",
+      materialName: "Katana Steel",
+      pathApi,
+    })).toBe("D:\\models\\textures\\Katana Steel.texture_set.json");
+
+    expect(resolveMaterialConfigPath({
+      nativePath: ".texture_set.json",
+      projectSavePath: "D:\\models\\katana.bbmodel",
+      materialName: "Katana Steel",
+      pathApi,
+    })).toBe("D:\\models\\Katana Steel.texture_set.json");
+  });
+
+  test("resolves POSIX config paths", () => {
+    const pathApi = path.posix;
+    const explicit = "/output/steel.texture_set.json";
+    expect(resolveMaterialConfigPath({
+      explicitPath: explicit,
+      materialName: "Steel",
+      pathApi,
     })).toBe(explicit);
 
     expect(resolveMaterialConfigPath({
       nativePath: ".texture_set.json",
       colorTexturePath: "textures/katana.png",
-      projectSavePath: "D:/models/katana.bbmodel",
+      projectSavePath: "/models/katana.bbmodel",
       materialName: "Katana Steel",
-      pathApi: path,
-    })).toBe(path.resolve("D:/models/textures/Katana Steel.texture_set.json"));
+      pathApi,
+    })).toBe("/models/textures/Katana Steel.texture_set.json");
 
     expect(resolveMaterialConfigPath({
       nativePath: ".texture_set.json",
-      projectSavePath: "D:/models/katana.bbmodel",
+      projectSavePath: "/models/katana.bbmodel",
       materialName: "Katana Steel",
-      pathApi: path,
-    })).toBe(path.resolve("D:/models/Katana Steel.texture_set.json"));
+      pathApi,
+    })).toBe("/models/Katana Steel.texture_set.json");
   });
 
   test("refuses relative explicit paths and unsaved ambiguous materials", () => {

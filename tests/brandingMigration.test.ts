@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-  LEGACY_PROJECT_ROLES_STORAGE_KEY,
   LEGACY_SETTING_ID_MAP,
+  LEGACY_YSM_BINDINGS_STORAGE_KEY,
   migrateRecordKeys,
   readMigratedStorageItem,
 } from "@/lib/brandingMigration";
@@ -32,7 +32,7 @@ describe("Blockbench MCP branding migration", () => {
 
   test("copies a legacy localStorage value once and removes its old key", () => {
     const values = new Map<string, string>([
-      [LEGACY_PROJECT_ROLES_STORAGE_KEY, '{"project":{"role":"working_copy"}}'],
+      [LEGACY_YSM_BINDINGS_STORAGE_KEY, '{"project":{"geometry":"models/hero.json"}}'],
     ]);
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -42,12 +42,12 @@ describe("Blockbench MCP branding migration", () => {
 
     const migrated = readMigratedStorageItem(
       storage,
-      "blockbench_mcp.project_roles",
-      [LEGACY_PROJECT_ROLES_STORAGE_KEY]
+      "blockbench_mcp.ysm_bindings",
+      [LEGACY_YSM_BINDINGS_STORAGE_KEY]
     );
     expect(migrated).not.toBeNull();
-    expect(migrated).toContain("working_copy");
-    expect(values.get("blockbench_mcp.project_roles")).toBe(migrated!);
-    expect(values.has(LEGACY_PROJECT_ROLES_STORAGE_KEY)).toBe(false);
+    expect(migrated).toContain("models/hero.json");
+    expect(values.get("blockbench_mcp.ysm_bindings")).toBe(migrated!);
+    expect(values.has(LEGACY_YSM_BINDINGS_STORAGE_KEY)).toBe(false);
   });
 });

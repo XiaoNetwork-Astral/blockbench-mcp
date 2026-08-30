@@ -34,12 +34,12 @@ const replacementNames = [
 ];
 
 describe("v2 direct tool contract", () => {
-  test("contains 147 unique direct operations", () => {
+  test("contains 144 unique direct operations", () => {
     const names = ALL_TOOL_SPECS.map(({ name }) => name);
     expect(CORE_TOOL_SPECS).toHaveLength(118);
-    expect(YSM_TOOL_SPECS).toHaveLength(17);
+    expect(YSM_TOOL_SPECS).toHaveLength(14);
     expect(HYTALE_TOOL_SPECS).toHaveLength(12);
-    expect(names).toHaveLength(147);
+    expect(names).toHaveLength(144);
     expect(new Set(names).size).toBe(names.length);
   });
 

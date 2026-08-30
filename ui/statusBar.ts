@@ -1,8 +1,8 @@
 import {
-  getProjectProtectionState,
+  isProjectReadOnly,
   setProjectReadOnly,
-  subscribeProjectProtection,
-} from "@/lib/projectRoles";
+  subscribeProjectReadOnly,
+} from "@/src/features/readOnly/service";
 import {
   getMcpServerState,
   subscribeMcpServerState,
@@ -32,21 +32,19 @@ function updateProtectionButton(): void {
   protectionButton.hidden = !project;
   if (!project) return;
 
-  const protection = getProjectProtectionState(project);
-  protectionButton.classList.toggle("read-only", protection.readOnly);
-  protectionButton.setAttribute("aria-pressed", String(protection.readOnly));
-  protectionIcon.textContent = protection.readOnly ? "lock" : "lock_open";
+  const readOnly = isProjectReadOnly(project);
+  protectionButton.classList.toggle("read-only", readOnly);
+  protectionButton.setAttribute("aria-pressed", String(readOnly));
+  protectionIcon.textContent = readOnly ? "lock" : "lock_open";
   protectionText.textContent = tl(
-    protection.readOnly
+    readOnly
       ? "mcp.project.state_read_only"
       : "mcp.project.state_writable"
   );
   protectionButton.title = tl(
-    protection.roleProtected
-      ? "mcp.project.workflow_protected"
-      : protection.readOnly
-        ? "mcp.project.make_writable"
-        : "mcp.project.make_read_only"
+    readOnly
+      ? "mcp.project.make_writable"
+      : "mcp.project.make_read_only"
   );
   protectionButton.setAttribute("aria-label", protectionButton.title);
 }
@@ -54,16 +52,11 @@ function updateProtectionButton(): void {
 function toggleProjectProtection(): void {
   const project = Project;
   if (!project) return;
-  const protection = getProjectProtectionState(project);
-  if (protection.roleProtected) {
-    Blockbench.showQuickMessage(tl("mcp.project.workflow_protected"), 2500);
-    return;
-  }
-  setProjectReadOnly(project, !protection.explicitReadOnly);
-  const next = getProjectProtectionState(project);
+  setProjectReadOnly(project, !isProjectReadOnly(project));
+  const next = isProjectReadOnly(project);
   Blockbench.showQuickMessage(
     tl(
-      next.readOnly
+      next
         ? "mcp.project.state_read_only"
         : "mcp.project.state_writable"
     ),
@@ -125,7 +118,7 @@ export function statusBarSetup(): void {
   };
 
   unsubscribeServerState = subscribeMcpServerState(updateStatus);
-  unsubscribeProtection = subscribeProjectProtection((project) => {
+  unsubscribeProtection = subscribeProjectReadOnly((project) => {
     if (project === Project) updateProtectionButton();
   });
   listenProjectEvent("select_project");

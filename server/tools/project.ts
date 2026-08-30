@@ -6,11 +6,11 @@ import {
   type ToolSpec,
 } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
+import { describeProject } from "@/lib/projectAccess";
 import {
-  describeProject,
-  isProjectProtected,
+  isProjectReadOnly,
   setProjectReadOnly,
-} from "@/lib/projectRoles";
+} from "@/src/features/readOnly/service";
 import { forgetProjectValidationSnapshots } from "@/lib/validationSnapshots";
 import {
   getVisibleProject,
@@ -116,7 +116,7 @@ export const projectToolDocs: ToolSpec[] = [
   {
     name: "list_projects",
     description:
-      "Lists every open Blockbench project tab, its active state, persistent workflow role, and whether MCP model mutations are allowed.",
+      "Lists every open Blockbench project tab, its active state, read-only state, and whether MCP model mutations are allowed.",
     project: "none",
     annotations: {
       title: "List Projects",
@@ -153,7 +153,7 @@ export const projectToolDocs: ToolSpec[] = [
   {
     name: "set_project_read_only",
     description:
-      "Turns project editing on or off for both the user and MCP while preserving tab switching and camera navigation. Turning it off removes only this explicit lock, not workflow-role protection.",
+      "Turns the visible project's read-only lock on or off for both the user and MCP while preserving tab switching and camera navigation.",
     writableProject: false,
     annotations: {
       title: "Set Project Read Only",
@@ -416,7 +416,7 @@ export function registerProjectTools() {
       return JSON.stringify({
         project: describeProject(target),
         requested_read_only: read_only,
-        effective_read_only: isProjectProtected(target),
+        effective_read_only: isProjectReadOnly(target),
       }, null, 2);
     },
   }, projectToolDocs[5].status);

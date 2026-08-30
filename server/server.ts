@@ -16,7 +16,7 @@ const MCP_INSTRUCTIONS =
   "ambiguous after those checks, stop before further " +
   "mutation and ask the user to inspect the model and state the intended structure or position. " +
   "Do not use import_bedrock_geometry as a shortcut unless the user explicitly asks to import existing " +
-  "geometry. Use optional YSM tools only for an explicitly selected YSM workflow.";
+  "geometry. Use optional YSM tools when the current model actually uses YSM extension files.";
 
 /**
  * Creates a new MCP server instance using the official SDK

@@ -8,7 +8,7 @@ body:
       value: |
         ## MCP Feature Request
 
-        This template helps you request new MCP features in a format that can be directly used by AI agents to implement the feature. Please fill out all relevant sections as completely as possible.
+        First check whether an existing direct operation already covers the underlying need. The plugin should remain workflow-neutral: project-specific tab roles, promotion procedures, and approval stages belong in that project's documentation rather than new MCP tools.
 
   - type: dropdown
     id: feature-type
@@ -66,7 +66,7 @@ body:
     attributes:
       label: Parameters / Input Schema
       description: |
-        Define the parameters this feature should accept. Use this format for each parameter:
+        Define only the inputs the operation genuinely needs. Do not add caller identity, session routing, confirmation strings, or caller-supplied file hashes when the plugin can resolve or verify the state itself. Use this format for each parameter:
         ```
         - parameter_name: type (required/optional) - Description
         ```
@@ -160,11 +160,11 @@ body:
     id: edge-cases
     attributes:
       label: Edge Cases & Error Handling
-      description: What error conditions should be handled? What happens with invalid input?
+      description: Describe concrete ambiguity, invalid input, read-only state, bounded-work, or irreversible-action cases. Avoid speculative checks that do not protect a real boundary.
       placeholder: |
-        - If element with name already exists: throw error with suggestion to use different name
-        - If position is outside bounds: clamp to valid range
-        - If required texture not found: throw error listing available textures
+        - If an exact name matches more than one element: return the matches and require a UUID
+        - If a required texture is absent: return a typed not-found error
+        - If the target project is read-only: leave it unchanged and explain how to unlock it
     validations:
       required: false
 

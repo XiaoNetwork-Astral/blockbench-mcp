@@ -10,7 +10,6 @@ import {
 } from "@/lib/audit";
 import { PLUGIN_ID, SETTINGS_CATEGORY_ID } from "@/lib/constants";
 import type { IMCPTool } from "@/types";
-import { getProjectRole } from "@/lib/projectRoles";
 import {
   getAuditDefaultScope,
   getAuditPageSize,
@@ -37,7 +36,6 @@ const NO_PROJECT_SCOPE = "__blockbench_mcp_no_project__";
 interface AuditPanelProject {
   id: string;
   name: string;
-  role: string;
 }
 
 interface AuditPanelVm {
@@ -163,7 +161,6 @@ function projectOptions(): AuditPanelProject[] {
   return projects.map((project) => ({
     id: project.uuid,
     name: project.name || tl("mcp.audit.untitled"),
-    role: getProjectRole(project),
   }));
 }
 
@@ -355,7 +352,6 @@ export function buildAuditRawData(
       ? {
           id: item.projectId,
           name: item.projectName,
-          role: item.projectRole,
         }
       : null,
     sanitized: {

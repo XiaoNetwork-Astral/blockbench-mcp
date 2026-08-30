@@ -1,6 +1,6 @@
 {
   "version": "2.0.0-blockbench.1",
-  "generatedAt": "2026-08-30T15:02:02.614Z",
+  "generatedAt": "2026-08-30T17:35:29.560Z",
   "tools": [
     {
       "name": "create_project",
@@ -62,7 +62,7 @@
     {
       "name": "list_projects",
       "title": "List Projects",
-      "description": "Lists every open Blockbench project tab, its active state, persistent workflow role, and whether MCP model mutations are allowed.",
+      "description": "Lists every open Blockbench project tab, its active state, read-only state, and whether MCP model mutations are allowed.",
       "status": "stable",
       "category": "Projects",
       "annotations": {
@@ -141,7 +141,7 @@
     {
       "name": "set_project_read_only",
       "title": "Set Project Read Only",
-      "description": "Turns project editing on or off for both the user and MCP while preserving tab switching and camera navigation. Turning it off removes only this explicit lock, not workflow-role protection.",
+      "description": "Turns the visible project's read-only lock on or off for both the user and MCP while preserving tab switching and camera navigation.",
       "status": "stable",
       "category": "Projects",
       "annotations": {
@@ -7965,7 +7965,7 @@
     {
       "name": "ysm_workspace_status",
       "title": "YSM Workspace Status",
-      "description": "Reports the plugin workspace, open Blockbench tabs, project roles, and YSM source bindings.",
+      "description": "Reports the plugin workspace, open Blockbench tabs, read-only state, and YSM source bindings.",
       "status": "stable",
       "category": "YSM workspace",
       "annotations": {
@@ -8078,115 +8078,6 @@
           "ysm_unbind_project": {
             "type": "object",
             "properties": {},
-            "additionalProperties": false
-          }
-        },
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      }
-    },
-    {
-      "name": "ysm_open_workflow_tabs",
-      "title": "Open YSM Three-Tab Workflow",
-      "description": "Validates and opens exactly three YSM .bbmodel tabs in order: old-skin reference (read-only), new-skin baseline (read-only), and writable working copy. It never changes pose or animation state.",
-      "status": "stable",
-      "category": "YSM workflow",
-      "annotations": {
-        "destructiveHint": true,
-        "openWorldHint": true
-      },
-      "parameters": {
-        "$ref": "#/definitions/ysm_open_workflow_tabs",
-        "definitions": {
-          "ysm_open_workflow_tabs": {
-            "type": "object",
-            "properties": {
-              "skin_name": {
-                "type": "string",
-                "minLength": 1,
-                "description": "Human-readable character/skin label used in the three tab titles.",
-                "markdownDescription": "Human-readable character/skin label used in the three tab titles."
-              },
-              "legacy_bbmodel": {
-                "type": "string",
-                "description": "Workspace-relative old-skin reference .bbmodel.",
-                "markdownDescription": "Workspace-relative old-skin reference .bbmodel."
-              },
-              "baseline_bbmodel": {
-                "type": "string",
-                "description": "Workspace-relative new-skin baseline .bbmodel.",
-                "markdownDescription": "Workspace-relative new-skin baseline .bbmodel."
-              },
-              "working_bbmodel": {
-                "type": "string",
-                "description": "Workspace-relative writable new-skin working .bbmodel.",
-                "markdownDescription": "Workspace-relative writable new-skin working .bbmodel."
-              },
-              "discard_unsaved_tabs": {
-                "type": "boolean",
-                "default": false,
-                "description": "Close and discard any currently unsaved tabs. False refuses before closing anything.",
-                "markdownDescription": "Close and discard any currently unsaved tabs. False refuses before closing anything."
-              }
-            },
-            "required": [
-              "skin_name",
-              "legacy_bbmodel",
-              "baseline_bbmodel",
-              "working_bbmodel"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      }
-    },
-    {
-      "name": "ysm_workflow_status",
-      "title": "Get YSM Workflow Status",
-      "description": "Reports the current three-tab workflow, paths, roles, protection state, and whether exactly one tab of each role is open.",
-      "status": "stable",
-      "category": "YSM workflow",
-      "annotations": {
-        "readOnlyHint": true
-      },
-      "parameters": {
-        "$ref": "#/definitions/ysm_workflow_status",
-        "definitions": {
-          "ysm_workflow_status": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": false
-          }
-        },
-        "$schema": "http://json-schema.org/draft-07/schema#"
-      }
-    },
-    {
-      "name": "ysm_merge_working_into_baseline",
-      "title": "Merge YSM Working Copy",
-      "description": "After explicit user approval, saves the working copy, closes the baseline, replaces its .bbmodel with the working copy, reopens it read-only, and returns focus to the still-writable working tab.",
-      "status": "stable",
-      "category": "YSM workflow",
-      "annotations": {
-        "destructiveHint": true,
-        "openWorldHint": true
-      },
-      "parameters": {
-        "$ref": "#/definitions/ysm_merge_working_into_baseline",
-        "definitions": {
-          "ysm_merge_working_into_baseline": {
-            "type": "object",
-            "properties": {
-              "confirmation": {
-                "type": "string",
-                "const": "merge",
-                "description": "Explicit confirmation required after the user says the current adjustment should be merged.",
-                "markdownDescription": "Explicit confirmation required after the user says the current adjustment should be merged."
-              }
-            },
-            "required": [
-              "confirmation"
-            ],
             "additionalProperties": false
           }
         },

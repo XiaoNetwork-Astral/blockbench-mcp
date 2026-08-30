@@ -7,7 +7,7 @@ This repository is derived from Jason J. Gardner's `blockbench-mcp-plugin` and i
 ## Features
 
 - Modeling, texturing, UVs, animation, materials, projects, and import/export.
-- 118 core direct tools and 17 YSM tools; 12 additional experimental tools appear when the Hytale plugin is installed.
+- 118 core direct tools and 14 YSM tools; 12 additional experimental tools appear when the Hytale plugin is installed.
 - Every tool has an operation-specific schema. There are no grouped `command.action` envelopes.
 - Project tools act on the Blockbench tab visible when each call begins. `select_project` is the only way an MCP call chooses another open tab.
 - Experimental validation tools provide transformed contact analysis, typed UV checks, project-scoped in-memory snapshots (the latest eight per project), repeatable camera/debug passes, occluder evidence, and native-animation pose sweeps.
@@ -40,7 +40,7 @@ See [llms-install.md](llms-install.md) for client connection examples. Run `bun 
 ## Development Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): Build instructions, code structure, and commit requirements.
-- [AGENTS.md](AGENTS.md): General Blockbench modeling rules.
+- [AGENTS.md](AGENTS.md): Repository working and Blockbench modeling rules.
 
 ## License
 

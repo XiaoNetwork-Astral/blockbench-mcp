@@ -12,9 +12,7 @@ import {
 
 export const LEGACY_PLUGIN_ID = "codex_blockbench_mcp";
 export const LEGACY_AUDIT_DATABASE_NAME = "codex_blockbench_mcp_audit";
-export const LEGACY_PROJECT_ROLES_STORAGE_KEY = "codex_blockbench_mcp.project_roles";
 export const LEGACY_YSM_BINDINGS_STORAGE_KEY = "codex_blockbench_mcp.ysm_bindings";
-export const LEGACY_YSM_WORKFLOW_STORAGE_KEY = "codex_blockbench_mcp.ysm_workflow.v1";
 export const LEGACY_PLUGIN_WORKSPACE_SETTING = "codex_mcp_temporary_directory";
 export const LEGACY_PLUGIN_WORKSPACE_STORAGE_KEY = "codex_blockbench_mcp.ysm_workspace";
 

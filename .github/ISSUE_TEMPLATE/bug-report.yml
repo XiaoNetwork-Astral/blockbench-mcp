@@ -52,7 +52,7 @@ body:
     id: blockbench-version
     attributes:
       label: Blockbench Version
-      placeholder: "4.10.0"
+      placeholder: "5.1.6"
     validations:
       required: true
 
@@ -60,7 +60,7 @@ body:
     id: plugin-version
     attributes:
       label: MCP Plugin Version
-      placeholder: "1.4.0"
+      placeholder: "2.0.0-blockbench.1"
     validations:
       required: true
 
@@ -69,7 +69,7 @@ body:
     attributes:
       label: MCP Client
       description: Which MCP client are you using?
-      placeholder: "Claude Code, Cline, MCP Inspector, etc."
+      placeholder: "Codex, VS Code, MCP Inspector, etc."
     validations:
       required: true
 
