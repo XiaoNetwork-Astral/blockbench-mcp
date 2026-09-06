@@ -210,6 +210,23 @@ describe("project-scoped texture safety", () => {
     });
   });
 
+  test("reverts pixels when a bitmap callback fails", () => {
+    replaceGlobal("PathModule", path.win32);
+    const { project: working, texture } = project("working", "D:\\workspace\\texture.png", "working");
+    replaceGlobal("ModelProject", { all: [working] });
+    let pixels = "before";
+    Object.assign(texture, { edit(callback: () => void) { callback(); } });
+    replaceGlobal("Undo", {
+      initEdit() { }, finishEdit() { throw new Error("Unexpected finish"); },
+      cancelEdit(revert: boolean) { if (revert) pixels = "before"; },
+    });
+    expect(() => editTextureWithUndo(working as unknown as ModelProject, texture as unknown as Texture, "failing edit", () => {
+      pixels = "partial";
+      throw new Error("paint failed");
+    })).toThrow("paint failed");
+    expect(pixels).toBe("before");
+  });
+
   test("records the active layer instead of the whole texture for layer edits", () => {
     replaceGlobal("PathModule", path.win32);
     const { project: working, texture } = project(
@@ -229,15 +246,15 @@ describe("project-scoped texture safety", () => {
     let aspects: Record<string, unknown> | undefined;
     replaceGlobal("Undo", {
       initEdit(value: Record<string, unknown>) { aspects = value; },
-      finishEdit() {},
-      cancelEdit() {},
+      finishEdit() { },
+      cancelEdit() { },
     });
 
     editTextureWithUndo(
       working as unknown as ModelProject,
       texture as unknown as Texture,
       "layer edit",
-      () => {},
+      () => { },
       true
     );
 

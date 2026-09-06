@@ -25,6 +25,7 @@ import { paintTools } from "@/server/tools/paint";
 import { projectTools } from "@/server/tools/project";
 import { spatialTools } from "@/server/tools/spatial";
 import { textureTools } from "@/server/tools/texture";
+import { textureSettingsTools } from "@/server/tools/texture-settings";
 import { uvTools } from "@/server/tools/uv";
 import { validationTools } from "@/server/tools/validation";
 import {
@@ -57,7 +58,7 @@ export const CORE_TOOL_CATEGORIES: readonly ToolCategory[] = [
   },
   { category: "Display", tools: displayTools },
   { category: "Camera and capture", tools: cameraTools },
-  { category: "Textures", tools: textureTools },
+  { category: "Textures", tools: [...textureTools, ...textureSettingsTools] },
   { category: "Exact texture editing", tools: exactTextureTools },
   { category: "Paint", tools: paintTools },
   { category: "Material instances", tools: materialInstanceTools },

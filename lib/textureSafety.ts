@@ -61,8 +61,8 @@ export function prepareTextureForMutation(
   if (foreignOwners.length > 0) {
     throw new Error(
       `Texture "${texture.name}" (${texture.uuid}) is the same live object in multiple projects: ` +
-        `${[project, ...foreignOwners].map((owner) => `"${owner.name}" (${owner.uuid})`).join(", ")}. ` +
-        "Stop editing and reopen an isolated working copy."
+      `${[project, ...foreignOwners].map((owner) => `"${owner.name}" (${owner.uuid})`).join(", ")}. ` +
+      "Stop editing and reopen an isolated working copy."
     );
   }
 
@@ -111,7 +111,7 @@ export function editTextureWithUndo(
     });
     Undo.finishEdit(action, aspects);
   } catch (error) {
-    Undo.cancelEdit();
+    Undo.cancelEdit(true);
     throw error;
   }
 }
@@ -179,13 +179,13 @@ export function assertExternalWriteAllowed(
       if (textureDependency && !options.allowOwnTextureDependency) {
         throw new Error(
           `${operation} cannot write ${path}: it is a texture dependency of the same project ` +
-            `"${project.name}" (${project.uuid}), but this operation is not an explicit texture save.`
+          `"${project.name}" (${project.uuid}), but this operation is not an explicit texture save.`
         );
       }
       if (projectPathKind && options.allowOwnProjectPath === false) {
         throw new Error(
           `${operation} cannot write ${path}: it is the ${projectPathKind} of project ` +
-            `"${project.name}" (${project.uuid}).`
+          `"${project.name}" (${project.uuid}).`
         );
       }
       continue;
@@ -195,12 +195,12 @@ export function assertExternalWriteAllowed(
     if (isProjectReadOnly(project)) {
       throw new Error(
         `${operation} cannot write ${path}: it is a ${targetKind} of read-only project ` +
-          `"${project.name}" (${project.uuid}).`
+        `"${project.name}" (${project.uuid}).`
       );
     }
     throw new Error(
       `${operation} cannot write ${path}: it is a ${targetKind} of another open project ` +
-        `"${project.name}" (${project.uuid}).`
+      `"${project.name}" (${project.uuid}).`
     );
   }
 }
