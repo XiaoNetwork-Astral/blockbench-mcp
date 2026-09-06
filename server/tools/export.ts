@@ -1,7 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import { defineTool, type ToolDefinition } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import { parseBbmodelText, portableBbmodelText } from "@/lib/projectFiles";
 import { assertExternalWriteAllowed } from "@/lib/textureSafety";
@@ -24,7 +24,7 @@ export const exportModelParameters = z.object({
       "Codec ID to use for export (e.g., 'obj', 'gltf', 'project', 'bedrock'). If omitted, uses the current project format's codec. Use `inspect_export_formats` to see available IDs."
     ),
   options: z
-    .record(z.unknown())
+    .record(z.string(), z.unknown())
     .optional()
     .describe(
       "Codec-specific export options. Defaults to the codec's configured export options."
@@ -47,22 +47,58 @@ export const exportModelParameters = z.object({
     ),
 });
 
-export const exportToolDocs: ToolSpec[] = [
-  {
+export const exportTools: ToolDefinition[] = [
+  defineTool({
     name: "inspect_export_formats",
-    description:
-      "Lists all registered export codecs with their id, display name, file extension, and whether they support compile/export. Use before `export_model` to pick a codec.",
+    description: "Lists all registered export codecs with their id, display name, file extension, and whether they support compile/export. Use before `export_model` to pick a codec.",
     annotations: {
       title: "Inspect Export Formats",
       readOnlyHint: true,
     },
     parameters: listExportFormatsParameters,
     status: STATUS_STABLE,
-  },
-  {
+    async execute({ only_current_format }) {
+      // @ts-ignore - Codecs is a Blockbench global
+      const registry = Codecs as Record<string, unknown>;
+      // @ts-ignore - Format is a Blockbench global
+      const currentFormatCodecId = (Format as {
+        codec?: {
+          id?: string;
+        };
+      } | undefined)
+        ?.codec?.id;
+      const summaries: ICodecSummary[] = Object.entries(registry).map(([id, codec]) => {
+        const c = codec as {
+          id?: string;
+          name?: string;
+          extension?: string;
+          compile?: unknown;
+          export?: unknown;
+          support_partial_export?: boolean;
+        };
+        return {
+          id,
+          name: c.name ?? id,
+          extension: c.extension ?? null,
+          has_compile: typeof c.compile === "function",
+          has_export: typeof c.export === "function",
+          supports_partial_export: Boolean(c.support_partial_export),
+          belongs_to_current_format: c.id === currentFormatCodecId,
+        };
+      });
+      const filtered = only_current_format
+        ? summaries.filter((s) => s.belongs_to_current_format)
+        : summaries;
+      return JSON.stringify({
+        current_format_codec: currentFormatCodecId ?? null,
+        count: filtered.length,
+        codecs: filtered.sort((a, b) => a.id.localeCompare(b.id)),
+      }, null, 2);
+    }
+  }),
+  defineTool({
     name: "export_model",
-    description:
-      "Compiles the visible project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use inspect_export_formats first to discover codec IDs.",
+    description: "Compiles the visible project through the named codec and returns the result as text. Optionally writes the compiled content to a filesystem path (requires user permission in Blockbench v5.0+). Use inspect_export_formats first to discover codec IDs.",
     annotations: {
       title: "Export Model",
       destructiveHint: true,
@@ -70,7 +106,72 @@ export const exportToolDocs: ToolSpec[] = [
     },
     parameters: exportModelParameters,
     status: STATUS_EXPERIMENTAL,
-  },
+    async execute({ codec_id, options, path, max_content_length }, context) {
+      const targetProject = context.project!;
+      const plan = createExportPlan(codec_id, options, targetProject.name);
+      const rawResult = await compileCodec(plan.codec.compile, plan.options, plan.codec);
+      const exportResult = plan.id === "project"
+        ? portableBbmodelText(rawResult)
+        : rawResult;
+      const isArrayBuffer = exportResult instanceof ArrayBuffer;
+      const isBinaryView = ArrayBuffer.isView(exportResult) && !(exportResult instanceof DataView);
+      const binaryBuffer = isArrayBuffer
+        ? Buffer.from(exportResult as ArrayBuffer)
+        : isBinaryView
+          ? Buffer.from((exportResult as ArrayBufferView).buffer, (exportResult as ArrayBufferView).byteOffset, (exportResult as ArrayBufferView).byteLength)
+          : null;
+      const text = binaryBuffer ? null : toTextContent(exportResult);
+      const byteLength = binaryBuffer
+        ? binaryBuffer.byteLength
+        : Buffer.byteLength(text ?? "", "utf8");
+      const encoding: "utf-8" | "base64" = binaryBuffer ? "base64" : "utf-8";
+      let wrote_to_path: string | null = null;
+      if (path) {
+        if (/\.bbmodel$/i.test(path) && plan.id !== "project") {
+          throw new Error(`Refusing to write codec "${plan.id}" output to a .bbmodel path. Use codec_id "project".`);
+        }
+        assertExternalWriteAllowed(path, targetProject, "export_model");
+        if (plan.id === "project") {
+          assertPortableProjectExportMatches(exportResult, targetProject);
+        }
+        // @ts-ignore - requireNativeModule is a Blockbench global
+        const fs = requireNativeModule("fs", {
+          message: `MCP export_model requested write access to save model to ${path}`,
+        });
+        if (!fs) {
+          throw new Error("File system access was denied. Unable to write to path. You can omit `path` to retrieve the content in the response.");
+        }
+        fs.writeFileSync(path, binaryBuffer ?? (text ?? ""));
+        wrote_to_path = path;
+      }
+      const fullContent = binaryBuffer
+        ? binaryBuffer.toString("base64")
+        : (text ?? "");
+      const truncated = fullContent.length > max_content_length;
+      const returnedContent = max_content_length === 0
+        ? null
+        : truncated
+          ? fullContent.slice(0, max_content_length)
+          : fullContent;
+      return JSON.stringify({
+        codec: {
+          id: plan.id,
+          name: plan.codec.name ?? plan.id,
+          extension: plan.codec.extension ?? null,
+        },
+        project: {
+          uuid: targetProject.uuid,
+          name: targetProject.name,
+        },
+        file_name: plan.fileName,
+        byte_length: byteLength,
+        encoding,
+        wrote_to_path,
+        truncated,
+        content: returnedContent,
+      }, null, 2);
+    }
+  })
 ];
 
 interface ICodecSummary {
@@ -172,10 +273,10 @@ export function assertPortableProjectExportMatches(
   const exported = (typeof raw === "string"
     ? parseBbmodelText(raw, "compiled project")
     : raw) as {
-    name?: unknown;
-    elements?: unknown;
-    groups?: unknown;
-  } | null;
+      name?: unknown;
+      elements?: unknown;
+      groups?: unknown;
+    } | null;
   if (
     !exported ||
     exported.name !== target.name ||
@@ -186,145 +287,4 @@ export function assertPortableProjectExportMatches(
       `Refusing to write the .bbmodel: compiled content does not match MCP project "${target.name}".`
     );
   }
-}
-
-export function registerExportTools() {
-  createTool(exportToolDocs[0].name, {
-    ...exportToolDocs[0],
-    async execute({ only_current_format }) {
-      // @ts-ignore - Codecs is a Blockbench global
-      const registry = Codecs as Record<string, unknown>;
-      // @ts-ignore - Format is a Blockbench global
-      const currentFormatCodecId = (Format as { codec?: { id?: string } } | undefined)
-        ?.codec?.id;
-
-      const summaries: ICodecSummary[] = Object.entries(registry).map(
-        ([id, codec]) => {
-          const c = codec as {
-            id?: string;
-            name?: string;
-            extension?: string;
-            compile?: unknown;
-            export?: unknown;
-            support_partial_export?: boolean;
-          };
-          return {
-            id,
-            name: c.name ?? id,
-            extension: c.extension ?? null,
-            has_compile: typeof c.compile === "function",
-            has_export: typeof c.export === "function",
-            supports_partial_export: Boolean(c.support_partial_export),
-            belongs_to_current_format: c.id === currentFormatCodecId,
-          };
-        }
-      );
-
-      const filtered = only_current_format
-        ? summaries.filter((s) => s.belongs_to_current_format)
-        : summaries;
-
-      return JSON.stringify(
-        {
-          current_format_codec: currentFormatCodecId ?? null,
-          count: filtered.length,
-          codecs: filtered.sort((a, b) => a.id.localeCompare(b.id)),
-        },
-        null,
-        2
-      );
-    },
-  }, exportToolDocs[0].status);
-
-  createTool(exportToolDocs[1].name, {
-    ...exportToolDocs[1],
-    async execute({ codec_id, options, path, max_content_length }, context) {
-      const targetProject = context.project!;
-      const plan = createExportPlan(codec_id, options, targetProject.name);
-
-      const rawResult = await compileCodec(
-        plan.codec.compile,
-        plan.options,
-        plan.codec
-      );
-
-      const exportResult = plan.id === "project"
-        ? portableBbmodelText(rawResult)
-        : rawResult;
-      const isArrayBuffer = exportResult instanceof ArrayBuffer;
-      const isBinaryView =
-        ArrayBuffer.isView(exportResult) && !(exportResult instanceof DataView);
-      const binaryBuffer = isArrayBuffer
-        ? Buffer.from(exportResult as ArrayBuffer)
-        : isBinaryView
-          ? Buffer.from(
-              (exportResult as ArrayBufferView).buffer,
-              (exportResult as ArrayBufferView).byteOffset,
-              (exportResult as ArrayBufferView).byteLength
-            )
-          : null;
-
-      const text = binaryBuffer ? null : toTextContent(exportResult);
-      const byteLength = binaryBuffer
-        ? binaryBuffer.byteLength
-        : Buffer.byteLength(text ?? "", "utf8");
-      const encoding: "utf-8" | "base64" = binaryBuffer ? "base64" : "utf-8";
-
-      let wrote_to_path: string | null = null;
-      if (path) {
-        if (/\.bbmodel$/i.test(path) && plan.id !== "project") {
-          throw new Error(
-            `Refusing to write codec "${plan.id}" output to a .bbmodel path. Use codec_id "project".`
-          );
-        }
-        assertExternalWriteAllowed(path, targetProject, "export_model");
-        if (plan.id === "project") {
-          assertPortableProjectExportMatches(exportResult, targetProject);
-        }
-        // @ts-ignore - requireNativeModule is a Blockbench global
-        const fs = requireNativeModule("fs", {
-          message: `MCP export_model requested write access to save model to ${path}`,
-        });
-        if (!fs) {
-          throw new Error(
-            "File system access was denied. Unable to write to path. You can omit `path` to retrieve the content in the response."
-          );
-        }
-        fs.writeFileSync(path, binaryBuffer ?? (text ?? ""));
-        wrote_to_path = path;
-      }
-
-      const fullContent = binaryBuffer
-        ? binaryBuffer.toString("base64")
-        : (text ?? "");
-      const truncated = fullContent.length > max_content_length;
-      const returnedContent = max_content_length === 0
-        ? null
-        : truncated
-          ? fullContent.slice(0, max_content_length)
-          : fullContent;
-
-      return JSON.stringify(
-        {
-          codec: {
-            id: plan.id,
-            name: plan.codec.name ?? plan.id,
-            extension: plan.codec.extension ?? null,
-          },
-          project: {
-            uuid: targetProject.uuid,
-            name: targetProject.name,
-          },
-          file_name: plan.fileName,
-          byte_length: byteLength,
-          encoding,
-          wrote_to_path,
-          truncated,
-          content: returnedContent,
-        },
-        null,
-        2
-      );
-    },
-  }, exportToolDocs[1].status);
 }

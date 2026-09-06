@@ -4,10 +4,8 @@ import { closestPointsBetweenTriangleSetsBvh } from "@/lib/triangleBvh";
 import type { Triangle3 } from "@/lib/measurements";
 import { analyzeUvIntegrity, type UvFaceRecord } from "@/lib/uvIntegrity";
 import { fitBoundingSpherePerspectiveDistance } from "@/lib/cameraFraming";
-import {
-  evaluateExpected,
-  validationViewRenderCount,
-} from "@/server/tools/validation";
+import { evaluateExpected } from "@/src/features/validation/modelChecks";
+import { validationViewRenderCount } from "@/src/features/validation/views";
 
 function rotatedThinBox(perpendicularOffset: number): [OrientedBox, OrientedBox] {
   const diagonal = Math.SQRT1_2;

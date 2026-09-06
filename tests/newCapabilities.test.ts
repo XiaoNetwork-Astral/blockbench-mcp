@@ -25,12 +25,8 @@ import {
 } from "@/server/tools/project";
 import { measureGeometryParameters } from "@/server/tools/spatial";
 import { removeTextureParameters } from "@/server/tools/texture";
-import {
-  assertKeyframeTimesAvailable,
-  manageAnimationParameters,
-  normalizeAnimationName,
-  resolveUniqueKeyframeAtTime,
-} from "@/server/tools/animation";
+import { assertKeyframeTimesAvailable, normalizeAnimationName, resolveUniqueKeyframeAtTime } from "@/src/blockbench/animation";
+import { manageAnimationParameters } from "@/server/tools/animation";
 import { captureScreenshotParameters } from "@/server/tools/camera";
 import { detectCoplanarFacesParameters } from "@/server/tools/spatial";
 import {

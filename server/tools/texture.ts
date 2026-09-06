@@ -1,10 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import {
-  createInternalTool,
-  type ToolSpec,
-} from "@/lib/factories";
+import { defineTool, type ToolDefinition } from "@/lib/factories";
 import {
   getProjectTextures,
   assertFaceTextureAssignmentSupported,
@@ -421,8 +418,11 @@ async function resizeTextureSource(
 // Texture Tool Docs
 // ============================================================================
 
-export const textureToolDocs: ToolSpec[] = [
-  {
+// ============================================================================
+// Texture Tool Docs
+// ============================================================================
+export const textureTools: ToolDefinition[] = [
+  defineTool({
     name: "create_texture",
     description: "Creates a new texture with the given name and size.",
     annotations: {
@@ -432,161 +432,7 @@ export const textureToolDocs: ToolSpec[] = [
     },
     parameters: createTextureParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "apply_texture",
-    description:
-      "Applies the given texture to the element with the specified ID.",
-    annotations: {
-      title: "Apply Texture",
-      destructiveHint: true,
-    },
-    parameters: applyTextureParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "add_texture_group",
-    description: "Adds a new texture group with the given name.",
-    annotations: {
-      title: "Add Texture Group",
-      destructiveHint: true,
-    },
-    parameters: addTextureGroupParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "list_textures",
-    description: "Returns a list of all textures in the Blockbench editor.",
-    annotations: {
-      title: "List Textures",
-      readOnlyHint: true,
-    },
-    parameters: listTexturesParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "get_texture",
-    description:
-      "Returns the image data of the given texture or default texture.",
-    annotations: {
-      title: "Get Texture",
-      readOnlyHint: true,
-    },
-    parameters: getTextureParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "create_pbr_material",
-    description:
-      "Creates a new PBR material (texture group with is_material=true) and optionally assigns textures to PBR channels. Use this for Minecraft Bedrock resource packs or any format supporting PBR.",
-    annotations: {
-      title: "Create PBR Material",
-      destructiveHint: true,
-    },
-    parameters: createPbrMaterialParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "configure_material",
-    description:
-      "Configures an existing PBR material's properties including channel assignments, uniform values, and subsurface scattering.",
-    annotations: {
-      title: "Configure Material",
-      destructiveHint: true,
-    },
-    parameters: configureMaterialParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "list_materials",
-    description:
-      "Lists all PBR materials (texture groups with is_material=true) and their assigned textures per channel.",
-    annotations: {
-      title: "List Materials",
-      readOnlyHint: true,
-    },
-    parameters: listMaterialsParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "get_material_info",
-    description:
-      "Gets detailed information about a PBR material including the compiled texture_set.json preview for Bedrock export.",
-    annotations: {
-      title: "Get Material Info",
-      readOnlyHint: true,
-    },
-    parameters: getMaterialInfoParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "import_texture_set",
-    description:
-      "Imports a Minecraft Bedrock texture_set.json file and creates a PBR material with the associated textures.",
-    annotations: {
-      title: "Import Texture Set",
-      destructiveHint: true,
-      openWorldHint: true,
-    },
-    parameters: importTextureSetParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "assign_texture_channel",
-    description:
-      "Assigns a texture to a specific PBR channel within a material.",
-    annotations: {
-      title: "Assign Texture Channel",
-      destructiveHint: true,
-    },
-    parameters: assignTextureChannelParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "save_material_config",
-    description:
-      "Saves the material's texture_set.json file to disk (Bedrock format). Requires the color texture to have a valid file path.",
-    annotations: {
-      title: "Save Material Config",
-      destructiveHint: true,
-      openWorldHint: true,
-    },
-    parameters: saveMaterialConfigParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "remove_texture",
-    description:
-      "Removes an entire texture from the visible project. If it is referenced, supply a replacement texture or explicitly clear references; otherwise the operation refuses before mutation. Reference rewrites and removal share one Undo transaction.",
-    annotations: {
-      title: "Remove Texture",
-      destructiveHint: true,
-    },
-    parameters: removeTextureParameters,
-    status: STATUS_STABLE,
-  },
-];
-
-// ============================================================================
-// Tool Registration
-// ============================================================================
-
-export function registerTextureTools() {
-  createInternalTool(textureToolDocs[0].name, {
-    ...textureToolDocs[0],
-    parameters: createTextureParameters,
-    async execute({
-      name,
-      width,
-      height,
-      data,
-      pbr_channel,
-      fill_color,
-      group,
-      layer_name,
-      render_mode,
-      render_sides,
-    }, context) {
+    async execute({ name, width, height, data, pbr_channel, fill_color, group, layer_name, render_mode, render_sides, }, context) {
       const textureGroup = group ? findTextureGroupOrThrow(group) : undefined;
       const resolvedGroup = textureGroup?.uuid;
       const initialWidth = width ?? 16;
@@ -597,7 +443,6 @@ export function registerTextureTools() {
         bitmap: true,
         collections: [],
       });
-
       let texture = new Texture({
         name,
         width: initialWidth,
@@ -608,39 +453,34 @@ export function registerTextureTools() {
         render_sides,
         internal: true,
       });
-      const addedTexture = (
-        texture.add as unknown as () => Texture | undefined
-      ).call(texture);
-      if (addedTexture instanceof Texture) texture = addedTexture;
-
+      const addedTexture = (texture.add as unknown as () => Texture | undefined).call(texture);
+      if (addedTexture instanceof Texture)
+        texture = addedTexture;
       try {
         if (data) {
-          (texture as Texture & { keep_size?: boolean }).keep_size = true;
+          (texture as Texture & {
+            keep_size?: boolean;
+          }).keep_size = true;
           if (data.startsWith("data:image/")) {
-            await waitForTextureImage(
-              texture,
-              () => texture.fromDataURL(data),
-              "the supplied data URL"
-            );
-          } else {
+            await waitForTextureImage(texture, () => texture.fromDataURL(data), "the supplied data URL");
+          }
+          else {
             const localPath = data.replace(/^file:\/\/\/?/, "");
-            await waitForTextureImage(
-              texture,
-              () => {
-                texture.fromFile({
-                  name: localPath.split(/[\/\\]/).pop() || localPath,
-                  path: localPath,
-                });
-              },
-              `texture file "${localPath}"`
-            );
+            await waitForTextureImage(texture, () => {
+              texture.fromFile({
+                name: localPath.split(/[\/\\]/).pop() || localPath,
+                path: localPath,
+              });
+            }, `texture file "${localPath}"`);
           }
           if (width !== undefined && height !== undefined) {
             await resizeTextureSource(texture, width, height);
           }
-        } else {
+        }
+        else {
           const source = createSizedTextureDataUrl(initialWidth, initialHeight, (ctx) => {
-            if (!fill_color) return;
+            if (!fill_color)
+              return;
             const color = Array.isArray(fill_color)
               // @ts-ignore - tinycolor is available globally in Blockbench
               ? tinycolor({
@@ -654,26 +494,22 @@ export function registerTextureTools() {
             ctx.fillStyle = color.toRgbString().toLowerCase();
             ctx.fillRect(0, 0, initialWidth, initialHeight);
           });
-          (texture as Texture & { keep_size?: boolean }).keep_size = true;
-          await waitForTextureImage(
-            texture,
-            () => texture.fromDataURL(source),
-            `${initialWidth}×${initialHeight} texture canvas`
-          );
+          (texture as Texture & {
+            keep_size?: boolean;
+          }).keep_size = true;
+          await waitForTextureImage(texture, () => texture.fromDataURL(source), `${initialWidth}×${initialHeight} texture canvas`);
         }
-
         // Imported files are sources, not shared writable backing stores for
         // the new project texture. Detach before the creation Undo is finished.
         prepareTextureForMutation(context.project!, texture);
-
         const finalWidth = width ?? texture.width;
         const finalHeight = height ?? texture.height;
         if (!finalWidth || !finalHeight) {
           throw new Error(`Texture "${name}" did not expose valid source dimensions.`);
         }
-
         texture.layers_enabled = false;
-        if (data) texture.fillParticle();
+        if (data)
+          texture.fillParticle();
         applyTextureCreationSettings(texture, {
           name,
           width: finalWidth,
@@ -683,12 +519,12 @@ export function registerTextureTools() {
           renderMode: render_mode,
           renderSides: render_sides,
         });
-
         if (layer_name) {
-          if (!texture.layers_enabled) texture.activateLayers(true);
-          if (texture.selected_layer) texture.selected_layer.name = layer_name;
+          if (!texture.layers_enabled)
+            texture.activateLayers(true);
+          if (texture.selected_layer)
+            texture.selected_layer.name = layer_name;
         }
-
         Undo.finishEdit("Agent created texture", {
           textures: [texture],
           selected_texture: true,
@@ -696,7 +532,6 @@ export function registerTextureTools() {
           collections: [],
         });
         Canvas.updateAll();
-
         const image = imageContent({ url: texture.getDataURL() });
         return {
           content: [
@@ -713,32 +548,35 @@ export function registerTextureTools() {
             ...image.content,
           ],
         };
-      } catch (error) {
+      }
+      catch (error) {
         (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
-        if (Texture.all.includes(texture)) texture.remove(true);
+        if (Texture.all.includes(texture))
+          texture.remove(true);
         throw error;
       }
+    }
+  }),
+  defineTool({
+    name: "apply_texture",
+    description: "Applies the given texture to the element with the specified ID.",
+    annotations: {
+      title: "Apply Texture",
+      destructiveHint: true,
     },
-  }, textureToolDocs[0].status);
-
-  createInternalTool(textureToolDocs[1].name, {
-    ...textureToolDocs[1],
     parameters: applyTextureParameters,
+    status: STATUS_STABLE,
     async execute({ applyTo, id, texture }) {
       const element = findElementOrThrow(id);
       const projectTexture = texture
         ? findTextureOrThrow(texture)
         : Texture.getDefault();
-
       if (!projectTexture) {
-        throw new Error(
-          "No default texture available. Use create_texture first."
-        );
+        throw new Error("No default texture available. Use create_texture first.");
       }
       if (!Format.per_group_texture) {
         assertFaceTextureAssignmentSupported(projectTexture);
       }
-
       // Resolve `id` to the concrete set of cubes/meshes to texture.
       // - Group → all descendant cubes + meshes
       // - Cube / Mesh → that single element
@@ -750,24 +588,21 @@ export function registerTextureTools() {
               targets.push(child);
               continue;
             }
-            if (child instanceof Group) collectDescendants(child);
+            if (child instanceof Group)
+              collectDescendants(child);
           }
         };
         collectDescendants(element);
-      } else if (element instanceof Cube || element instanceof Mesh) {
+      }
+      else if (element instanceof Cube || element instanceof Mesh) {
         targets.push(element);
-      } else {
-        throw new Error(
-          `Element "${id}" is not a cube, mesh, or group — cannot apply texture to it.`
-        );
       }
-
+      else {
+        throw new Error(`Element "${id}" is not a cube, mesh, or group — cannot apply texture to it.`);
+      }
       if (targets.length === 0) {
-        throw new Error(
-          `Element "${id}" resolved to no paintable cubes or meshes.`
-        );
+        throw new Error(`Element "${id}" resolved to no paintable cubes or meshes.`);
       }
-
       // Per-group texture formats persist a texture on the owning Group rather
       // than on individual faces. Resolve that scope directly as well.
       if (Format.per_group_texture) {
@@ -777,12 +612,11 @@ export function registerTextureTools() {
             ? [element.parent]
             : [];
         if (groups.length === 0) {
-          throw new Error(
-            `Element "${id}" has no owning group in this per-group texture format.`
-          );
+          throw new Error(`Element "${id}" has no owning group in this per-group texture format.`);
         }
         Undo.initEdit({ groups, collections: [] });
-        for (const group of groups) group.texture = projectTexture.uuid;
+        for (const group of groups)
+          group.texture = projectTexture.uuid;
         Undo.finishEdit("Agent applied group texture", { groups, collections: [] });
         Canvas.updateAll();
         return JSON.stringify({
@@ -791,7 +625,6 @@ export function registerTextureTools() {
           target_groups: groups.map((group) => ({ name: group.name, uuid: group.uuid })),
         }, null, 2);
       }
-
       const faceTargets = targets as FaceTextureElementTarget[];
       const selectedFaces = new Map<FaceTextureElementTarget, ReadonlySet<string>>();
       if (applyTo === "none") {
@@ -799,31 +632,18 @@ export function registerTextureTools() {
           const selected = target instanceof Cube && target.box_uv
             ? Object.keys(target.faces)
             : (UVEditor.getSelectedFaces(target) ?? []);
-          selectedFaces.set(
-            target as FaceTextureElementTarget,
-            new Set(selected)
-          );
+          selectedFaces.set(target as FaceTextureElementTarget, new Set(selected));
         }
       }
-      const validTextureUuids = new Set(
-        getProjectTextures().map((entry) => entry.uuid)
-      );
+      const validTextureUuids = new Set(getProjectTextures().map((entry) => entry.uuid));
       const undoAspects: UndoAspects = {
         elements: targets,
         outliner: false,
         collections: [],
       };
       Undo.initEdit(undoAspects);
-      const result = applyTextureToResolvedFaces(
-        faceTargets,
-        projectTexture.uuid,
-        applyTo,
-        selectedFaces,
-        validTextureUuids
-      );
-
+      const result = applyTextureToResolvedFaces(faceTargets, projectTexture.uuid, applyTo, selectedFaces, validTextureUuids);
       Undo.finishEdit("Agent applied texture", undoAspects);
-
       // Force face-level render refresh so the viewport matches the data.
       // Canvas.updateAll() alone sometimes doesn't push new face materials
       // into the THREE.js render targets.
@@ -832,7 +652,6 @@ export function registerTextureTools() {
         element_aspects: { faces: true, uv: true, geometry: false },
       });
       Canvas.updateAll();
-
       return JSON.stringify({
         texture: { name: projectTexture.name, uuid: projectTexture.uuid },
         scope: {
@@ -842,98 +661,100 @@ export function registerTextureTools() {
         },
         ...result,
       }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "add_texture_group",
+    description: "Adds a new texture group with the given name.",
+    annotations: {
+      title: "Add Texture Group",
+      destructiveHint: true,
     },
-  }, textureToolDocs[1].status);
-
-  createInternalTool(textureToolDocs[2].name, {
-    ...textureToolDocs[2],
     parameters: addTextureGroupParameters,
+    status: STATUS_EXPERIMENTAL,
     async execute({ name, textures, is_material }) {
-      const textureList = [...new Map<string, Texture>(
-        ((textures ?? []) as string[]).map((reference: string) => {
-          const texture = findTextureOrThrow(reference);
-          return [texture.uuid, texture] as const;
-        })
-      ).values()];
+      const textureList = [...new Map<string, Texture>(((textures ?? []) as string[]).map((reference: string) => {
+        const texture = findTextureOrThrow(reference);
+        return [texture.uuid, texture] as const;
+      })).values()];
       const beforeAspects = {
         textures: textureList,
         texture_groups: [] as TextureGroup[],
         collections: [],
       } as TextureGroupUndoAspects;
       Undo.initEdit(beforeAspects);
-
       let textureGroup: TextureGroup | undefined;
       try {
         textureGroup = new TextureGroup({ name, is_material }).add();
         assignTexturesToGroup(textureGroup.uuid, textureList);
-      } catch (error) {
+      }
+      catch (error) {
         (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
-        if (textureGroup && TextureGroup.all.includes(textureGroup)) textureGroup.remove();
+        if (textureGroup && TextureGroup.all.includes(textureGroup))
+          textureGroup.remove();
         throw error;
       }
-
       Undo.finishEdit("Agent added texture group", {
         textures: textureList,
         texture_groups: [textureGroup],
         collections: [],
       } as TextureGroupUndoAspects);
       Canvas.updateAll();
-
       return `Added texture group ${textureGroup.name} with ID ${textureGroup.uuid}`;
+    }
+  }),
+  defineTool({
+    name: "list_textures",
+    description: "Returns a list of all textures in the Blockbench editor.",
+    annotations: {
+      title: "List Textures",
+      readOnlyHint: true,
     },
-  }, textureToolDocs[2].status);
-
-  createInternalTool(textureToolDocs[3].name, {
-    ...textureToolDocs[3],
     parameters: listTexturesParameters,
+    status: STATUS_STABLE,
     async execute() {
       const textures = getProjectTextures();
-
-      return JSON.stringify(
-        textures.map((texture) => ({
-          name: texture.name,
-          uuid: texture.uuid,
-          id: texture.id,
-          group: texture.group,
-          is_default: Texture.getDefault()?.uuid === texture.uuid,
-          effective_single_texture: Boolean(Format.single_texture),
-        }))
-      );
+      return JSON.stringify(textures.map((texture) => ({
+        name: texture.name,
+        uuid: texture.uuid,
+        id: texture.id,
+        group: texture.group,
+        is_default: Texture.getDefault()?.uuid === texture.uuid,
+        effective_single_texture: Boolean(Format.single_texture),
+      })));
+    }
+  }),
+  defineTool({
+    name: "get_texture",
+    description: "Returns the image data of the given texture or default texture.",
+    annotations: {
+      title: "Get Texture",
+      readOnlyHint: true,
     },
-  }, textureToolDocs[3].status);
-
-  createInternalTool(textureToolDocs[4].name, {
-    ...textureToolDocs[4],
     parameters: getTextureParameters,
+    status: STATUS_STABLE,
     async execute({ texture }) {
       if (!texture) {
         const defaultTexture = Texture.getDefault();
         if (!defaultTexture) {
-          throw new Error(
-            "No default texture available. Use create_texture first, or specify a texture ID."
-          );
+          throw new Error("No default texture available. Use create_texture first, or specify a texture ID.");
         }
         return imageContent({ url: defaultTexture.getDataURL() });
       }
-
       const image = findTextureOrThrow(texture);
       return imageContent({ url: image.getDataURL() });
+    }
+  }),
+  defineTool({
+    name: "create_pbr_material",
+    description: "Creates a new PBR material (texture group with is_material=true) and optionally assigns textures to PBR channels. Use this for Minecraft Bedrock resource packs or any format supporting PBR.",
+    annotations: {
+      title: "Create PBR Material",
+      destructiveHint: true,
     },
-  }, textureToolDocs[4].status);
-
-  createInternalTool(textureToolDocs[5].name, {
-    ...textureToolDocs[5],
     parameters: createPbrMaterialParameters,
-    async execute({
-      name,
-      color_texture,
-      normal_texture,
-      height_texture,
-      mer_texture,
-      color_value,
-      mer_value,
-      subsurface_value,
-    }) {
+    status: STATUS_EXPERIMENTAL,
+    async execute({ name, color_texture, normal_texture, height_texture, mer_texture, color_value, mer_value, subsurface_value, }) {
       const channelReferences = [
         [color_texture, "color"],
         [normal_texture, "normal"],
@@ -941,32 +762,27 @@ export function registerTextureTools() {
         [mer_texture, "mer"],
       ] as const;
       const channelAssignments = channelReferences
-        .filter((entry): entry is [string, typeof entry[1]] => Boolean(entry[0]))
+        .filter((entry): entry is [
+          string,
+          typeof entry[1]
+        ] => Boolean(entry[0]))
         .map(([reference, channel]) => ({
           texture: findTextureOrThrow(reference),
           channel,
         }));
-      const duplicateTexture = channelAssignments.find(({ texture }, index) =>
-        channelAssignments.findIndex((candidate) => candidate.texture.uuid === texture.uuid) !== index
-      );
+      const duplicateTexture = channelAssignments.find(({ texture }, index) => channelAssignments.findIndex((candidate) => candidate.texture.uuid === texture.uuid) !== index);
       if (duplicateTexture) {
-        throw new Error(
-          `Texture "${duplicateTexture.texture.name}" cannot occupy more than one PBR channel.`
-        );
+        throw new Error(`Texture "${duplicateTexture.texture.name}" cannot occupy more than one PBR channel.`);
       }
-      const texturesToAdd = [...new Map(
-        channelAssignments.map(({ texture }) => [texture.uuid, texture] as const)
-      ).values()];
+      const texturesToAdd = [...new Map(channelAssignments.map(({ texture }) => [texture.uuid, texture] as const)).values()];
       Undo.initEdit({
         texture_groups: [],
         textures: texturesToAdd,
         collections: [],
       } as TextureGroupUndoAspects);
-
       let textureGroup: TextureGroup | undefined;
       try {
         textureGroup = new TextureGroup({ name, is_material: true });
-
         if (color_value) {
           replaceNumericArray(textureGroup.material_config.color_value, color_value);
         }
@@ -978,17 +794,17 @@ export function registerTextureTools() {
         }
         textureGroup.material_config.saved = false;
         textureGroup.add();
-
         for (const { texture, channel } of channelAssignments) {
           texture.group = textureGroup.uuid;
           texture.pbr_channel = channel;
         }
-      } catch (error) {
+      }
+      catch (error) {
         (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
-        if (textureGroup && TextureGroup.all.includes(textureGroup)) textureGroup.remove();
+        if (textureGroup && TextureGroup.all.includes(textureGroup))
+          textureGroup.remove();
         throw error;
       }
-
       Undo.finishEdit("Agent created PBR material", {
         texture_groups: [textureGroup],
         textures: texturesToAdd,
@@ -996,7 +812,6 @@ export function registerTextureTools() {
       } as TextureGroupUndoAspects);
       textureGroup.updateMaterial();
       Canvas.updateAll();
-
       return JSON.stringify({
         success: true,
         material: {
@@ -1011,22 +826,18 @@ export function registerTextureTools() {
           },
         },
       });
+    }
+  }),
+  defineTool({
+    name: "configure_material",
+    description: "Configures an existing PBR material's properties including channel assignments, uniform values, and subsurface scattering.",
+    annotations: {
+      title: "Configure Material",
+      destructiveHint: true,
     },
-  }, textureToolDocs[5].status);
-
-  createInternalTool(textureToolDocs[6].name, {
-    ...textureToolDocs[6],
     parameters: configureMaterialParameters,
-    async execute({
-      material,
-      color_texture,
-      normal_texture,
-      height_texture,
-      mer_texture,
-      color_value,
-      mer_value,
-      subsurface_value,
-    }) {
+    status: STATUS_EXPERIMENTAL,
+    async execute({ material, color_texture, normal_texture, height_texture, mer_texture, color_value, mer_value, subsurface_value, }) {
       const textureGroup = findTextureGroupOrThrow(material);
       const resolved = resolveMaterialAssignments(textureGroup, {
         color: color_texture,
@@ -1041,11 +852,7 @@ export function registerTextureTools() {
         texture_groups: resolved.groups,
         textures: resolved.textures,
       } as TextureGroupUndoAspects);
-      const changes = applyMaterialChannelAssignments(
-        textureGroup.uuid,
-        resolved.textures,
-        resolved.assignments
-      );
+      const changes = applyMaterialChannelAssignments(textureGroup.uuid, resolved.textures, resolved.assignments);
       if (color_value) {
         replaceNumericArray(textureGroup.material_config.color_value, color_value);
       }
@@ -1055,10 +862,10 @@ export function registerTextureTools() {
       if (subsurface_value !== undefined) {
         materialConfig(textureGroup).subsurface_value = subsurface_value;
       }
-
       textureGroup.material_config.saved = false;
       Undo.finishEdit("Agent configured material");
-      for (const group of resolved.groups) group.updateMaterial();
+      for (const group of resolved.groups)
+        group.updateMaterial();
       Canvas.updateAll();
       return JSON.stringify({
         material: { uuid: textureGroup.uuid, name: textureGroup.name },
@@ -1070,18 +877,20 @@ export function registerTextureTools() {
           subsurface: materialConfig(textureGroup).subsurface_value ?? null,
         },
       }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "list_materials",
+    description: "Lists all PBR materials (texture groups with is_material=true) and their assigned textures per channel.",
+    annotations: {
+      title: "List Materials",
+      readOnlyHint: true,
     },
-  }, textureToolDocs[6].status);
-
-  createInternalTool(textureToolDocs[7].name, {
-    ...textureToolDocs[7],
     parameters: listMaterialsParameters,
+    status: STATUS_STABLE,
     async execute() {
       // @ts-ignore - TextureGroup is globally available
-      const materials = TextureGroup.all.filter(
-        (g: TextureGroup) => g.is_material
-      );
-
+      const materials = TextureGroup.all.filter((g: TextureGroup) => g.is_material);
       const result = materials.map((group: TextureGroup) => {
         const textures = group.getTextures();
         return {
@@ -1101,26 +910,29 @@ export function registerTextureTools() {
           },
         };
       });
-
       return JSON.stringify(result, null, 2);
+    }
+  }),
+  defineTool({
+    name: "get_material_info",
+    description: "Gets detailed information about a PBR material including the compiled texture_set.json preview for Bedrock export.",
+    annotations: {
+      title: "Get Material Info",
+      readOnlyHint: true,
     },
-  }, textureToolDocs[7].status);
-
-  createInternalTool(textureToolDocs[8].name, {
-    ...textureToolDocs[8],
     parameters: getMaterialInfoParameters,
+    status: STATUS_STABLE,
     async execute({ material }) {
       const textureGroup = findTextureGroupOrThrow(material);
       const textures = textureGroup.getTextures();
-
       // Get compiled texture_set.json
       let textureSetJson = null;
       try {
         textureSetJson = textureGroup.material_config.compileForBedrock();
-      } catch {
+      }
+      catch {
         // Format might not support texture_set.json
       }
-
       const result = {
         name: textureGroup.name,
         uuid: textureGroup.uuid,
@@ -1143,22 +955,24 @@ export function registerTextureTools() {
         },
         texture_set_json: textureSetJson,
       };
-
       return JSON.stringify(result, null, 2);
+    }
+  }),
+  defineTool({
+    name: "import_texture_set",
+    description: "Imports a Minecraft Bedrock texture_set.json file and creates a PBR material with the associated textures.",
+    annotations: {
+      title: "Import Texture Set",
+      destructiveHint: true,
+      openWorldHint: true,
     },
-  }, textureToolDocs[8].status);
-
-  createInternalTool(textureToolDocs[9].name, {
-    ...textureToolDocs[9],
     parameters: importTextureSetParameters,
+    status: STATUS_EXPERIMENTAL,
     async execute({ path }) {
       // Validate path ends with texture_set.json
       if (!path.endsWith(".texture_set.json")) {
-        throw new Error(
-          "Path must end with '.texture_set.json'. Example: 'path/to/mytexture.texture_set.json'"
-        );
+        throw new Error("Path must end with '.texture_set.json'. Example: 'path/to/mytexture.texture_set.json'");
       }
-
       const fs = requireNativeModule("fs");
       if (!fs) {
         throw new Error("Blockbench did not grant access to the selected texture-set file.");
@@ -1166,18 +980,21 @@ export function registerTextureTools() {
       if (!fs.existsSync(path)) {
         throw new Error(`File not found: ${path}`);
       }
-
       // Use Blockbench's importTextureSet function
       // @ts-ignore - importTextureSet is globally available
       importTextureSet({ path, name: path.split(/[\/\\]/).pop() });
-
       return `Imported texture set from "${path}". Check the textures panel for the new material.`;
+    }
+  }),
+  defineTool({
+    name: "assign_texture_channel",
+    description: "Assigns a texture to a specific PBR channel within a material.",
+    annotations: {
+      title: "Assign Texture Channel",
+      destructiveHint: true,
     },
-  }, textureToolDocs[9].status);
-
-  createInternalTool(textureToolDocs[10].name, {
-    ...textureToolDocs[10],
     parameters: assignTextureChannelParameters,
+    status: STATUS_EXPERIMENTAL,
     async execute({ material, texture, channel }) {
       const textureGroup = findTextureGroupOrThrow(material);
       const tex = findTextureOrThrow(texture);
@@ -1186,14 +1003,11 @@ export function registerTextureTools() {
         texture_groups: resolved.groups,
         textures: resolved.textures,
       } as TextureGroupUndoAspects);
-      const changes = applyMaterialChannelAssignments(
-        textureGroup.uuid,
-        resolved.textures,
-        resolved.assignments
-      );
+      const changes = applyMaterialChannelAssignments(textureGroup.uuid, resolved.textures, resolved.assignments);
       textureGroup.material_config.saved = false;
       Undo.finishEdit("Agent assigned texture channel");
-      for (const group of resolved.groups) group.updateMaterial();
+      for (const group of resolved.groups)
+        group.updateMaterial();
       Canvas.updateAll();
       return JSON.stringify({
         material: { uuid: textureGroup.uuid, name: textureGroup.name },
@@ -1201,17 +1015,23 @@ export function registerTextureTools() {
         channel,
         detached_texture_uuids: changes.detached,
       }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "save_material_config",
+    description: "Saves the material's texture_set.json file to disk (Bedrock format). Requires the color texture to have a valid file path.",
+    annotations: {
+      title: "Save Material Config",
+      destructiveHint: true,
+      openWorldHint: true,
     },
-  }, textureToolDocs[10].status);
-
-  createInternalTool(textureToolDocs[11].name, {
-    ...textureToolDocs[11],
     parameters: saveMaterialConfigParameters,
+    status: STATUS_EXPERIMENTAL,
     async execute({ material, path }, context) {
       const textureGroup = findTextureGroupOrThrow(material);
-      const colorTexture = textureGroup.getTextures().find(
-        (texture) => texture.pbr_channel === "color"
-      ) as (Texture & { relative_path?: string }) | undefined;
+      const colorTexture = textureGroup.getTextures().find((texture) => texture.pbr_channel === "color") as (Texture & {
+        relative_path?: string;
+      }) | undefined;
       const filePath = resolveMaterialConfigPath({
         explicitPath: path,
         nativePath: textureGroup.material_config.getFilePath(),
@@ -1225,25 +1045,27 @@ export function registerTextureTools() {
       }
       assertExternalWriteAllowed(filePath, context.project!, "save_material_config");
       const fs = requireNativeModule("fs");
-      if (!fs) throw new Error("Blockbench did not grant filesystem access for this save.");
+      if (!fs)
+        throw new Error("Blockbench did not grant filesystem access for this save.");
       fs.mkdirSync(PathModule.dirname(filePath), { recursive: true });
-      fs.writeFileSync(
-        filePath,
-        `${autoStringify(textureGroup.material_config.compileForBedrock())}\n`,
-        "utf8"
-      );
+      fs.writeFileSync(filePath, `${autoStringify(textureGroup.material_config.compileForBedrock())}\n`, "utf8");
       textureGroup.material_config.saved = true;
       return JSON.stringify({
         material: { uuid: textureGroup.uuid, name: textureGroup.name },
         path: filePath,
         saved: true,
       }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "remove_texture",
+    description: "Removes an entire texture from the visible project. If it is referenced, supply a replacement texture or explicitly clear references; otherwise the operation refuses before mutation. Reference rewrites and removal share one Undo transaction.",
+    annotations: {
+      title: "Remove Texture",
+      destructiveHint: true,
     },
-  }, textureToolDocs[11].status);
-
-  createInternalTool(textureToolDocs[12].name, {
-    ...textureToolDocs[12],
     parameters: removeTextureParameters,
+    status: STATUS_STABLE,
     async execute({ texture, replacement, clear_references }, context) {
       const target = findTextureOrThrow(texture);
       const replacementTexture = replacement
@@ -1252,32 +1074,20 @@ export function registerTextureTools() {
       if (replacementTexture?.uuid === target.uuid) {
         throw new Error("The replacement texture must differ from the texture being removed.");
       }
-
       const faceElements = [...Cube.all, ...Mesh.all];
-      const referencedElements = faceElements.filter((element) =>
-        Object.values(element.faces).some((face) => face.texture === target.uuid)
-      );
-      const referencedGroups = Group.all.filter(
-        (group) => group.texture === target.uuid
-      );
-      const referencedFaces = referencedElements.reduce(
-        (count, element) => count + Object.values(element.faces)
-          .filter((face) => face.texture === target.uuid).length,
-        0
-      );
+      const referencedElements = faceElements.filter((element) => Object.values(element.faces).some((face) => face.texture === target.uuid));
+      const referencedGroups = Group.all.filter((group) => group.texture === target.uuid);
+      const referencedFaces = referencedElements.reduce((count, element) => count + Object.values(element.faces)
+        .filter((face) => face.texture === target.uuid).length, 0);
       const referenceCount = referencedFaces + referencedGroups.length;
       if (referenceCount > 0 && !replacementTexture && !clear_references) {
-        throw new Error(
-          `Refusing to remove referenced texture "${target.name}" (${target.uuid}): ` +
-            `${referencedFaces} face reference(s), ${referencedGroups.length} group reference(s). ` +
-            "Supply replacement or explicitly set clear_references=true."
-        );
+        throw new Error(`Refusing to remove referenced texture "${target.name}" (${target.uuid}): ` +
+          `${referencedFaces} face reference(s), ${referencedGroups.length} group reference(s). ` +
+          "Supply replacement or explicitly set clear_references=true.");
       }
-
       // The removal transaction must own a complete project-local bitmap copy;
       // otherwise Undo can reload pixels from an external file that changed.
       prepareTextureForMutation(context.project!, target);
-
       const wasSelected = Texture.selected?.uuid === target.uuid;
       const wasParticle = target.particle;
       const wasDefault = target.use_as_default;
@@ -1294,42 +1104,37 @@ export function registerTextureTools() {
         const nextReference = replacementTexture?.uuid ?? false;
         for (const element of referencedElements) {
           for (const face of Object.values(element.faces)) {
-            if (face.texture === target.uuid) face.texture = nextReference;
+            if (face.texture === target.uuid)
+              face.texture = nextReference;
           }
         }
         for (const group of referencedGroups) {
           group.texture = replacementTexture?.uuid ?? "";
         }
         target.remove(true);
-
         if (Texture.all.includes(target)) {
           throw new Error("Blockbench did not remove the requested texture from the project.");
         }
-        const remainingFaceReferences = faceElements.reduce(
-          (count, element) => count + Object.values(element.faces)
-            .filter((face) => face.texture === target.uuid).length,
-          0
-        );
-        const remainingGroupReferences = Group.all.filter(
-          (group) => group.texture === target.uuid
-        ).length;
+        const remainingFaceReferences = faceElements.reduce((count, element) => count + Object.values(element.faces)
+          .filter((face) => face.texture === target.uuid).length, 0);
+        const remainingGroupReferences = Group.all.filter((group) => group.texture === target.uuid).length;
         if (remainingFaceReferences + remainingGroupReferences > 0) {
-          throw new Error(
-            `Removal verification found ${remainingFaceReferences} face and ` +
-              `${remainingGroupReferences} group reference(s) still pointing to the removed texture.`
-          );
+          throw new Error(`Removal verification found ${remainingFaceReferences} face and ` +
+            `${remainingGroupReferences} group reference(s) still pointing to the removed texture.`);
         }
-
         if (replacementTexture) {
-          if (wasSelected) replacementTexture.select();
-          if (wasParticle) replacementTexture.enableParticle();
-          if (wasDefault) replacementTexture.setAsDefaultTexture();
+          if (wasSelected)
+            replacementTexture.select();
+          if (wasParticle)
+            replacementTexture.enableParticle();
+          if (wasDefault)
+            replacementTexture.setAsDefaultTexture();
         }
-      } catch (error) {
+      }
+      catch (error) {
         (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
         throw error;
       }
-
       const afterAspects = {
         textures: replacementTexture ? [replacementTexture] : [],
         elements: referencedElements,
@@ -1339,14 +1144,16 @@ export function registerTextureTools() {
         collections: [],
       } as UndoAspects;
       Undo.finishEdit("Agent removed texture", afterAspects);
-      if ((Canvas as typeof Canvas & { layered_material?: unknown }).layered_material) {
+      if ((Canvas as typeof Canvas & {
+        layered_material?: unknown;
+      }).layered_material) {
         Canvas.updateLayeredTextures();
       }
       Canvas.updateAllFaces();
       TextureAnimator.updateButton();
       BARS.updateConditions();
-      if (Outliner.selected.length > 0) UVEditor.loadData();
-
+      if (Outliner.selected.length > 0)
+        UVEditor.loadData();
       return JSON.stringify({
         removed: { name: target.name, uuid: target.uuid },
         replacement: replacementTexture
@@ -1358,7 +1165,6 @@ export function registerTextureTools() {
         remaining_textures: Texture.all.length,
         verified: true,
       }, null, 2);
-    },
-  }, textureToolDocs[12].status);
-
-}
+    }
+  })
+];

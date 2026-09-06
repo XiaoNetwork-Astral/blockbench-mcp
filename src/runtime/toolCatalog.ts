@@ -1,77 +1,77 @@
-import type { ToolSpec } from "@/lib/factories";
+import type { ToolDefinition } from "@/lib/factories";
 import {
-  animationInspectionToolDocs,
-  animationManagementToolDoc,
-  animationToolDocs,
+  animationInspectionTools,
+  animationManagementTool,
+  animationTools,
 } from "@/server/tools/animation";
-import { armatureToolDocs } from "@/server/tools/armature";
-import { cameraToolDocs } from "@/server/tools/camera";
-import { cubeToolDocs } from "@/server/tools/cubes";
-import { displayToolDocs } from "@/server/tools/display";
-import { elementToolDocs } from "@/server/tools/element";
-import { exactTextureToolDocs } from "@/server/tools/exact-texture";
-import { exportToolDocs } from "@/server/tools/export";
-import { historyToolDocs } from "@/server/tools/history";
-import { hytaleToolDocs } from "@/server/tools/hytale";
-import { importToolDocs } from "@/server/tools/import";
-import { materialInstanceToolDocs } from "@/server/tools/material-instances";
-import { meshToolDocs } from "@/server/tools/mesh";
-import { paintToolDocs } from "@/server/tools/paint";
-import { projectToolDocs } from "@/server/tools/project";
-import { spatialToolDocs } from "@/server/tools/spatial";
-import { textureToolDocs } from "@/server/tools/texture";
-import { uvToolDocs } from "@/server/tools/uv";
-import { validationOperationDocs } from "@/server/tools/validation";
+import { armatureTools } from "@/server/tools/armature";
+import { cameraTools } from "@/server/tools/camera";
+import { cubeTools } from "@/server/tools/cubes";
+import { displayTools } from "@/server/tools/display";
+import { elementTools } from "@/server/tools/element";
+import { exactTextureTools } from "@/server/tools/exact-texture";
+import { exportTools } from "@/server/tools/export";
+import { historyTools } from "@/server/tools/history";
+import { hytaleTools } from "@/server/tools/hytale";
+import { importTools } from "@/server/tools/import";
+import { materialInstanceTools } from "@/server/tools/material-instances";
+import { meshTools } from "@/server/tools/mesh";
+import { paintTools } from "@/server/tools/paint";
+import { projectTools } from "@/server/tools/project";
+import { spatialTools } from "@/server/tools/spatial";
+import { textureTools } from "@/server/tools/texture";
+import { uvTools } from "@/server/tools/uv";
+import { validationTools } from "@/server/tools/validation";
 import {
-  ysmMolangEditToolDocs,
-  ysmMolangReadToolDocs,
+  ysmMolangEditTools,
+  ysmMolangReadTools,
 } from "@/server/tools/ysm-molang";
-import { ysmToolDocs } from "@/server/tools/ysm";
+import { ysmTools } from "@/server/tools/ysm";
 
 export interface ToolCategory {
   category: string;
-  tools: readonly ToolSpec[];
+  tools: readonly ToolDefinition[];
   optional?: boolean;
 }
 
 export const CORE_TOOL_CATEGORIES: readonly ToolCategory[] = [
-  { category: "Projects", tools: projectToolDocs },
-  { category: "Elements", tools: elementToolDocs },
-  { category: "Cubes", tools: cubeToolDocs },
-  { category: "Meshes", tools: meshToolDocs },
-  { category: "Armatures", tools: armatureToolDocs },
+  { category: "Projects", tools: projectTools },
+  { category: "Elements", tools: elementTools },
+  { category: "Cubes", tools: cubeTools },
+  { category: "Meshes", tools: meshTools },
+  { category: "Armatures", tools: armatureTools },
   {
     category: "Animation",
     tools: [
-      ...animationInspectionToolDocs,
-      animationManagementToolDoc,
-      ...animationToolDocs,
+      ...animationInspectionTools,
+      animationManagementTool,
+      ...animationTools,
     ],
   },
-  { category: "Display", tools: displayToolDocs },
-  { category: "Camera and capture", tools: cameraToolDocs },
-  { category: "Textures", tools: textureToolDocs },
-  { category: "Exact texture editing", tools: exactTextureToolDocs },
-  { category: "Paint", tools: paintToolDocs },
-  { category: "Material instances", tools: materialInstanceToolDocs },
-  { category: "UV", tools: uvToolDocs },
-  { category: "Spatial analysis", tools: spatialToolDocs },
-  { category: "Validation", tools: validationOperationDocs },
-  { category: "History", tools: historyToolDocs },
-  { category: "Import", tools: importToolDocs },
-  { category: "Export", tools: exportToolDocs },
+  { category: "Display", tools: displayTools },
+  { category: "Camera and capture", tools: cameraTools },
+  { category: "Textures", tools: textureTools },
+  { category: "Exact texture editing", tools: exactTextureTools },
+  { category: "Paint", tools: paintTools },
+  { category: "Material instances", tools: materialInstanceTools },
+  { category: "UV", tools: uvTools },
+  { category: "Spatial analysis", tools: spatialTools },
+  { category: "Validation", tools: validationTools },
+  { category: "History", tools: historyTools },
+  { category: "Import", tools: importTools },
+  { category: "Export", tools: exportTools },
 ];
 
 export const YSM_TOOL_CATEGORIES: readonly ToolCategory[] = [
-  { category: "YSM workspace", tools: ysmToolDocs },
+  { category: "YSM workspace", tools: ysmTools },
   {
     category: "YSM Molang",
-    tools: [...ysmMolangReadToolDocs, ...ysmMolangEditToolDocs],
+    tools: [...ysmMolangReadTools, ...ysmMolangEditTools],
   },
 ];
 
 export const HYTALE_TOOL_CATEGORIES: readonly ToolCategory[] = [
-  { category: "Hytale", tools: hytaleToolDocs, optional: true },
+  { category: "Hytale", tools: hytaleTools, optional: true },
 ];
 
 export const TOOL_CATEGORIES = [

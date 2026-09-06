@@ -294,7 +294,7 @@ function hidePanel(): void {
   panel?.moveTo("hidden");
 }
 
-function confirmMessage(options: MessageBoxOptions): Promise<boolean> {
+function confirmMessage(options: Parameters<typeof Blockbench.showMessageBox>[0]): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     Blockbench.showMessageBox(
       {
@@ -350,9 +350,9 @@ export function buildAuditRawData(
     },
     model: item.projectId
       ? {
-          id: item.projectId,
-          name: item.projectName,
-        }
+        id: item.projectId,
+        name: item.projectName,
+      }
       : null,
     sanitized: {
       arguments: parseStoredAuditValue(details.argumentsText),

@@ -1,26 +1,24 @@
 import { watch } from "node:fs";
-import { mkdir, copyFile, rename, rm, stat } from "node:fs/promises";
-import { resolve, join, normalize, sep } from "node:path";
+import { mkdir, copyFile, rename, rm } from "node:fs/promises";
+import { resolve, join, normalize, relative, sep } from "node:path";
 import { log, c, isCleanMode, isProduction, isWatchMode } from "./utils";
 import { blockbenchCompatPlugin, textFileLoaderPlugin } from "./plugins";
 import { verifyBlockbenchPluginArtifact } from "./artifact-verifier";
 import { PLUGIN_FILENAME, PLUGIN_ID, VERSION } from "../lib/constants";
 
-const OUTPUT_DIR = "./dist";
-// Normalized output dir name for path comparison (strips "./" prefix)
-const OUTPUT_DIR_NAME = normalize(OUTPUT_DIR).replace(/^\.[\\/]/, "");
+const outputArgument = Bun.argv.indexOf("--outdir");
+if (outputArgument !== -1 && (!Bun.argv[outputArgument + 1] || Bun.argv[outputArgument + 1].startsWith("--"))) {
+  throw new Error("--outdir requires an output directory.");
+}
+const OUTPUT_DIR = resolve(outputArgument === -1 ? "./dist" : Bun.argv[outputArgument + 1]);
+if (OUTPUT_DIR === resolve(".")) throw new Error("The source root cannot be used as the build output directory.");
+const OUTPUT_DIR_NAME = relative(resolve("."), OUTPUT_DIR);
 const entryFile = resolve("./index.ts");
 
 async function cleanOutputDir() {
-  try {
-    const info = await stat(OUTPUT_DIR);
-    if (info.isDirectory()) {
-      log.header("[Build] Clean");
-      log.step(`Cleaning output directory: ${c.cyan}${OUTPUT_DIR}${c.reset}`);
-      await rm(OUTPUT_DIR, { recursive: true, force: true });
-    }
-  } catch {
-    log.dim("[Build] Output directory does not exist, no need to clean.");
+  // Only remove files this builder owns; an alternate directory may contain other work.
+  for (const filename of [PLUGIN_FILENAME, `${PLUGIN_FILENAME}.map`, "index.js", "index.js.map", "icon.svg", "about.md", "THIRD_PARTY_NOTICES.md"]) {
+    await rm(join(OUTPUT_DIR, filename), { force: true });
   }
 }
 

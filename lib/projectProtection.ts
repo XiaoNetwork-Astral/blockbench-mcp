@@ -6,6 +6,7 @@ import { isolateProjectTextures } from "@/lib/textureSafety";
 import { getVisibleProject } from "@/src/blockbench/projects";
 
 type LockableNode = OutlinerElement | Group;
+type EventName = Parameters<typeof Blockbench.on>[0];
 type PrototypeMethod = (this: any, ...args: any[]) => any;
 type GroupSelectionMethod = "select" | "clickSelect" | "multiSelect";
 

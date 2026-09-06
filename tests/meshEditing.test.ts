@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { meshTools } from "@/server/tools/mesh";
 import {
   applySelectionAction,
   assertMeshVertexKeys,
@@ -23,17 +23,61 @@ const source = {
 };
 
 describe("direct mesh editing contracts", () => {
-  test("resolves mutable Blockbench selection arrays after changing selection mode", () => {
-    const source = readFileSync("server/tools/mesh.ts", "utf8");
-    const handler = source.slice(
-      source.indexOf("async execute({ mesh_id, mode, elements, action })"),
-      source.indexOf("createInternalTool(meshToolDocs[5].name")
-    );
-    expect(handler.indexOf("BarItems.selection_mode.set(mode)")).toBeLessThan(
-      handler.indexOf("mesh.getSelectedVertices(true)")
-    );
-    expect(handler).toContain("Undo.initSelection()");
-    expect(handler).toContain('Undo.finishSelection("Select mesh elements")');
+  test("writes selection into the arrays created by the new Blockbench selection mode", async () => {
+    const calls: string[] = [];
+    let vertices: string[] = ["stale"];
+    let edges: [string, string][] = [];
+    let faces: string[] = [];
+    const oldVertices = vertices;
+    const mesh = {
+      ...source,
+      uuid: "mesh-1",
+      name: "Mesh",
+      select: () => calls.push("select"),
+      getSelectedVertices: () => vertices,
+      getSelectedEdges: () => edges,
+      getSelectedFaces: () => faces,
+    };
+    const globals = {
+      Mesh: { all: [mesh] },
+      BarItems: {
+        selection_mode: {
+          set: (mode: string) => {
+            calls.push(mode);
+            vertices = [];
+            edges = [];
+            faces = [];
+          }
+        }
+      },
+      Undo: {
+        initSelection: () => calls.push("begin"),
+        finishSelection: (label: string) => calls.push(label),
+        cancelSelection: () => calls.push("cancel"),
+      },
+      Canvas: { updateView: () => calls.push("update") },
+    };
+    const saved = new Map(Object.keys(globals).map((key) => [
+      key, Object.getOwnPropertyDescriptor(globalThis, key),
+    ]));
+    try {
+      for (const [key, value] of Object.entries(globals)) {
+        Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+      }
+      const tool = meshTools.find((tool) => tool.name === "select_mesh_elements")!;
+      const result = await tool.execute(tool.parameters.parse({
+        mesh_id: "mesh-1", mode: "vertex", elements: ["va", "vc"],
+      }), { project: null });
+      expect(vertices).toEqual(["va", "vc"]);
+      expect(oldVertices).toEqual(["stale"]);
+      expect(JSON.parse(result as string).selected.vertex_keys).toEqual(vertices);
+      expect(calls).toEqual(["begin", "select", "vertex", "update", "Select mesh elements"]);
+    } finally {
+      for (const [key, descriptor] of saved) {
+        if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+        else Reflect.deleteProperty(globalThis, key);
+      }
+    }
   });
   test("resolves opaque vertex and face keys from keys or numeric indices", () => {
     expect(resolveMeshSelection(source, "vertex", [0, "vc"]).vertices).toEqual(["va", "vc"]);

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { z } from "zod";
 import { addGroupParameters } from "@/server/tools/element";
 import {
   CUBE_FACE_KEYS,
@@ -16,7 +16,7 @@ import { vec3 } from "@/lib/zodObjects";
 import { applyTexturePixelsParameters } from "@/server/tools/exact-texture";
 import { createTextureParameters } from "@/server/tools/texture";
 import {
-  displayToolDocs,
+  displayTools,
   hasDisplayTransformChange,
   setDisplayTransformParameters,
 } from "@/server/tools/display";
@@ -33,7 +33,7 @@ describe("upstream issue regressions", () => {
     expect(parsed.parent).toBe("root");
     expect(addGroupParameters.shape.origin).not.toBe(addGroupParameters.shape.rotation);
 
-    const schema = zodToJsonSchema(addGroupParameters as any, { $refStrategy: "root" }) as {
+    const schema = z.toJSONSchema(addGroupParameters as any, { target: "draft-7", io: "input" }) as {
       properties?: Record<string, { type?: string; $ref?: string }>;
       required?: string[];
     };
@@ -121,7 +121,7 @@ describe("upstream issue regressions", () => {
     }]));
     const cube = {
       faces,
-      setUVMode() {},
+      setUVMode() { },
       applyTexture(texture: { uuid: string }, selected: true | undefined | CubeFaceKey[]) {
         const keys = selected === true || selected === undefined
           ? CUBE_FACE_KEYS
@@ -252,13 +252,13 @@ describe("upstream issue regressions", () => {
   });
 
   test("fixed-length tool arrays avoid unsupported JSON Schema tuple items", () => {
-    const vectorSchema = zodToJsonSchema(vec3(), { $refStrategy: "root" }) as {
+    const vectorSchema = z.toJSONSchema(vec3(), { target: "draft-7", io: "input" }) as {
       items?: unknown;
       minItems?: number;
       maxItems?: number;
     };
-    const pixelSchema = (zodToJsonSchema as any)(applyTexturePixelsParameters, {
-      $refStrategy: "root",
+    const pixelSchema = z.toJSONSchema(applyTexturePixelsParameters, {
+      target: "draft-7", io: "input",
     }) as any;
     const rgbaItems = pixelSchema.properties.pixels.items.properties.rgba.items;
 
@@ -268,7 +268,7 @@ describe("upstream issue regressions", () => {
   });
 
   test("display tools use bounded slots and reject empty transform intents", () => {
-    expect(displayToolDocs.map(({ name }) => name)).toEqual([
+    expect(displayTools.map(({ name }) => name)).toEqual([
       "get_display_transform",
       "set_display_transform",
       "enter_display_mode",

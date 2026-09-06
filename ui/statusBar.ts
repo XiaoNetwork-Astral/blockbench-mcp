@@ -8,6 +8,7 @@ import {
   subscribeMcpServerState,
 } from "@/lib/serverRuntime";
 import statusBarCSS from "@/ui/statusBar.css";
+type EventName = Parameters<typeof Blockbench.on>[0];
 
 interface StatusBarUi {
   root: HTMLDivElement;

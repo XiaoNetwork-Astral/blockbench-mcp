@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  animationGraphEditorParameters,
-  batchKeyframeOperationsParameters,
-  collectAnimationKeyframes,
-  copyRuntimeKeyframeData,
-  setKeyframeVector,
-} from "@/server/tools/animation";
+import { animationGraphEditorParameters, batchKeyframeOperationsParameters } from "@/server/tools/animation";
+import { collectAnimationKeyframes, copyRuntimeKeyframeData, setKeyframeVector } from "@/src/blockbench/animation";
 
 describe("animation keyframe regression helpers", () => {
   test("collects every keyframe from the selected animation's animators", () => {

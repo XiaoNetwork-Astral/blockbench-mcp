@@ -1,10 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import {
-  createInternalTool,
-  type ToolSpec,
-} from "@/lib/factories";
+import { defineTool, type ToolDefinition } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 
 export const undoParameters = z.object({
@@ -50,51 +47,111 @@ export const saveCheckpointParameters = z.object({
     ),
 });
 
-export const historyToolDocs: ToolSpec[] = [
-  {
+export const historyTools: ToolDefinition[] = [
+  defineTool({
     name: "undo",
-    description:
-      "Undoes the most recent edit in the current project. Use `steps` to undo multiple edits in a single call. Returns the action(s) that were undone.",
+    description: "Undoes the most recent edit in the current project. Use `steps` to undo multiple edits in a single call. Returns the action(s) that were undone.",
     annotations: {
       title: "Undo",
       destructiveHint: true,
     },
     parameters: undoParameters,
     status: STATUS_STABLE,
-  },
-  {
+    async execute({ steps }) {
+      const history = Undo.history ?? [];
+      const available = Undo.index ?? 0;
+      if (available === 0) {
+        throw new Error("Nothing to undo. The undo stack is empty.");
+      }
+      const count = Math.min(steps, available);
+      const undone: string[] = [];
+      for (let i = 0; i < count; i++) {
+        const entry = history[(Undo.index ?? 0) - 1] as {
+          action?: string;
+        } | undefined;
+        undone.push(entry?.action ?? "(unnamed edit)");
+        Undo.undo();
+      }
+      Canvas.updateAll();
+      return JSON.stringify({
+        undone_count: undone.length,
+        requested: steps,
+        undone,
+        new_index: Undo.index,
+      }, null, 2);
+    }
+  }),
+  defineTool({
     name: "redo",
-    description:
-      "Redoes the most recently undone edit. Use `steps` to redo multiple edits in a single call. Returns the action(s) that were redone.",
+    description: "Redoes the most recently undone edit. Use `steps` to redo multiple edits in a single call. Returns the action(s) that were redone.",
     annotations: {
       title: "Redo",
       destructiveHint: true,
     },
     parameters: redoParameters,
     status: STATUS_STABLE,
-  },
-  {
+    async execute({ steps }) {
+      const history = Undo.history ?? [];
+      const available = history.length - (Undo.index ?? 0);
+      if (available === 0) {
+        throw new Error("Nothing to redo. No edits have been undone or the redo stack has been cleared.");
+      }
+      const count = Math.min(steps, available);
+      const redone: string[] = [];
+      for (let i = 0; i < count; i++) {
+        const entry = history[Undo.index ?? 0] as {
+          action?: string;
+        } | undefined;
+        redone.push(entry?.action ?? "(unnamed edit)");
+        Undo.redo();
+      }
+      Canvas.updateAll();
+      return JSON.stringify({
+        redone_count: redone.length,
+        requested: steps,
+        redone,
+        new_index: Undo.index,
+      }, null, 2);
+    }
+  }),
+  defineTool({
     name: "get_undo_stack",
-    description:
-      "Returns the current undo/redo history: the list of edit entries, the current index, and which entries are undone vs. applied. Use this to inspect available undo/redo operations and find named checkpoints.",
+    description: "Returns the current undo/redo history: the list of edit entries, the current index, and which entries are undone vs. applied. Use this to inspect available undo/redo operations and find named checkpoints.",
     annotations: {
       title: "Get Undo Stack",
       readOnlyHint: true,
     },
     parameters: getUndoStackParameters,
     status: STATUS_STABLE,
-  },
-  {
+    async execute({ limit }) {
+      return JSON.stringify(summarizeHistory(limit), null, 2);
+    }
+  }),
+  defineTool({
     name: "save_checkpoint",
-    description:
-      "Inserts a named marker into the undo history. The marker can later be located with `get_undo_stack` so the agent knows how many times to call `undo` to return to this state. Does not modify the project.",
+    description: "Inserts a named marker into the undo history. The marker can later be located with `get_undo_stack` so the agent knows how many times to call `undo` to return to this state. Does not modify the project.",
     annotations: {
       title: "Save Checkpoint",
       destructiveHint: false,
     },
     parameters: saveCheckpointParameters,
     status: STATUS_EXPERIMENTAL,
-  },
+    async execute({ name }) {
+      const label = `[checkpoint] ${name}`;
+      Undo.initEdit({
+        elements: [],
+        outliner: true,
+        collections: [],
+      });
+      Undo.finishEdit(label);
+      return JSON.stringify({
+        name,
+        label,
+        index: Undo.index,
+        total: Undo.history?.length ?? 0,
+      }, null, 2);
+    }
+  })
 ];
 
 interface IUndoEntrySummary {
@@ -143,106 +200,4 @@ function summarizeHistory(limit: number): {
     can_redo: index < history.length,
     entries,
   };
-}
-
-export function registerHistoryTools() {
-  createInternalTool(historyToolDocs[0].name, {
-    ...historyToolDocs[0],
-    async execute({ steps }) {
-      const history = Undo.history ?? [];
-      const available = Undo.index ?? 0;
-      if (available === 0) {
-        throw new Error("Nothing to undo. The undo stack is empty.");
-      }
-
-      const count = Math.min(steps, available);
-      const undone: string[] = [];
-      for (let i = 0; i < count; i++) {
-        const entry = history[(Undo.index ?? 0) - 1] as
-          | { action?: string }
-          | undefined;
-        undone.push(entry?.action ?? "(unnamed edit)");
-        Undo.undo();
-      }
-
-      Canvas.updateAll();
-      return JSON.stringify(
-        {
-          undone_count: undone.length,
-          requested: steps,
-          undone,
-          new_index: Undo.index,
-        },
-        null,
-        2
-      );
-    },
-  }, historyToolDocs[0].status);
-
-  createInternalTool(historyToolDocs[1].name, {
-    ...historyToolDocs[1],
-    async execute({ steps }) {
-      const history = Undo.history ?? [];
-      const available = history.length - (Undo.index ?? 0);
-      if (available === 0) {
-        throw new Error(
-          "Nothing to redo. No edits have been undone or the redo stack has been cleared."
-        );
-      }
-
-      const count = Math.min(steps, available);
-      const redone: string[] = [];
-      for (let i = 0; i < count; i++) {
-        const entry = history[Undo.index ?? 0] as
-          | { action?: string }
-          | undefined;
-        redone.push(entry?.action ?? "(unnamed edit)");
-        Undo.redo();
-      }
-
-      Canvas.updateAll();
-      return JSON.stringify(
-        {
-          redone_count: redone.length,
-          requested: steps,
-          redone,
-          new_index: Undo.index,
-        },
-        null,
-        2
-      );
-    },
-  }, historyToolDocs[1].status);
-
-  createInternalTool(historyToolDocs[2].name, {
-    ...historyToolDocs[2],
-    async execute({ limit }) {
-      return JSON.stringify(summarizeHistory(limit), null, 2);
-    },
-  }, historyToolDocs[2].status);
-
-  createInternalTool(historyToolDocs[3].name, {
-    ...historyToolDocs[3],
-    async execute({ name }) {
-      const label = `[checkpoint] ${name}`;
-      Undo.initEdit({
-        elements: [],
-        outliner: true,
-        collections: [],
-      });
-      Undo.finishEdit(label);
-
-      return JSON.stringify(
-        {
-          name,
-          label,
-          index: Undo.index,
-          total: Undo.history?.length ?? 0,
-        },
-        null,
-        2
-      );
-    },
-  }, historyToolDocs[3].status);
-
 }

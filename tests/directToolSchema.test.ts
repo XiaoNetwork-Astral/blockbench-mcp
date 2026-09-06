@@ -2,9 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import {
   ALL_TOOL_SPECS,
-  CORE_TOOL_SPECS,
-  HYTALE_TOOL_SPECS,
-  YSM_TOOL_SPECS,
 } from "@/src/runtime/toolCatalog";
 import { ysmSaveProjectParameters } from "@/server/tools/ysm";
 
@@ -24,26 +21,10 @@ const formerGroups = new Set([
 ]);
 
 function objectShape(schema: z.ZodType): Record<string, z.ZodType> {
-  const definition = schema._def as {
-    typeName?: string;
-    schema?: z.ZodType;
-    shape?: () => Record<string, z.ZodType>;
-  };
-  if (definition.typeName === "ZodEffects" && definition.schema) {
-    return objectShape(definition.schema);
-  }
-  return definition.typeName === "ZodObject" ? definition.shape?.() ?? {} : {};
+  return schema instanceof z.ZodObject ? schema.shape : {};
 }
 
 describe("direct tool schemas", () => {
-  test("publishes the intended v2 catalog", () => {
-    expect(CORE_TOOL_SPECS).toHaveLength(118);
-    expect(YSM_TOOL_SPECS).toHaveLength(14);
-    expect(HYTALE_TOOL_SPECS).toHaveLength(12);
-    expect(ALL_TOOL_SPECS).toHaveLength(144);
-    expect(new Set(ALL_TOOL_SPECS.map(({ name }) => name)).size).toBe(144);
-  });
-
   test("uses direct input objects and contains no former grouped tool", () => {
     for (const spec of ALL_TOOL_SPECS) {
       expect(formerGroups.has(spec.name)).toBe(false);

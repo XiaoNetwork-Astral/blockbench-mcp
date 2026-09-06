@@ -185,6 +185,7 @@ BBPlugin.register(PLUGIN_ID, {
   tags: ["MCP", "AI"],
   icon: getIcon(),
   variant: "desktop",
+  min_version: "5.1.0",
   async onload() {
     pluginLoaded = true;
     // Initialize Blockbench-native UI and audit storage before opening the

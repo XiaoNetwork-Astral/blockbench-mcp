@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { request as httpRequest } from "node:http";
 import { connect, createServer } from "node:net";
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import "@/server/tools";
 import {
   createStatelessHttpServer,
   type StatelessHttpRuntime,
@@ -14,7 +16,7 @@ afterEach(async () => {
 
 async function start(
   token: string,
-  handler: Parameters<typeof createStatelessHttpServer>[2],
+  handler?: Parameters<typeof createStatelessHttpServer>[2],
   requestTimeoutMs?: number
 ): Promise<number> {
   const runtime = createStatelessHttpServer(
@@ -38,7 +40,7 @@ async function start(
 async function call(
   port: number,
   path: string,
-  options: { method?: string; token?: string; body?: unknown } = {}
+  options: { method?: string; token?: string; body?: unknown; origin?: string } = {}
 ): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
   const body = options.body === undefined ? "" : JSON.stringify(options.body);
   return new Promise((resolve, reject) => {
@@ -49,6 +51,7 @@ async function call(
       method: options.method ?? "GET",
       headers: {
         ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
+        ...(options.origin ? { origin: options.origin } : {}),
         ...(body ? { "content-type": "application/json", "content-length": Buffer.byteLength(body) } : {}),
       },
     }, (response) => {
@@ -66,6 +69,62 @@ async function call(
 }
 
 describe("stateless HTTP boundary", () => {
+  test("rejects browser origins and absolute request targets outside the listener", async () => {
+    let dispatched = false;
+    const port = await start("", async () => { dispatched = true; return Response.json({}); });
+    expect((await call(port, "/bb-mcp", { method: "POST", body: {}, origin: "https://untrusted.example" })).status).toBe(403);
+    expect((await call(port, "http://untrusted.example/bb-mcp", { method: "POST", body: {}, origin: "http://untrusted.example" })).status).toBe(400);
+    expect(dispatched).toBe(false);
+  });
+
+  test("sends streaming headers and data before completion and cancels on disconnect", async () => {
+    let cancelled = false;
+    let requestAborted = false;
+    const port = await start("", async request => {
+      request.signal.addEventListener("abort", () => { requestAborted = true; });
+      return new Response(new ReadableStream({
+        start(controller) { controller.enqueue(new TextEncoder().encode("data: first\n\n")); },
+        cancel() { cancelled = true; },
+      }), { headers: { "content-type": "text/event-stream" } });
+    });
+    const abort = new AbortController();
+    const guard = setTimeout(() => abort.abort(), 1000);
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/bb-mcp`, { method: "POST", body: "{}", signal: abort.signal });
+      const reader = response.body!.getReader();
+      expect(new TextDecoder().decode((await reader.read()).value)).toBe("data: first\n\n");
+      await reader.cancel();
+      abort.abort();
+      for (let index = 0; index < 50 && !requestAborted; index++) await new Promise(resolve => setTimeout(resolve, 5));
+      expect(cancelled).toBe(true);
+      expect(requestAborted).toBe(true);
+    } finally {
+      clearTimeout(guard);
+      abort.abort();
+    }
+  });
+
+  for (const era of ["legacy", "modern"] as const) {
+    test(`serves the registered catalog through the ${era} SDK protocol`, async () => {
+      const port = await start("");
+      const client = new Client({ name: "protocol-test", version: "1" }, {
+        versionNegotiation: { mode: era === "legacy" ? "legacy" : { pin: "2026-07-28" } },
+      });
+      try {
+        await client.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/bb-mcp`)));
+        expect(client.getProtocolEra()).toBe(era);
+        const catalog = await client.listTools();
+        expect(catalog.tools.some(({ name }) => name === "create_project")).toBe(true);
+        expect(catalog.tools.find(({ name }) => name === "add_group")?.inputSchema.properties).toHaveProperty("origin");
+        const invalid = await client.callTool({ name: "sweep_animation_validation", arguments: { animation: "test", samples: [0] } });
+        expect(invalid.isError).toBe(true);
+        expect(JSON.stringify(invalid)).toContain("Select at least one");
+      } finally {
+        await client.close();
+      }
+    });
+  }
+
   test("requires the configured bearer token", async () => {
     const port = await start("secret-token", async () => new Response(null, { status: 204 }));
     const denied = await call(port, "/bb-mcp", { method: "POST", body: {} });

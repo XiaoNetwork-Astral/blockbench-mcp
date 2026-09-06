@@ -1,10 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import {
-  createInternalTool,
-  type ToolSpec,
-} from "@/lib/factories";
+import { defineTool, type ToolDefinition } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
 import {
   elementIdSchema,
@@ -35,7 +32,7 @@ function findArmature(id: string): Armature | undefined {
   if (nameMatches.length > 1) {
     throw new Error(
       `Armature name "${id}" is ambiguous (${nameMatches.length} matches: ` +
-        `${nameMatches.map((armature) => armature.uuid).join(", ")}). Use an exact UUID.`
+      `${nameMatches.map((armature) => armature.uuid).join(", ")}). Use an exact UUID.`
     );
   }
   return nameMatches[0];
@@ -65,7 +62,7 @@ function findArmatureBone(id: string): ArmatureBone | undefined {
   if (nameMatches.length > 1) {
     throw new Error(
       `Armature bone name "${id}" is ambiguous (${nameMatches.length} matches: ` +
-        `${nameMatches.map((bone) => bone.uuid).join(", ")}). Use an exact UUID.`
+      `${nameMatches.map((bone) => bone.uuid).join(", ")}). Use an exact UUID.`
     );
   }
   return nameMatches[0];
@@ -95,7 +92,7 @@ function findMesh(id: string): Mesh | undefined {
   if (names.length > 1) {
     throw new Error(
       `Mesh name "${id}" is ambiguous (${names.length} matches: ` +
-        `${names.map((mesh) => mesh.uuid).join(", ")}). Use an exact UUID.`
+      `${names.map((mesh) => mesh.uuid).join(", ")}). Use an exact UUID.`
     );
   }
 
@@ -127,7 +124,7 @@ export function assertMatchingArmature(
     const boneArmatureName = boneArmature?.name ?? "no armature";
     throw new Error(
       `Bone "${boneName}" belongs to ${boneArmatureName === "no armature" ? boneArmatureName : `armature "${boneArmatureName}"`}, ` +
-        `not mesh "${meshName}"'s armature "${meshArmature.name}".`
+      `not mesh "${meshName}"'s armature "${meshArmature.name}".`
     );
   }
 }
@@ -375,224 +372,61 @@ export const clearVertexWeightsParameters = z.object({
 // Armature Tool Docs
 // ============================================================================
 
-export const armatureToolDocs: ToolSpec[] = [
-  {
+// ============================================================================
+// Armature Tool Docs
+// ============================================================================
+export const armatureTools: ToolDefinition[] = [
+  defineTool({
     name: "list_armatures",
-    description:
-      "Lists all armatures in the current project with their basic info.",
+    description: "Lists all armatures in the current project with their basic info.",
     annotations: {
       title: "List Armatures",
       readOnlyHint: true,
     },
     parameters: listArmaturesParameters,
     status: STATUS_STABLE,
-  },
-  {
+    async execute() {
+      const armatures = Armature.all.map(serializeArmature);
+      return JSON.stringify({
+        count: armatures.length,
+        armatures,
+      }, null, 2);
+    }
+  }),
+  defineTool({
     name: "get_armature",
-    description:
-      "Gets detailed information about a specific armature including its bones.",
+    description: "Gets detailed information about a specific armature including its bones.",
     annotations: {
       title: "Get Armature",
       readOnlyHint: true,
     },
     parameters: getArmatureParameters,
     status: STATUS_STABLE,
-  },
-  {
+    async execute({ id, include_bones }) {
+      const armature = findArmatureOrThrow(id);
+      const result = serializeArmature(armature);
+      if (include_bones) {
+        const bones = armature.getAllBones().map(serializeArmatureBone);
+        return JSON.stringify({ ...result, bones }, null, 2);
+      }
+      return JSON.stringify(result, null, 2);
+    }
+  }),
+  defineTool({
     name: "add_armature",
-    description:
-      "Creates a new root-level armature. An armature is a skeletal rig used for mesh deformation.",
+    description: "Creates a new root-level armature. An armature is a skeletal rig used for mesh deformation.",
     annotations: {
       title: "Add Armature",
       destructiveHint: true,
     },
     parameters: addArmatureParameters,
     status: STATUS_STABLE,
-  },
-  {
-    name: "remove_armature",
-    description: "Removes an armature and all its bones from the project.",
-    annotations: {
-      title: "Remove Armature",
-      destructiveHint: true,
-    },
-    parameters: removeArmatureParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "update_armature",
-    description: "Updates properties of an existing armature.",
-    annotations: {
-      title: "Update Armature",
-      destructiveHint: true,
-    },
-    parameters: updateArmatureParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "list_armature_bones",
-    description:
-      "Lists all armature bones, optionally filtered by a specific armature.",
-    annotations: {
-      title: "List Armature Bones",
-      readOnlyHint: true,
-    },
-    parameters: listArmatureBonesParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "get_armature_bone",
-    description: "Gets detailed information about a specific armature bone.",
-    annotations: {
-      title: "Get Armature Bone",
-      readOnlyHint: true,
-    },
-    parameters: getArmatureBoneParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "add_armature_bone",
-    description:
-      "Creates a new bone and adds it to an armature or parent bone.",
-    annotations: {
-      title: "Add Armature Bone",
-      destructiveHint: true,
-    },
-    parameters: addArmatureBoneParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "remove_armature_bone",
-    description: "Removes an armature bone from the project.",
-    annotations: {
-      title: "Remove Armature Bone",
-      destructiveHint: true,
-    },
-    parameters: removeArmatureBoneParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "update_armature_bone",
-    description:
-      "Updates an armature bone. Visibility is editor-session-only in Blockbench; the other supported properties are project data.",
-    annotations: {
-      title: "Update Armature Bone",
-      destructiveHint: true,
-    },
-    parameters: updateArmatureBoneParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "update_armature_bones_batch",
-    description:
-      "Updates multiple armature bones. Visibility is editor-session-only in Blockbench; locked and color are project data.",
-    annotations: {
-      title: "Update Armature Bones (Batch)",
-      destructiveHint: true,
-    },
-    parameters: updateArmatureBonesBatchParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "select_armature_bones",
-    description:
-      "Selects armature bones by ID. Can select single bone, multiple bones, or bone hierarchy.",
-    annotations: {
-      title: "Select Armature Bones",
-      destructiveHint: false,
-    },
-    parameters: selectArmatureBonesParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "get_vertex_weights",
-    description:
-      "Gets vertex weights for a mesh from all bones affecting it.",
-    annotations: {
-      title: "Get Vertex Weights",
-      readOnlyHint: true,
-    },
-    parameters: getVertexWeightsParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "set_vertex_weights_batch",
-    description: "Sets multiple vertex weights at once on a bone.",
-    annotations: {
-      title: "Set Vertex Weights (Batch)",
-      destructiveHint: true,
-    },
-    parameters: setVertexWeightsBatchParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-  {
-    name: "clear_vertex_weights",
-    description: "Clears all vertex weights from a bone for a specific mesh.",
-    annotations: {
-      title: "Clear Vertex Weights",
-      destructiveHint: true,
-    },
-    parameters: clearVertexWeightsParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-];
-
-// ============================================================================
-// Armature Tools
-// ============================================================================
-
-export function registerArmatureTools() {
-  // ---------------------------------------------------------------------------
-  // List Armatures
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[0].name, {
-    ...armatureToolDocs[0],
-    async execute() {
-      const armatures = Armature.all.map(serializeArmature);
-      return JSON.stringify(
-        {
-          count: armatures.length,
-          armatures,
-        },
-        null,
-        2
-      );
-    },
-  }, armatureToolDocs[0].status);
-
-  // ---------------------------------------------------------------------------
-  // Get Armature
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[1].name, {
-    ...armatureToolDocs[1],
-    async execute({ id, include_bones }) {
-      const armature = findArmatureOrThrow(id);
-      const result = serializeArmature(armature);
-
-      if (include_bones) {
-        const bones = armature.getAllBones().map(serializeArmatureBone);
-        return JSON.stringify({ ...result, bones }, null, 2);
-      }
-
-      return JSON.stringify(result, null, 2);
-    },
-  }, armatureToolDocs[1].status);
-
-  // ---------------------------------------------------------------------------
-  // Add Armature
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[2].name, {
-    ...armatureToolDocs[2],
     async execute({ name, visibility, locked, add_initial_bone }) {
       // Check if format supports armatures
       if (!Format.armature_rig) {
-        throw new Error(
-          "Current format does not support armatures. Switch to a format that supports armature rigs."
-        );
+        throw new Error("Current format does not support armatures. Switch to a format that supports armature rigs.");
       }
-
       Undo.initEdit({ outliner: true, elements: [] });
-
       let armature: Armature | undefined;
       try {
         armature = new Armature({
@@ -604,37 +438,36 @@ export function registerArmatureTools() {
         armature.isOpen = true;
         armature.createUniqueName();
         armature.init();
-
         if (add_initial_bone) {
           const bone = new ArmatureBone({ name: "bone" });
           bone.addTo(armature);
           bone.init();
         }
-      } catch (error) {
-        if (armature) rollbackCreatedOutlinerEdit([armature]);
-        else Undo.cancelEdit();
+      }
+      catch (error) {
+        if (armature)
+          rollbackCreatedOutlinerEdit([armature]);
+        else
+          Undo.cancelEdit();
         throw error;
       }
-
       finishCreatedOutlinerEdit("Agent added armature", [armature]);
       Canvas.updateAll();
-
-      return JSON.stringify(
-        {
-          message: `Created armature "${armature.name}"`,
-          armature: serializeArmature(armature),
-        },
-        null,
-        2
-      );
+      return JSON.stringify({
+        message: `Created armature "${armature.name}"`,
+        armature: serializeArmature(armature),
+      }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "remove_armature",
+    description: "Removes an armature and all its bones from the project.",
+    annotations: {
+      title: "Remove Armature",
+      destructiveHint: true,
     },
-  }, armatureToolDocs[2].status);
-
-  // ---------------------------------------------------------------------------
-  // Remove Armature
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[3].name, {
-    ...armatureToolDocs[3],
+    parameters: removeArmatureParameters,
+    status: STATUS_EXPERIMENTAL,
     async execute({ id }) {
       const armature = findArmatureOrThrow(id);
       const name = armature.name;
@@ -644,7 +477,7 @@ export function registerArmatureTools() {
         elements: deleted.elements,
         groups: deleted.groups,
       });
-      armature.remove(false);
+      armature.remove();
       deleted.elements.length = 0;
       deleted.groups.length = 0;
       Undo.finishEdit("Agent removed armature", {
@@ -653,122 +486,113 @@ export function registerArmatureTools() {
         groups: deleted.groups,
       });
       Canvas.updateAll();
-
       return `Removed armature "${name}"`;
+    }
+  }),
+  defineTool({
+    name: "update_armature",
+    description: "Updates properties of an existing armature.",
+    annotations: {
+      title: "Update Armature",
+      destructiveHint: true,
     },
-  }, armatureToolDocs[3].status);
-
-  // ---------------------------------------------------------------------------
-  // Update Armature
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[4].name, {
-    ...armatureToolDocs[4],
+    parameters: updateArmatureParameters,
+    status: STATUS_STABLE,
     async execute({ id, name, visibility, locked, export: shouldExport }) {
       const armature = findArmatureOrThrow(id);
-
       Undo.initEdit({ outliner: true, elements: [armature] });
-
-      if (name !== undefined) armature.name = name;
-      if (visibility !== undefined) armature.visibility = visibility;
-      if (locked !== undefined) armature.locked = locked;
-      if (shouldExport !== undefined) armature.export = shouldExport;
-
+      if (name !== undefined)
+        armature.name = name;
+      if (visibility !== undefined)
+        armature.visibility = visibility;
+      if (locked !== undefined)
+        armature.locked = locked;
+      if (shouldExport !== undefined)
+        armature.export = shouldExport;
       armature.updateElement();
       Undo.finishEdit("Agent updated armature");
       Canvas.updateAll();
-
-      return JSON.stringify(
-        {
-          message: `Updated armature "${armature.name}"`,
-          armature: serializeArmature(armature),
-        },
-        null,
-        2
-      );
+      return JSON.stringify({
+        message: `Updated armature "${armature.name}"`,
+        armature: serializeArmature(armature),
+      }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "list_armature_bones",
+    description: "Lists all armature bones, optionally filtered by a specific armature.",
+    annotations: {
+      title: "List Armature Bones",
+      readOnlyHint: true,
     },
-  }, armatureToolDocs[4].status);
-
-  // ---------------------------------------------------------------------------
-  // List Armature Bones
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[5].name, {
-    ...armatureToolDocs[5],
+    parameters: listArmatureBonesParameters,
+    status: STATUS_STABLE,
     async execute({ armature_id }) {
       let bones: ArmatureBone[];
-
       if (armature_id) {
         const armature = findArmatureOrThrow(armature_id);
         bones = armature.getAllBones();
-      } else {
+      }
+      else {
         bones = ArmatureBone.all;
       }
-
       const serialized = bones.map(serializeArmatureBone);
-      return JSON.stringify(
-        {
-          count: serialized.length,
-          bones: serialized,
-        },
-        null,
-        2
-      );
+      return JSON.stringify({
+        count: serialized.length,
+        bones: serialized,
+      }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "get_armature_bone",
+    description: "Gets detailed information about a specific armature bone.",
+    annotations: {
+      title: "Get Armature Bone",
+      readOnlyHint: true,
     },
-  }, armatureToolDocs[5].status);
-
-  // ---------------------------------------------------------------------------
-  // Get Armature Bone
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[6].name, {
-    ...armatureToolDocs[6],
+    parameters: getArmatureBoneParameters,
+    status: STATUS_STABLE,
     async execute({ id, include_weights }) {
       const bone = findArmatureBoneOrThrow(id);
       const result = serializeArmatureBone(bone);
-
       if (include_weights) {
-        return JSON.stringify(
-          { ...result, vertex_weights: bone.vertex_weights },
-          null,
-          2
-        );
+        return JSON.stringify({ ...result, vertex_weights: bone.vertex_weights }, null, 2);
       }
-
       return JSON.stringify(result, null, 2);
+    }
+  }),
+  defineTool({
+    name: "add_armature_bone",
+    description: "Creates a new bone and adds it to an armature or parent bone.",
+    annotations: {
+      title: "Add Armature Bone",
+      destructiveHint: true,
     },
-  }, armatureToolDocs[6].status);
-
-  // ---------------------------------------------------------------------------
-  // Add Armature Bone
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[7].name, {
-    ...armatureToolDocs[7],
-    async execute({
-      parent_id,
-      name,
-      origin,
-      rotation,
-      length,
-      width,
-      connected,
-      color,
-    }) {
-      const parent = resolveUniqueReference<Armature | ArmatureBone>(
-        parent_id,
-        [...Armature.all, ...ArmatureBone.all],
-        "Armature parent",
-        "list_armatures or list_armature_bones"
-      );
-
+    parameters: addArmatureBoneParameters,
+    status: STATUS_STABLE,
+    async execute({ parent_id, name, origin, rotation, length, width, connected, color, }) {
+      const parent = resolveUniqueReference<Armature | ArmatureBone>(parent_id, [...Armature.all, ...ArmatureBone.all], "Armature parent", "list_armatures or list_armature_bones");
       // Calculate default origin if not provided
-      const defaultOrigin: [number, number, number] =
-        parent instanceof ArmatureBone ? [0, parent.length ?? 8, 0] : [0, 0, 0];
-
+      const defaultOrigin: [
+        number,
+        number,
+        number
+      ] = parent instanceof ArmatureBone ? [0, parent.length ?? 8, 0] : [0, 0, 0];
       Undo.initEdit({ outliner: true, elements: [], groups: [] });
       let bone: ArmatureBone | undefined;
       try {
         bone = new ArmatureBone({
           name,
-          origin: (origin ?? defaultOrigin) as [number, number, number],
-          rotation: rotation as [number, number, number],
+          origin: (origin ?? defaultOrigin) as [
+            number,
+            number,
+            number
+          ],
+          rotation: rotation as [
+            number,
+            number,
+            number
+          ],
           length,
           width,
           connected,
@@ -776,50 +600,46 @@ export function registerArmatureTools() {
         });
         bone.addTo(parent);
         bone.isOpen = true;
-
         if (Format.bone_rig) {
           bone.createUniqueName();
         }
-
         bone.init();
-      } catch (error) {
-        if (bone) rollbackCreatedOutlinerEdit([bone]);
-        else Undo.cancelEdit();
+      }
+      catch (error) {
+        if (bone)
+          rollbackCreatedOutlinerEdit([bone]);
+        else
+          Undo.cancelEdit();
         throw error;
       }
-
       finishCreatedOutlinerEdit("Agent added armature bone", [bone]);
       Canvas.updateAll();
-
-      return JSON.stringify(
-        {
-          message: `Created bone "${bone.name}"`,
-          bone: serializeArmatureBone(bone),
-        },
-        null,
-        2
-      );
+      return JSON.stringify({
+        message: `Created bone "${bone.name}"`,
+        bone: serializeArmatureBone(bone),
+      }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "remove_armature_bone",
+    description: "Removes an armature bone from the project.",
+    annotations: {
+      title: "Remove Armature Bone",
+      destructiveHint: true,
     },
-  }, armatureToolDocs[7].status);
-
-  // ---------------------------------------------------------------------------
-  // Remove Armature Bone
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[8].name, {
-    ...armatureToolDocs[8],
+    parameters: removeArmatureBoneParameters,
+    status: STATUS_EXPERIMENTAL,
     async execute({ id, remove_children }) {
       const bone = findArmatureBoneOrThrow(id);
       const name = bone.name;
       const deleted = remove_children
         ? collectOutlinerSubtree([bone])
         : { elements: [bone] as OutlinerElement[], groups: [] as Group[] };
-
       Undo.initEdit({
         outliner: true,
         elements: deleted.elements,
         groups: deleted.groups,
       });
-
       if (!remove_children && bone.children.length > 0) {
         // Re-parent children to bone's parent
         const parent = bone.parent;
@@ -827,8 +647,7 @@ export function registerArmatureTools() {
           child.addTo(parent);
         }
       }
-
-      bone.remove(false);
+      bone.remove();
       deleted.elements.length = 0;
       deleted.groups.length = 0;
       Undo.finishEdit("Agent removed armature bone", {
@@ -837,109 +656,108 @@ export function registerArmatureTools() {
         groups: deleted.groups,
       });
       Canvas.updateAll();
-
       return `Removed bone "${name}"`;
+    }
+  }),
+  defineTool({
+    name: "update_armature_bone",
+    description: "Updates an armature bone. Visibility is editor-session-only in Blockbench; the other supported properties are project data.",
+    annotations: {
+      title: "Update Armature Bone",
+      destructiveHint: true,
     },
-  }, armatureToolDocs[8].status);
-
-  // ---------------------------------------------------------------------------
-  // Update Armature Bone
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[9].name, {
-    ...armatureToolDocs[9],
-    async execute({
-      id,
-      name,
-      origin,
-      rotation,
-      length,
-      width,
-      connected,
-      color,
-      visibility,
-      locked,
-    }) {
+    parameters: updateArmatureBoneParameters,
+    status: STATUS_STABLE,
+    async execute({ id, name, origin, rotation, length, width, connected, color, visibility, locked, }) {
       const bone = findArmatureBoneOrThrow(id);
-
       Undo.initEdit({ outliner: true, elements: [bone] });
-
-      if (name !== undefined) bone.name = name;
-      if (origin !== undefined) bone.origin.V3_set(origin as [number, number, number]);
-      if (rotation !== undefined) bone.rotation.V3_set(rotation as [number, number, number]);
-      if (length !== undefined) bone.length = length;
-      if (width !== undefined) bone.width = width;
-      if (connected !== undefined) bone.connected = connected;
-      if (color !== undefined) bone.setColor(color);
-      if (visibility !== undefined) bone.visibility = visibility;
-      if (locked !== undefined) bone.locked = locked;
-
+      if (name !== undefined)
+        bone.name = name;
+      if (origin !== undefined)
+        bone.origin.V3_set(origin as [
+          number,
+          number,
+          number
+        ]);
+      if (rotation !== undefined)
+        bone.rotation.V3_set(rotation as [
+          number,
+          number,
+          number
+        ]);
+      if (length !== undefined)
+        bone.length = length;
+      if (width !== undefined)
+        bone.width = width;
+      if (connected !== undefined)
+        bone.connected = connected;
+      if (color !== undefined)
+        bone.setColor(color);
+      if (visibility !== undefined)
+        bone.visibility = visibility;
+      if (locked !== undefined)
+        bone.locked = locked;
       bone.preview_controller.updateTransform(bone);
       bone.updateElement();
       Undo.finishEdit("Agent updated armature bone");
       Canvas.updateAll();
-
-      return JSON.stringify(
-        {
-          message: `Updated bone "${bone.name}"`,
-          bone: serializeArmatureBone(bone),
-        },
-        null,
-        2
-      );
+      return JSON.stringify({
+        message: `Updated bone "${bone.name}"`,
+        bone: serializeArmatureBone(bone),
+      }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "update_armature_bones_batch",
+    description: "Updates multiple armature bones. Visibility is editor-session-only in Blockbench; locked and color are project data.",
+    annotations: {
+      title: "Update Armature Bones (Batch)",
+      destructiveHint: true,
     },
-  }, armatureToolDocs[9].status);
-
-  // ---------------------------------------------------------------------------
-  // Update Armature Bones (Batch)
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[10].name, {
-    ...armatureToolDocs[10],
+    parameters: updateArmatureBonesBatchParameters,
+    status: STATUS_EXPERIMENTAL,
     async execute({ ids, visibility, locked, color }) {
       const bones = ids.map(findArmatureBoneOrThrow);
-
       Undo.initEdit({ outliner: true, elements: bones });
-
       for (const bone of bones) {
-        if (visibility !== undefined) bone.visibility = visibility;
-        if (locked !== undefined) bone.locked = locked;
-        if (color !== undefined) bone.setColor(color);
+        if (visibility !== undefined)
+          bone.visibility = visibility;
+        if (locked !== undefined)
+          bone.locked = locked;
+        if (color !== undefined)
+          bone.setColor(color);
         bone.updateElement();
       }
-
       Undo.finishEdit("Agent updated armature bones (batch)");
       Canvas.updateAll();
-
-      return JSON.stringify(
-        {
-          message: `Updated ${bones.length} bones`,
-          bones: bones.map(serializeArmatureBone),
-        },
-        null,
-        2
-      );
+      return JSON.stringify({
+        message: `Updated ${bones.length} bones`,
+        bones: bones.map(serializeArmatureBone),
+      }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "select_armature_bones",
+    description: "Selects armature bones by ID. Can select single bone, multiple bones, or bone hierarchy.",
+    annotations: {
+      title: "Select Armature Bones",
+      destructiveHint: false,
     },
-  }, armatureToolDocs[10].status);
-
-  // ---------------------------------------------------------------------------
-  // Select Armature Bones
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[11].name, {
-    ...armatureToolDocs[11],
+    parameters: selectArmatureBonesParameters,
+    status: STATUS_STABLE,
     async execute({ ids, armature_id, include_descendants, clear_selection }) {
       if (clear_selection) {
         unselectAllElements();
       }
-
       let selectedBones: ArmatureBone[] = [];
-
       if (armature_id) {
         const armature = findArmatureOrThrow(armature_id);
         selectedBones = armature.getAllBones();
-      } else if (ids && ids.length > 0) {
+      }
+      else if (ids && ids.length > 0) {
         for (const id of ids) {
           const bone = findArmatureBoneOrThrow(id);
           selectedBones.push(bone);
-
           if (include_descendants) {
             bone.forEachChild((child) => {
               if (child instanceof ArmatureBone) {
@@ -949,43 +767,38 @@ export function registerArmatureTools() {
           }
         }
       }
-
       for (const bone of selectedBones) {
         bone.select();
       }
-
       updateSelection();
-
-      return JSON.stringify(
-        {
-          message: `Selected ${selectedBones.length} bone(s)`,
-          bones: selectedBones.map((b) => ({ uuid: b.uuid, name: b.name })),
-        },
-        null,
-        2
-      );
+      return JSON.stringify({
+        message: `Selected ${selectedBones.length} bone(s)`,
+        bones: selectedBones.map((b) => ({ uuid: b.uuid, name: b.name })),
+      }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "get_vertex_weights",
+    description: "Gets vertex weights for a mesh from all bones affecting it.",
+    annotations: {
+      title: "Get Vertex Weights",
+      readOnlyHint: true,
     },
-  }, armatureToolDocs[11].status);
-
-  // ---------------------------------------------------------------------------
-  // Get Vertex Weights
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[12].name, {
-    ...armatureToolDocs[12],
+    parameters: getVertexWeightsParameters,
+    status: STATUS_STABLE,
     async execute({ mesh_id, bone_id }) {
       const mesh = resolveWeightMesh(mesh_id);
-      const armature = (mesh as Mesh & { getArmature?: () => Armature | undefined }).getArmature?.();
+      const armature = (mesh as Mesh & {
+        getArmature?: () => Armature | undefined;
+      }).getArmature?.();
       if (!armature) {
         throw new Error(`Mesh "${mesh.name}" is not associated with an armature.`);
       }
-
       const bones = bone_id ? [findArmatureBoneOrThrow(bone_id)] : armature.getAllBones();
       if (bone_id) {
         assertMatchingArmature(mesh.name, bones[0].name, armature, bones[0].getArmature());
       }
-
       const weights: Record<string, Record<string, number>> = {};
-
       for (const bone of bones) {
         const boneWeights: Record<string, number> = {};
         for (const vkey in mesh.vertices) {
@@ -998,94 +811,74 @@ export function registerArmatureTools() {
           weights[bone.name] = boneWeights;
         }
       }
-
-      return JSON.stringify(
-        {
-          mesh: { uuid: mesh.uuid, name: mesh.name },
-          armature: { uuid: armature.uuid, name: armature.name },
-          weights,
-        },
-        null,
-        2
-      );
+      return JSON.stringify({
+        mesh: { uuid: mesh.uuid, name: mesh.name },
+        armature: { uuid: armature.uuid, name: armature.name },
+        weights,
+      }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "set_vertex_weights_batch",
+    description: "Sets multiple vertex weights at once on a bone.",
+    annotations: {
+      title: "Set Vertex Weights (Batch)",
+      destructiveHint: true,
     },
-  }, armatureToolDocs[12].status);
-
-  // ---------------------------------------------------------------------------
-  // Set Vertex Weights (Batch)
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[13].name, {
-    ...armatureToolDocs[13],
     parameters: setVertexWeightsBatchParameters,
+    status: STATUS_EXPERIMENTAL,
     async execute({ bone_id, mesh_id, weights }) {
       const { mesh, bone } = resolveWeightTarget(mesh_id, bone_id);
       const entries = Object.entries(weights);
       assertMeshWeightVertexKeys(mesh.name, mesh.vertices, entries.map(([key]) => key));
-
       Undo.initEdit({ elements: [bone] });
-
       for (const [vertex_key, weight] of entries) {
         bone.setVertexWeight(mesh, vertex_key, weight);
       }
-
       Undo.finishEdit("Agent set vertex weights (batch)");
-
       Canvas.updateView({
         elements: [mesh],
         element_aspects: { geometry: true },
       });
-
-      return JSON.stringify(
-        {
-          message: `Set ${entries.length} vertex weights on bone "${bone.name}"`,
-          bone: { uuid: bone.uuid, name: bone.name },
-          mesh: { uuid: mesh.uuid, name: mesh.name },
-          weightsSet: entries.length,
-        },
-        null,
-        2
-      );
+      return JSON.stringify({
+        message: `Set ${entries.length} vertex weights on bone "${bone.name}"`,
+        bone: { uuid: bone.uuid, name: bone.name },
+        mesh: { uuid: mesh.uuid, name: mesh.name },
+        weightsSet: entries.length,
+      }, null, 2);
+    }
+  }),
+  defineTool({
+    name: "clear_vertex_weights",
+    description: "Clears all vertex weights from a bone for a specific mesh.",
+    annotations: {
+      title: "Clear Vertex Weights",
+      destructiveHint: true,
     },
-  }, armatureToolDocs[13].status);
-
-  // ---------------------------------------------------------------------------
-  // Clear Vertex Weights
-  // ---------------------------------------------------------------------------
-  createInternalTool(armatureToolDocs[14].name, {
-    ...armatureToolDocs[14],
+    parameters: clearVertexWeightsParameters,
+    status: STATUS_EXPERIMENTAL,
     async execute({ bone_id, mesh_id }) {
       const { mesh, bone } = resolveWeightTarget(mesh_id, bone_id);
-
       Undo.initEdit({ elements: [bone] });
-
       let count = 0;
       const meshPrefix = mesh.uuid.substring(0, 6) + ":";
-
       for (const key in bone.vertex_weights) {
         if (key.startsWith(meshPrefix)) {
           delete bone.vertex_weights[key];
           count++;
         }
       }
-
       Undo.finishEdit("Agent cleared vertex weights");
-
       Canvas.updateView({
         elements: [mesh],
         element_aspects: { geometry: true },
       });
-
-      return JSON.stringify(
-        {
-          message: `Cleared ${count} vertex weights from bone "${bone.name}" for mesh "${mesh.name}"`,
-          bone: { uuid: bone.uuid, name: bone.name },
-          mesh: { uuid: mesh.uuid, name: mesh.name },
-          weightsCleared: count,
-        },
-        null,
-        2
-      );
-    },
-  }, armatureToolDocs[14].status);
-
-}
+      return JSON.stringify({
+        message: `Cleared ${count} vertex weights from bone "${bone.name}" for mesh "${mesh.name}"`,
+        bone: { uuid: bone.uuid, name: bone.name },
+        mesh: { uuid: mesh.uuid, name: mesh.name },
+        weightsCleared: count,
+      }, null, 2);
+    }
+  })
+];

@@ -1,4 +1,3 @@
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { z } from "zod";
 import { toolManifest, promptDocs, resourceDocs } from "./docs-manifest";
 import type { ToolSpec, PromptSpec, ResourceSpec } from "../lib/factories";
@@ -52,16 +51,9 @@ interface DocOutput {
 
 function convertSchema(name: string, schema: z.ZodType): object {
   try {
-    // @ts-ignore Deep type instantiation
-    return zodToJsonSchema(schema, {
-      name,
-      $refStrategy: "none",
-      errorMessages: true,
-      markdownDescription: true,
-    });
+    return z.toJSONSchema(schema, { target: "draft-7", io: "input" });
   } catch (err) {
-    console.warn(`Warning: Failed to convert schema for "${name}":`, err);
-    return { type: "object", description: "Schema conversion failed" };
+    throw new Error(`Failed to convert schema for "${name}".`, { cause: err });
   }
 }
 
@@ -213,9 +205,6 @@ function renderParametersTable(params: Record<string, unknown>): string {
 
 function renderToolCard(tool: ToolDocEntry): string {
   const schema = tool.parameters as Record<string, unknown>;
-  const innerSchema =
-    ((schema.definitions as Record<string, unknown> | undefined)?.[tool.name] as Record<string, unknown>) ??
-    schema;
 
   return `<div id="tool-${tool.name}" class="card tool-card">
       <div class="card-header">
@@ -228,17 +217,14 @@ function renderToolCard(tool: ToolDocEntry): string {
       ${tool.title !== tool.name ? `<p class="card-title">${escapeHtml(tool.title)}</p>` : ""}
       <p class="card-desc">${escapeHtml(tool.description)}</p>
       <div class="overflow-x">
-        ${renderParametersTable(innerSchema)}
+        ${renderParametersTable(schema)}
       </div>
     </div>`;
 }
 
 function renderPromptCard(prompt: PromptDocEntry): string {
   const argsHtml = prompt.arguments
-    ? renderParametersTable(
-        ((prompt.arguments as Record<string, unknown>).definitions as Record<string, Record<string, unknown>> | undefined)?.[prompt.name] ??
-        prompt.arguments as Record<string, unknown>
-      )
+    ? renderParametersTable(prompt.arguments as Record<string, unknown>)
     : '<p class="empty-params">No arguments</p>';
 
   return `<div class="card">

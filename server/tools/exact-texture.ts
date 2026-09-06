@@ -1,7 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import { defineTool, type ToolDefinition } from "@/lib/factories";
 import { STATUS_STABLE } from "@/lib/constants";
 import { getAndActivateTexture, imageContent } from "@/lib/util";
 import { editTextureWithUndo } from "@/lib/textureSafety";
@@ -26,79 +26,58 @@ export const applyTexturePixelsParameters = z.object({
     .describe("Exact canvas pixels in top-left-origin texture coordinates."),
 });
 
-export const exactTextureToolDocs: ToolSpec[] = [
-  {
+export const exactTextureTools: ToolDefinition[] = [
+  defineTool({
     name: "edit_texture_pixels",
-    description:
-      "Applies exact RGBA values to texture pixels inside Blockbench so the user can see the change immediately and undo it normally.",
+    description: "Applies exact RGBA values to texture pixels inside Blockbench so the user can see the change immediately and undo it normally.",
     annotations: {
       title: "Edit Exact Texture Pixels",
       destructiveHint: true,
     },
     parameters: applyTexturePixelsParameters,
     status: STATUS_STABLE,
-  },
-];
-
-type ApplyTexturePixelsArgs = z.infer<typeof applyTexturePixelsParameters>;
-
-export function registerExactTextureTools() {
-  createTool(exactTextureToolDocs[0].name, {
-    ...exactTextureToolDocs[0],
     async execute({ texture_id, pixels }: ApplyTexturePixelsArgs, context) {
       const texture = getAndActivateTexture(texture_id);
-      const invalid = pixels.find(
-        ({ x, y }) => x >= texture.width || y >= texture.height
-      );
+      const invalid = pixels.find(({ x, y }) => x >= texture.width || y >= texture.height);
       if (invalid) {
-        throw new Error(
-          `Pixel (${invalid.x}, ${invalid.y}) is outside texture "${texture.name}" ` +
-            `(${texture.width}×${texture.height}).`
-        );
+        throw new Error(`Pixel (${invalid.x}, ${invalid.y}) is outside texture "${texture.name}" ` +
+          `(${texture.width}×${texture.height}).`);
       }
-
-      editTextureWithUndo(
-        context.project!,
-        texture,
-        "MCP applied exact texture pixels",
-        (canvas: HTMLCanvasElement) => {
-          const ctx = canvas.getContext("2d", { willReadFrequently: true });
-          if (!ctx) throw new Error("Texture canvas has no 2D context.");
-          const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          for (const { x, y, rgba } of pixels) {
-            const offset = (y * canvas.width + x) * 4;
-            image.data[offset] = rgba[0];
-            image.data[offset + 1] = rgba[1];
-            image.data[offset + 2] = rgba[2];
-            image.data[offset + 3] = rgba[3];
-          }
-          ctx.putImageData(image, 0, 0);
-        },
-        true
-      );
+      editTextureWithUndo(context.project!, texture, "MCP applied exact texture pixels", (canvas: HTMLCanvasElement) => {
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx)
+          throw new Error("Texture canvas has no 2D context.");
+        const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        for (const { x, y, rgba } of pixels) {
+          const offset = (y * canvas.width + x) * 4;
+          image.data[offset] = rgba[0];
+          image.data[offset + 1] = rgba[1];
+          image.data[offset + 2] = rgba[2];
+          image.data[offset + 3] = rgba[3];
+        }
+        ctx.putImageData(image, 0, 0);
+      }, true);
       texture.saved = false;
-      if (Project) Project.saved = false;
+      if (Project)
+        Project.saved = false;
       Canvas.updateAll();
-
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(
-              {
-                texture: texture.name,
-                uuid: texture.uuid,
-                width: texture.width,
-                height: texture.height,
-                changed_pixels: pixels.length,
-              },
-              null,
-              2
-            ),
+            text: JSON.stringify({
+              texture: texture.name,
+              uuid: texture.uuid,
+              width: texture.width,
+              height: texture.height,
+              changed_pixels: pixels.length,
+            }, null, 2),
           },
           ...imageContent(texture.getDataURL()).content,
         ],
       };
-    },
-  }, exactTextureToolDocs[0].status);
-}
+    }
+  })
+];
+
+type ApplyTexturePixelsArgs = z.infer<typeof applyTexturePixelsParameters>;

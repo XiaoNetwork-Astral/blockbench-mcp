@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { z } from "zod";
 import {
   ALL_TOOL_SPECS,
   CORE_TOOL_SPECS,
@@ -34,7 +34,7 @@ const replacementNames = [
 ];
 
 describe("v2 direct tool contract", () => {
-  test("contains 144 unique direct operations", () => {
+  test("contains unique direct operations with core and optional coverage", () => {
     const names = ALL_TOOL_SPECS.map(({ name }) => name);
     expect(CORE_TOOL_SPECS).toHaveLength(118);
     expect(YSM_TOOL_SPECS).toHaveLength(14);
@@ -52,7 +52,7 @@ describe("v2 direct tool contract", () => {
 
   test("emits client-compatible array schemas", () => {
     const incompatible = ALL_TOOL_SPECS.flatMap((tool) => {
-      const schema = zodToJsonSchema(tool.parameters, { $refStrategy: "root" });
+      const schema = z.toJSONSchema(tool.parameters, { target: "draft-7", io: "input" });
       return containsTupleStyleItems(schema) ? [tool.name] : [];
     });
     expect(incompatible).toEqual([]);
@@ -79,7 +79,7 @@ describe("v2 direct tool contract", () => {
 
   test("schemas accept direct inputs without command.action wrappers", () => {
     const wrapped = ALL_TOOL_SPECS.flatMap((tool) => {
-      const schema = zodToJsonSchema(tool.parameters, { $refStrategy: "root" }) as {
+      const schema = z.toJSONSchema(tool.parameters, { target: "draft-7", io: "input" }) as {
         properties?: Record<string, unknown>;
       };
       return schema.properties?.command ? [tool.name] : [];
@@ -91,7 +91,7 @@ describe("v2 direct tool contract", () => {
     const properties = (name: string): Record<string, unknown> => {
       const tool = ALL_TOOL_SPECS.find((candidate) => candidate.name === name);
       expect(tool).toBeDefined();
-      const schema = zodToJsonSchema(tool!.parameters, { $refStrategy: "root" }) as {
+      const schema = z.toJSONSchema(tool!.parameters, { target: "draft-7", io: "input" }) as {
         properties?: Record<string, unknown>;
       };
       return schema.properties ?? {};

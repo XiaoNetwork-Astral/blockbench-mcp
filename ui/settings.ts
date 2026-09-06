@@ -270,7 +270,7 @@ function removeSettingsCategory(): void {
   }
 }
 
-function addSetting(id: string, options: SettingOptions): Setting {
+function addSetting(id: string, options: ConstructorParameters<typeof Setting>[1]): Setting {
   const setting = new Setting(id, {
     ...options,
     category: CATEGORY_ID,

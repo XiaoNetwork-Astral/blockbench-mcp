@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-  findByExactUuid,
   findByResourceId,
   makeResourceId,
 } from "@/lib/resourceUri";
@@ -32,12 +31,4 @@ describe("MCP resource identity", () => {
     );
   });
 
-  test("project scopes require an exact UUID and never accept a project name", () => {
-    const projects = [
-      { uuid: "project-a", name: "working" },
-      { uuid: "project-b", name: "working" },
-    ];
-    expect(findByExactUuid(projects, "project-b", "Project")).toBe(projects[1]);
-    expect(() => findByExactUuid(projects, "working", "Project")).toThrow(/not found/i);
-  });
 });

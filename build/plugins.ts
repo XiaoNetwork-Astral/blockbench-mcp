@@ -84,7 +84,7 @@ export const textFileLoaderPlugin: BunPlugin = {
 
 /**
  * Bun plugin to replace restricted Node modules with Blockbench-compatible versions
- * Uses requireNativeModule() to avoid permission prompts in Blockbench v5.0+
+ * Uses Blockbench's supported native-module permission API.
  */
 export const blockbenchCompatPlugin: BunPlugin = {
   name: "blockbench-compat",
@@ -100,137 +100,13 @@ export const blockbenchCompatPlugin: BunPlugin = {
       };
     });
 
-    build.onResolve({ filter: /^process$/ }, (args) => {
-      return { path: args.path, namespace: "blockbench-compat" };
-    });
-
-    build.onLoad({ filter: /^process$/, namespace: "blockbench-compat" }, () => {
+    const nativeImports = /^(?:node:)?(?:fs(?:\/promises)?|path|process)$/;
+    build.onResolve({ filter: nativeImports }, ({ path }) => ({ path, namespace: "blockbench-compat" }));
+    build.onLoad({ filter: nativeImports, namespace: "blockbench-compat" }, ({ path }) => {
+      const id = path.replace(/^node:/, "");
+      const name = JSON.stringify(id === "fs/promises" ? "fs" : id);
       return {
-        contents: `module.exports = typeof requireNativeModule !== 'undefined' ? requireNativeModule('process') : require('process');`,
-        loader: "js",
-      };
-    });
-
-    // Handle 'fs' imports
-    build.onResolve({ filter: /^fs$/ }, (args) => {
-      return { path: args.path, namespace: "blockbench-compat" };
-    });
-
-    build.onLoad({ filter: /^fs$/, namespace: "blockbench-compat" }, () => {
-      return {
-        contents: `module.exports = typeof requireNativeModule !== 'undefined' ? requireNativeModule('fs') : require('fs');`,
-        loader: "js",
-      };
-    });
-
-    // Handle 'fs/promises' imports
-    build.onResolve({ filter: /^fs\/promises$/ }, (args) => {
-      return { path: args.path, namespace: "blockbench-compat" };
-    });
-
-    build.onLoad({ filter: /^fs\/promises$/, namespace: "blockbench-compat" }, () => {
-      return {
-        contents: `const fs = typeof requireNativeModule !== 'undefined' ? requireNativeModule('fs') : require('fs'); module.exports = fs.promises;`,
-        loader: "js",
-      };
-    });
-
-    // Handle 'path' imports
-    build.onResolve({ filter: /^path$/ }, (args) => {
-      return { path: args.path, namespace: "blockbench-compat" };
-    });
-
-    build.onLoad({ filter: /^path$/, namespace: "blockbench-compat" }, () => {
-      return {
-        contents: `module.exports = typeof requireNativeModule !== 'undefined' ? requireNativeModule('path') : require('path');`,
-        loader: "js",
-      };
-    });
-
-    // Handle '@hono/node-server' - provide a minimal shim
-    // The MCP SDK uses getRequestListener to convert Node.js HTTP to Web Standard
-    build.onResolve({ filter: /^@hono\/node-server$/ }, (args) => {
-      return { path: args.path, namespace: "blockbench-compat" };
-    });
-
-    build.onLoad({ filter: /^@hono\/node-server$/, namespace: "blockbench-compat" }, () => {
-      return {
-        contents: `
-// Minimal @hono/node-server shim for Blockbench
-// Converts Node.js HTTP IncomingMessage/ServerResponse to Web Standard Request/Response
-
-function getRequestListener(handler) {
-  return async function(req, res) {
-    try {
-      // Build URL from request
-      const protocol = req.socket?.encrypted ? 'https' : 'http';
-      const host = req.headers.host || 'localhost';
-      const url = new URL(req.url || '/', protocol + '://' + host);
-
-      // Convert headers
-      const headers = new Headers();
-      for (const [key, value] of Object.entries(req.headers)) {
-        if (value) {
-          if (Array.isArray(value)) {
-            value.forEach(v => headers.append(key, v));
-          } else {
-            headers.set(key, value);
-          }
-        }
-      }
-
-      // Build request init
-      const init = { method: req.method, headers };
-
-      // Add body for non-GET/HEAD requests
-      if (req.method !== 'GET' && req.method !== 'HEAD') {
-        // If body was already parsed, use it
-        if (req.body !== undefined) {
-          init.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-        }
-      }
-
-      // Create Web Standard Request
-      const webRequest = new Request(url.toString(), init);
-
-      // Call handler and get Web Standard Response
-      const webResponse = await handler(webRequest);
-
-      // Convert Web Standard Response back to Node.js response
-      res.statusCode = webResponse.status;
-      webResponse.headers.forEach((value, key) => {
-        res.setHeader(key, value);
-      });
-
-      // Send body
-      if (webResponse.body) {
-        const reader = webResponse.body.getReader();
-        const pump = async () => {
-          const { done, value } = await reader.read();
-          if (done) {
-            res.end();
-            return;
-          }
-          res.write(value);
-          await pump();
-        };
-        await pump();
-      } else {
-        const text = await webResponse.text();
-        res.end(text);
-      }
-    } catch (error) {
-      console.error('[MCP] Request handler error:', error);
-      if (!res.headersSent) {
-        res.statusCode = 500;
-        res.end(JSON.stringify({ error: String(error) }));
-      }
-    }
-  };
-}
-
-export { getRequestListener };
-        `,
+        contents: "const native = typeof requireNativeModule !== 'undefined' ? requireNativeModule(" + name + ") : require(" + name + "); module.exports = native" + (id === "fs/promises" ? ".promises" : "") + ";",
         loader: "js",
       };
     });

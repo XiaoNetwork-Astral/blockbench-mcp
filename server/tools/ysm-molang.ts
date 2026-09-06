@@ -1,7 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createInternalTool, type ToolSpec } from "@/lib/factories";
+import { defineTool, type ToolDefinition } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL } from "@/lib/constants";
 import { discoverYsmDocuments, inventoryYsmMolangExpressions } from "@/lib/ysmMolangDocuments";
 import { editYsmMolangExpressions } from "@/lib/ysmMolangEditing";
@@ -42,7 +42,7 @@ const molangValueSchema: z.ZodType<MolangValue> = z.lazy(() =>
     z.string(),
     z.null(),
     z.array(molangValueSchema),
-    z.record(molangValueSchema),
+    z.record(z.string(), molangValueSchema),
   ])
 );
 
@@ -66,14 +66,14 @@ const physicsStateSchema = z.discriminatedUnion("kind", [
 ]);
 
 const evaluatorStateSchema = z.object({
-  variables: z.record(molangValueSchema),
-  temp: z.record(molangValueSchema),
-  physics: z.record(physicsStateSchema),
+  variables: z.record(z.string(), molangValueSchema),
+  temp: z.record(z.string(), molangValueSchema),
+  physics: z.record(z.string(), physicsStateSchema),
   random_state: z.number().int().min(0).max(0xffffffff),
 }).strict();
 
 const bindingsSchema = z
-  .record(molangValueSchema)
+  .record(z.string(), molangValueSchema)
   .optional()
   .default({})
   .describe(
@@ -131,7 +131,7 @@ export const ysmValidateMolangParameters = z.object({
   expression_id: z.string().length(64).optional(),
   dialect: dialectSchema,
   bindings: bindingsSchema,
-  function_results: z.record(molangValueSchema).optional().default({}),
+  function_results: z.record(z.string(), molangValueSchema).optional().default({}),
 }).strict().refine(
   ({ expression, expression_id }) => Boolean(expression) !== Boolean(expression_id),
   { message: "Provide exactly one of expression or expression_id." }
@@ -140,7 +140,7 @@ export const ysmValidateMolangParameters = z.object({
 const simulationStepSchema = z.object({
   delta_seconds: z.number().finite().min(0).max(60),
   bindings: z
-    .record(molangValueSchema)
+    .record(z.string(), molangValueSchema)
     .optional()
     .describe(
       "Per-step bindings as nested objects or flat dotted paths. A flat dotted entry overrides the equivalent nested value."
@@ -152,11 +152,11 @@ export const ysmSimulateMolangParameters = z.object({
   dialect: dialectSchema,
   seed: z.number().int().min(0).max(0xffffffff).optional().default(0x6d2b79f5),
   bindings: bindingsSchema,
-  variables: z.record(molangValueSchema).optional().default({}),
-  temp: z.record(molangValueSchema).optional().default({}),
-  context: z.record(molangValueSchema).optional().default({}),
-  function_results: z.record(molangValueSchema).optional().default({}),
-  user_functions: z.record(z.string().max(262_144)).optional().default({}),
+  variables: z.record(z.string(), molangValueSchema).optional().default({}),
+  temp: z.record(z.string(), molangValueSchema).optional().default({}),
+  context: z.record(z.string(), molangValueSchema).optional().default({}),
+  function_results: z.record(z.string(), molangValueSchema).optional().default({}),
+  user_functions: z.record(z.string(), z.string().max(262_144)).optional().default({}),
   initial_state: evaluatorStateSchema.optional(),
   steps: z.array(simulationStepSchema).min(1).max(4096),
 }).strict();
@@ -202,82 +202,230 @@ const ysmMolangEditParameters = z.object({
 export const previewYsmMolangEditsParameters = ysmMolangEditParameters;
 export const editYsmMolangParameters = ysmMolangEditParameters;
 
-export const ysmMolangReadToolDocs: ToolSpec[] = [
-  {
+export const ysmMolangReadTools: ToolDefinition[] = [
+  defineTool({
     name: "ysm_discover_documents",
     description: "Discovers the manifest and referenced Molang-bearing YSM sidecars without rewriting them.",
     project: "none",
     annotations: { title: "Discover YSM Documents", readOnlyHint: true, openWorldHint: true },
     parameters: ysmDiscoverDocumentsParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-  {
+    async execute({ manifest }) {
+      return json(discoverYsmDocuments(manifest));
+    }
+  }),
+  defineTool({
     name: "ysm_list_molang_expressions",
     description: "Inventories exact Molang locations, owners, source ranges, and hashes in a YSM package.",
     project: "none",
     annotations: { title: "List YSM Molang Expressions", readOnlyHint: true, openWorldHint: true },
     parameters: ysmListMolangExpressionsParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-  {
+    async execute({ manifest, file, document_kind, expression_kind, bone, cursor, limit }) {
+      const inventory = inventoryYsmMolangExpressions(manifest);
+      const expressions = inventory.expressions.filter((item) => (!file || item.file === file)
+        && (!document_kind || item.document_kind === document_kind)
+        && (!expression_kind || item.expression_kind === expression_kind)
+        && (!bone || item.owner.bone === bone));
+      return json({
+        schema_version: "1",
+        manifest: inventory.discovery.manifest,
+        diagnostics: inventory.diagnostics,
+        ...page(expressions, cursor, limit),
+      });
+    }
+  }),
+  defineTool({
     name: "ysm_get_molang_catalog",
     description: "Queries the source-derived OpenYSM Molang symbol catalog and its audited provenance.",
     project: "none",
     annotations: { title: "Get YSM Molang Catalog", readOnlyHint: true },
     parameters: ysmGetMolangCatalogParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-  {
+    async execute({ dialect, namespace, name, kind, runtime_availability, include_source_files, source_cursor, source_limit, cursor, limit, }) {
+      const loweredName = name?.toLocaleLowerCase();
+      const entries = listMolangCatalog(dialect, namespace?.toLocaleLowerCase()).filter((entry) => (!loweredName || entry.name === loweredName)
+        && (!kind || entry.kind === kind)
+        && (runtime_availability === "all"
+          || (runtime_availability === "runtime_only" ? entry.runtime_only : !entry.runtime_only)));
+      return json({
+        schema_version: "1",
+        dialect,
+        provenance: getMolangCatalogProvenance(dialect),
+        source_files: include_source_files
+          ? page(getMolangCatalogSourceFiles(dialect), source_cursor, source_limit)
+          : undefined,
+        ...page(entries, cursor, limit),
+      });
+    }
+  }),
+  defineTool({
     name: "ysm_parse_molang",
     description: "Tokenizes and parses the audited YSM Molang grammar with source ranges and diagnostics.",
     project: "none",
     annotations: { title: "Parse YSM Molang", readOnlyHint: true },
     parameters: ysmParseMolangParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-  {
+    async execute({ expression, dialect, include_tokens }) {
+      const parsed = parseMolang(expression);
+      return json({
+        schema_version: "1",
+        dialect,
+        source: expression,
+        ast: parsed.ast,
+        tokens: include_tokens ? parsed.tokens : undefined,
+        diagnostics: validateMolangSemantics(parsed, dialect),
+      });
+    }
+  }),
+  defineTool({
     name: "ysm_validate_molang",
     description: "Validates syntax, source-backed symbols and arity, runtime availability, and inventoried bone ownership.",
     project: "optional",
     annotations: { title: "Validate YSM Molang", readOnlyHint: true, openWorldHint: true },
     parameters: ysmValidateMolangParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-  {
+    async execute({ expression, expression_id, manifest, dialect, bindings, function_results }, context) {
+      const resolved = resolveValidationExpression(expression, expression_id, manifest);
+      const parsed = parseMolang(resolved.source);
+      const diagnostics = validateMolangSemantics(parsed, dialect, {
+        report_runtime_availability: true,
+        available_binding_paths: suppliedBindingPaths(bindings),
+        available_function_results: Object.keys(function_results),
+      });
+      diagnostics.push(...projectBoneDiagnostics(context.project, resolved.inventoried?.owner.bone ?? null));
+      return json({
+        schema_version: "1",
+        dialect,
+        valid: !diagnostics.some((item) => item.severity === "error"),
+        source: resolved.source,
+        inventory: resolved.inventoried,
+        supplied_binding_roots: Object.keys(bindings).sort(),
+        supplied_function_results: Object.keys(function_results).sort(),
+        diagnostics,
+      });
+    }
+  }),
+  defineTool({
     name: "ysm_simulate_molang",
     description: "Evaluates a deterministic sequence with explicit bindings, timestep, and serializable state.",
     project: "none",
     annotations: { title: "Simulate YSM Molang", readOnlyHint: true },
     parameters: ysmSimulateMolangParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-  {
+    async execute(input) {
+      return json(simulate(input as SimulationInput));
+    }
+  }),
+  defineTool({
     name: "ysm_preview_molang",
     description: "Produces a bounded clone-safe Molang sample trace; it never changes saved model or visible editor state.",
     project: "optional",
     annotations: { title: "Preview YSM Molang", readOnlyHint: true },
     parameters: ysmPreviewMolangParameters,
     status: STATUS_EXPERIMENTAL,
-  },
+    async execute(input, context) {
+      const result = simulate(input as SimulationInput);
+      const stride = input.sample_stride;
+      const preview = {
+        ...result,
+        samples: result.samples.filter((_, index) => index % stride === 0 || index === result.samples.length - 1),
+        preview_scope: {
+          clone_only: true,
+          visible_editor_state_changed: false,
+          saved_model_changed: false,
+          visual_pose: input.pose_mapping ? "requested" : null,
+          limitation: input.pose_mapping
+            ? null
+            : "No pose_mapping was supplied, so this preview contains only the deterministic sampled trace.",
+        },
+      };
+      if (!input.pose_mapping)
+        return json(preview);
+      const project = context.project;
+      if (!project)
+        throw new Error("Visual Molang pose mapping requires a visible project.");
+      const matches = project.groups.filter((group) => group.uuid === input.pose_mapping!.bone || group.name === input.pose_mapping!.bone);
+      if (matches.length !== 1) {
+        throw new Error(matches.length === 0
+          ? `Visual preview bone '${input.pose_mapping.bone}' was not found.`
+          : `Visual preview bone '${input.pose_mapping.bone}' is ambiguous; use an exact UUID.`);
+      }
+      const sampleIndex = input.pose_mapping.sample_index ?? result.samples.length - 1;
+      const sample = result.samples[sampleIndex];
+      if (!sample)
+        throw new Error(`pose_mapping.sample_index ${sampleIndex} is outside the simulated sequence.`);
+      if (typeof sample.value !== "number" || !Number.isFinite(sample.value)) {
+        throw new Error("The selected Molang sample is not a finite number and cannot drive a bone component.");
+      }
+      const camera = getEffectiveCameraState(project, [input.width, input.height]);
+      const capture = await captureOffscreenValidationPass(project, camera, input.width, input.height, {
+        pass: "color",
+        cloneTransforms: [{
+          nodeId: matches[0].uuid,
+          channel: input.pose_mapping.channel,
+          axis: input.pose_mapping.axis,
+          value: sample.value,
+          mode: input.pose_mapping.mode,
+        }],
+      });
+      const structured = {
+        ...preview,
+        project: { uuid: project.uuid, name: project.name },
+        camera,
+        pose_mapping: {
+          ...input.pose_mapping,
+          bone_uuid: matches[0].uuid,
+          bone_name: matches[0].name,
+          sampled_value: sample.value,
+        },
+        preview_scope: {
+          ...preview.preview_scope,
+          visual_pose: "rendered_clone",
+        },
+      };
+      return {
+        content: [
+          { type: "text" as const, text: json(structured) },
+          ...imageContent(capture.data_url, "image/png").content,
+        ],
+        structuredContent: structured,
+      };
+    }
+  })
 ];
 
-export const ysmMolangEditToolDocs: ToolSpec[] = [
-  {
+export const ysmMolangEditTools: ToolDefinition[] = [
+  defineTool({
     name: "preview_ysm_molang_edits",
     description: "Previews targeted Molang JSONC edits without writing the file.",
     project: "none",
     annotations: { title: "Preview YSM Molang Edits", readOnlyHint: true, openWorldHint: true },
     parameters: previewYsmMolangEditsParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-  {
+    async execute(input) {
+      const result = editYsmMolangExpressions({ ...input, dry_run: true });
+      return json({
+        ...result,
+        refreshed_bindings: [],
+      });
+    }
+  }),
+  defineTool({
     name: "edit_ysm_molang",
     description: "Atomically applies targeted Molang JSONC edits after a successful preview.",
     project: "none",
     annotations: { title: "Edit YSM Molang", destructiveHint: true, openWorldHint: true },
     parameters: editYsmMolangParameters,
     status: STATUS_EXPERIMENTAL,
-  },
+    async execute(input) {
+      const result = editYsmMolangExpressions({ ...input, dry_run: false });
+      return json({
+        ...result,
+        refreshed_bindings: refreshBindingsAfterMolangEdit(input.manifest),
+      });
+    }
+  })
 ];
 
 function cursorOffset(cursor: string | undefined): number {
@@ -442,210 +590,4 @@ function refreshBindingsAfterMolangEdit(manifest: string): Array<{ project_uuid:
     refreshed.push({ project_uuid: project.uuid, project_name: project.name });
   }
   return refreshed;
-}
-
-export function registerYsmMolangOperations(): void {
-  createInternalTool(ysmMolangReadToolDocs[0].name, {
-    ...ysmMolangReadToolDocs[0],
-    async execute({ manifest }) {
-      return json(discoverYsmDocuments(manifest));
-    },
-  }, ysmMolangReadToolDocs[0].status);
-
-  createInternalTool(ysmMolangReadToolDocs[1].name, {
-    ...ysmMolangReadToolDocs[1],
-    async execute({ manifest, file, document_kind, expression_kind, bone, cursor, limit }) {
-      const inventory = inventoryYsmMolangExpressions(manifest);
-      const expressions = inventory.expressions.filter((item) =>
-        (!file || item.file === file)
-        && (!document_kind || item.document_kind === document_kind)
-        && (!expression_kind || item.expression_kind === expression_kind)
-        && (!bone || item.owner.bone === bone)
-      );
-      return json({
-        schema_version: "1",
-        manifest: inventory.discovery.manifest,
-        diagnostics: inventory.diagnostics,
-        ...page(expressions, cursor, limit),
-      });
-    },
-  }, ysmMolangReadToolDocs[1].status);
-
-  createInternalTool(ysmMolangReadToolDocs[2].name, {
-    ...ysmMolangReadToolDocs[2],
-    async execute({
-      dialect,
-      namespace,
-      name,
-      kind,
-      runtime_availability,
-      include_source_files,
-      source_cursor,
-      source_limit,
-      cursor,
-      limit,
-    }) {
-      const loweredName = name?.toLocaleLowerCase();
-      const entries = listMolangCatalog(dialect, namespace?.toLocaleLowerCase()).filter((entry) =>
-        (!loweredName || entry.name === loweredName)
-        && (!kind || entry.kind === kind)
-        && (runtime_availability === "all"
-          || (runtime_availability === "runtime_only" ? entry.runtime_only : !entry.runtime_only))
-      );
-      return json({
-        schema_version: "1",
-        dialect,
-        provenance: getMolangCatalogProvenance(dialect),
-        source_files: include_source_files
-          ? page(getMolangCatalogSourceFiles(dialect), source_cursor, source_limit)
-          : undefined,
-        ...page(entries, cursor, limit),
-      });
-    },
-  }, ysmMolangReadToolDocs[2].status);
-
-  createInternalTool(ysmMolangReadToolDocs[3].name, {
-    ...ysmMolangReadToolDocs[3],
-    async execute({ expression, dialect, include_tokens }) {
-      const parsed = parseMolang(expression);
-      return json({
-        schema_version: "1",
-        dialect,
-        source: expression,
-        ast: parsed.ast,
-        tokens: include_tokens ? parsed.tokens : undefined,
-        diagnostics: validateMolangSemantics(parsed, dialect),
-      });
-    },
-  }, ysmMolangReadToolDocs[3].status);
-
-  createInternalTool(ysmMolangReadToolDocs[4].name, {
-    ...ysmMolangReadToolDocs[4],
-    async execute({ expression, expression_id, manifest, dialect, bindings, function_results }, context) {
-      const resolved = resolveValidationExpression(expression, expression_id, manifest);
-      const parsed = parseMolang(resolved.source);
-      const diagnostics = validateMolangSemantics(parsed, dialect, {
-        report_runtime_availability: true,
-        available_binding_paths: suppliedBindingPaths(bindings),
-        available_function_results: Object.keys(function_results),
-      });
-      diagnostics.push(...projectBoneDiagnostics(context.project, resolved.inventoried?.owner.bone ?? null));
-      return json({
-        schema_version: "1",
-        dialect,
-        valid: !diagnostics.some((item) => item.severity === "error"),
-        source: resolved.source,
-        inventory: resolved.inventoried,
-        supplied_binding_roots: Object.keys(bindings).sort(),
-        supplied_function_results: Object.keys(function_results).sort(),
-        diagnostics,
-      });
-    },
-  }, ysmMolangReadToolDocs[4].status);
-
-  createInternalTool(ysmMolangReadToolDocs[5].name, {
-    ...ysmMolangReadToolDocs[5],
-    async execute(input) {
-      return json(simulate(input as SimulationInput));
-    },
-  }, ysmMolangReadToolDocs[5].status);
-
-  createInternalTool(ysmMolangReadToolDocs[6].name, {
-    ...ysmMolangReadToolDocs[6],
-    async execute(input, context) {
-      const result = simulate(input as SimulationInput);
-      const stride = input.sample_stride;
-      const preview = {
-        ...result,
-        samples: result.samples.filter((_, index) => index % stride === 0 || index === result.samples.length - 1),
-        preview_scope: {
-          clone_only: true,
-          visible_editor_state_changed: false,
-          saved_model_changed: false,
-          visual_pose: input.pose_mapping ? "requested" : null,
-          limitation: input.pose_mapping
-            ? null
-            : "No pose_mapping was supplied, so this preview contains only the deterministic sampled trace.",
-        },
-      };
-      if (!input.pose_mapping) return json(preview);
-      const project = context.project;
-      if (!project) throw new Error("Visual Molang pose mapping requires a visible project.");
-      const matches = project.groups.filter((group) =>
-        group.uuid === input.pose_mapping!.bone || group.name === input.pose_mapping!.bone
-      );
-      if (matches.length !== 1) {
-        throw new Error(matches.length === 0
-          ? `Visual preview bone '${input.pose_mapping.bone}' was not found.`
-          : `Visual preview bone '${input.pose_mapping.bone}' is ambiguous; use an exact UUID.`);
-      }
-      const sampleIndex = input.pose_mapping.sample_index ?? result.samples.length - 1;
-      const sample = result.samples[sampleIndex];
-      if (!sample) throw new Error(`pose_mapping.sample_index ${sampleIndex} is outside the simulated sequence.`);
-      if (typeof sample.value !== "number" || !Number.isFinite(sample.value)) {
-        throw new Error("The selected Molang sample is not a finite number and cannot drive a bone component.");
-      }
-      const camera = getEffectiveCameraState(project, [input.width, input.height]);
-      const capture = await captureOffscreenValidationPass(
-        project,
-        camera,
-        input.width,
-        input.height,
-        {
-          pass: "color",
-          cloneTransforms: [{
-            nodeId: matches[0].uuid,
-            channel: input.pose_mapping.channel,
-            axis: input.pose_mapping.axis,
-            value: sample.value,
-            mode: input.pose_mapping.mode,
-          }],
-        }
-      );
-      const structured = {
-        ...preview,
-        project: { uuid: project.uuid, name: project.name },
-        camera,
-        pose_mapping: {
-          ...input.pose_mapping,
-          bone_uuid: matches[0].uuid,
-          bone_name: matches[0].name,
-          sampled_value: sample.value,
-        },
-        preview_scope: {
-          ...preview.preview_scope,
-          visual_pose: "rendered_clone",
-        },
-      };
-      return {
-        content: [
-          { type: "text" as const, text: json(structured) },
-          ...imageContent(capture.data_url, "image/png").content,
-        ],
-        structuredContent: structured,
-      };
-    },
-  }, ysmMolangReadToolDocs[6].status);
-
-  createInternalTool(ysmMolangEditToolDocs[0].name, {
-    ...ysmMolangEditToolDocs[0],
-    async execute(input) {
-      const result = editYsmMolangExpressions({ ...input, dry_run: true });
-      return json({
-        ...result,
-        refreshed_bindings: [],
-      });
-    },
-  }, ysmMolangEditToolDocs[0].status);
-
-  createInternalTool(ysmMolangEditToolDocs[1].name, {
-    ...ysmMolangEditToolDocs[1],
-    async execute(input) {
-      const result = editYsmMolangExpressions({ ...input, dry_run: false });
-      return json({
-        ...result,
-        refreshed_bindings: refreshBindingsAfterMolangEdit(input.manifest),
-      });
-    },
-  }, ysmMolangEditToolDocs[1].status);
 }

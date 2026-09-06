@@ -36,20 +36,6 @@ export interface INamedItem {
   name?: string | null;
 }
 
-/** Resolve a required UUID without ever falling back to a display name. */
-export function findByExactUuid<T extends INamedItem>(
-  items: readonly T[],
-  uuid: string,
-  kind = "Resource"
-): T {
-  const matches = items.filter((item) => item.uuid === uuid);
-  if (matches.length === 1) return matches[0];
-  if (matches.length > 1) {
-    throw new Error(`${kind} UUID "${uuid}" is duplicated (${matches.length} matches).`);
-  }
-  throw new Error(`${kind} UUID "${uuid}" was not found.`);
-}
-
 /**
  * Builds a human-readable ID fragment for a resource item.
  *
@@ -72,7 +58,7 @@ export function makeResourceId(
   if (duplicateUuidCount !== 1) {
     throw new Error(
       `Resource UUID "${item.uuid}" is duplicated (${duplicateUuidCount} matches). ` +
-        "Repair the project before exposing this resource."
+      "Repair the project before exposing this resource."
     );
   }
   const slug = slugify(item.name);
@@ -124,7 +110,7 @@ export function findByResourceId<T extends INamedItem>(
   if (nameMatches.length > 1) {
     throw new Error(
       `Resource name "${id}" is ambiguous (${nameMatches.length} matches: ` +
-        `${nameMatches.map((item) => item.uuid).join(", ")}). Use a collision-qualified URI or UUID.`
+      `${nameMatches.map((item) => item.uuid).join(", ")}). Use a collision-qualified URI or UUID.`
     );
   }
 
@@ -153,7 +139,7 @@ export function findByResourceId<T extends INamedItem>(
   if (slugMatches.length > 1) {
     throw new Error(
       `Resource slug "${id}" is ambiguous (${slugMatches.length} matches: ` +
-        `${slugMatches.map((item) => item.uuid).join(", ")}). Use a collision-qualified URI or UUID.`
+      `${slugMatches.map((item) => item.uuid).join(", ")}). Use a collision-qualified URI or UUID.`
     );
   }
   return undefined;

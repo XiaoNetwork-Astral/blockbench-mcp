@@ -1,10 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import {
-  createInternalTool,
-  type ToolSpec,
-} from "@/lib/factories";
+import { defineTool, type ToolDefinition } from "@/lib/factories";
 import { STATUS_EXPERIMENTAL } from "@/lib/constants";
 import { captureScreenshot } from "@/lib/util";
 import { displaySlotEnum, vec3 } from "@/lib/zodObjects";
@@ -49,33 +46,101 @@ export const enterDisplayModeParameters = z.object({
     ),
 });
 
-export const displayToolDocs: ToolSpec[] = [
-  {
+export const displayTools: ToolDefinition[] = [
+  defineTool({
     name: "get_display_transform",
-    description:
-      "Reads Java Edition display transforms from Project.display_settings. Returns one slot or every populated slot without modifying the model.",
+    description: "Reads Java Edition display transforms from Project.display_settings. Returns one slot or every populated slot without modifying the model.",
     annotations: {
       title: "Get Display Transform",
       readOnlyHint: true,
     },
     parameters: getDisplayTransformParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-  {
+    async execute({ slot }, { project }) {
+      const target = project!;
+      const settings = getDisplaySettings(target);
+      if (slot) {
+        const displaySlot = settings[slot];
+        return JSON.stringify({
+          slot,
+          present: Boolean(displaySlot),
+          transform: displaySlot ? serializeDisplaySlot(displaySlot) : null,
+        }, null, 2);
+      }
+      const slots = Object.entries(settings)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([id, displaySlot]) => ({
+          slot: id,
+          transform: serializeDisplaySlot(displaySlot),
+        }));
+      return JSON.stringify({
+        format_supports_display: Boolean(target.format.display_mode),
+        populated_count: slots.length,
+        slots,
+      }, null, 2);
+    }
+  }),
+  defineTool({
     name: "set_display_transform",
-    description:
-      "Writes one Java Edition display transform with complete Undo and audit coverage. This changes exported model data and requires a format with display-mode support.",
+    description: "Writes one Java Edition display transform with complete Undo and audit coverage. This changes exported model data and requires a format with display-mode support.",
     annotations: {
       title: "Set Display Transform",
       destructiveHint: true,
     },
     parameters: setDisplayTransformParameters,
     status: STATUS_EXPERIMENTAL,
-  },
-  {
+    async execute(args, { project }) {
+      const target = project!;
+      const settings = getDisplaySettings(target);
+      assertDisplayModeSupported(target);
+      assertRuntimeSlotAvailable(args.slot);
+      if (!hasDisplayTransformChange(args)) {
+        throw new Error("No display transform change was requested. Supply reset=true or at least one transform field.");
+      }
+      Undo.initEdit({ display_slots: [args.slot] });
+      let displaySlot = settings[args.slot];
+      if (!displaySlot) {
+        displaySlot = new DisplaySlot(args.slot, {});
+        settings[args.slot] = displaySlot;
+      }
+      if (args.reset)
+        displaySlot.default();
+      const data: DisplaySlotOptions = {
+        ...(args.translation && {
+          translation: args.translation as ArrayVector3,
+        }),
+        ...(args.rotation && { rotation: args.rotation as ArrayVector3 }),
+        ...(args.scale && { scale: args.scale as ArrayVector3 }),
+        ...(args.rotation_pivot && {
+          rotation_pivot: args.rotation_pivot as ArrayVector3,
+        }),
+        ...(args.scale_pivot && {
+          scale_pivot: args.scale_pivot as ArrayVector3,
+        }),
+        ...(args.mirror && {
+          mirror: args.mirror as [
+            boolean,
+            boolean,
+            boolean
+          ],
+        }),
+      };
+      displaySlot.extend(data);
+      displaySlot.update();
+      Canvas.updateAll();
+      Undo.finishEdit("Agent set display transform", {
+        display_slots: [args.slot],
+      });
+      return JSON.stringify({
+        slot: args.slot,
+        reset: args.reset,
+        transform: serializeDisplaySlot(displaySlot),
+      }, null, 2);
+    }
+  }),
+  defineTool({
     name: "enter_display_mode",
-    description:
-      "Switches the editor preview to a display slot, optionally loads a validated reference model, and returns a screenshot for multi-view fit checks. It does not change exported transform data.",
+    description: "Switches the editor preview to a display slot, optionally loads a validated reference model, and returns a screenshot for multi-view fit checks. It does not change exported transform data.",
     writableProject: false,
     annotations: {
       title: "Enter Display Mode",
@@ -83,7 +148,46 @@ export const displayToolDocs: ToolSpec[] = [
     },
     parameters: enterDisplayModeParameters,
     status: STATUS_EXPERIMENTAL,
-  },
+    async execute({ slot, reference }, context) {
+      assertDisplayModeSupported(context.project!);
+      assertRuntimeSlotAvailable(slot);
+      const referenceModel = reference
+        ? getReferenceModelOrThrow(reference)
+        : undefined;
+      const modes = Modes as unknown as {
+        display?: boolean;
+        options?: {
+          display?: {
+            select?: () => void;
+          };
+        };
+      };
+      const notes: string[] = [];
+      if (!modes.display) {
+        const selectDisplay = modes.options?.display?.select;
+        if (typeof selectDisplay !== "function") {
+          throw new Error("Display mode is supported by the format but unavailable in this Blockbench build.");
+        }
+        selectDisplay.call(modes.options?.display);
+        notes.push("Entered display mode.");
+      }
+      else {
+        notes.push("Already in display mode.");
+      }
+      notes.push(`Activated slot "${slot}" via ${activateDisplaySlot(slot)}.`);
+      if (reference && referenceModel) {
+        referenceModel.load?.();
+        notes.push(`Loaded reference "${reference}".`);
+      }
+      const screenshot = await captureScreenshot({ workingProject: context.project });
+      return {
+        content: [
+          { type: "text" as const, text: notes.join(" ") },
+          ...screenshot.content,
+        ],
+      };
+    }
+  })
 ];
 
 type DisplaySettings = Record<string, DisplaySlot>;
@@ -143,7 +247,7 @@ function assertRuntimeSlotAvailable(slot: string): void {
   ) {
     throw new Error(
       `Display slot "${slot}" is unavailable in this Blockbench build. ` +
-        `Available slots: ${runtime.slots.join(", ")}.`
+      `Available slots: ${runtime.slots.join(", ")}.`
     );
   }
 }
@@ -160,7 +264,7 @@ function getReferenceModelOrThrow(
   if (!model || typeof model.load !== "function") {
     throw new Error(
       `Display reference "${reference}" is unavailable. Available references: ` +
-        `${references ? Object.keys(references).sort().join(", ") : "none"}.`
+      `${references ? Object.keys(references).sort().join(", ") : "none"}.`
     );
   }
   return model;
@@ -190,149 +294,11 @@ export function hasDisplayTransformChange(
 ): boolean {
   return Boolean(
     args.reset ||
-      args.translation ||
-      args.rotation ||
-      args.scale ||
-      args.rotation_pivot ||
-      args.scale_pivot ||
-      args.mirror
+    args.translation ||
+    args.rotation ||
+    args.scale ||
+    args.rotation_pivot ||
+    args.scale_pivot ||
+    args.mirror
   );
-}
-
-export function registerDisplayTools() {
-  createInternalTool(displayToolDocs[0].name, {
-    ...displayToolDocs[0],
-    async execute({ slot }, { project }) {
-      const target = project!;
-      const settings = getDisplaySettings(target);
-      if (slot) {
-        const displaySlot = settings[slot];
-        return JSON.stringify(
-          {
-            slot,
-            present: Boolean(displaySlot),
-            transform: displaySlot ? serializeDisplaySlot(displaySlot) : null,
-          },
-          null,
-          2
-        );
-      }
-
-      const slots = Object.entries(settings)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([id, displaySlot]) => ({
-          slot: id,
-          transform: serializeDisplaySlot(displaySlot),
-        }));
-      return JSON.stringify(
-        {
-          format_supports_display: Boolean(target.format.display_mode),
-          populated_count: slots.length,
-          slots,
-        },
-        null,
-        2
-      );
-    },
-  }, displayToolDocs[0].status);
-
-  createInternalTool(displayToolDocs[1].name, {
-    ...displayToolDocs[1],
-    async execute(args, { project }) {
-      const target = project!;
-      const settings = getDisplaySettings(target);
-      assertDisplayModeSupported(target);
-      assertRuntimeSlotAvailable(args.slot);
-      if (!hasDisplayTransformChange(args)) {
-        throw new Error(
-          "No display transform change was requested. Supply reset=true or at least one transform field."
-        );
-      }
-
-      Undo.initEdit({ display_slots: [args.slot] });
-      let displaySlot = settings[args.slot];
-      if (!displaySlot) {
-        displaySlot = new DisplaySlot(args.slot, {});
-        settings[args.slot] = displaySlot;
-      }
-      if (args.reset) displaySlot.default();
-
-      const data: DisplaySlotOptions = {
-        ...(args.translation && {
-          translation: args.translation as ArrayVector3,
-        }),
-        ...(args.rotation && { rotation: args.rotation as ArrayVector3 }),
-        ...(args.scale && { scale: args.scale as ArrayVector3 }),
-        ...(args.rotation_pivot && {
-          rotation_pivot: args.rotation_pivot as ArrayVector3,
-        }),
-        ...(args.scale_pivot && {
-          scale_pivot: args.scale_pivot as ArrayVector3,
-        }),
-        ...(args.mirror && {
-          mirror: args.mirror as [boolean, boolean, boolean],
-        }),
-      };
-      displaySlot.extend(data);
-      displaySlot.update();
-      Canvas.updateAll();
-      Undo.finishEdit("Agent set display transform", {
-        display_slots: [args.slot],
-      });
-
-      return JSON.stringify(
-        {
-          slot: args.slot,
-          reset: args.reset,
-          transform: serializeDisplaySlot(displaySlot),
-        },
-        null,
-        2
-      );
-    },
-  }, displayToolDocs[1].status);
-
-  createInternalTool(displayToolDocs[2].name, {
-    ...displayToolDocs[2],
-    async execute({ slot, reference }, context) {
-      assertDisplayModeSupported(context.project!);
-      assertRuntimeSlotAvailable(slot);
-      const referenceModel = reference
-        ? getReferenceModelOrThrow(reference)
-        : undefined;
-
-      const modes = Modes as unknown as {
-        display?: boolean;
-        options?: { display?: { select?: () => void } };
-      };
-      const notes: string[] = [];
-      if (!modes.display) {
-        const selectDisplay = modes.options?.display?.select;
-        if (typeof selectDisplay !== "function") {
-          throw new Error(
-            "Display mode is supported by the format but unavailable in this Blockbench build."
-          );
-        }
-        selectDisplay.call(modes.options?.display);
-        notes.push("Entered display mode.");
-      } else {
-        notes.push("Already in display mode.");
-      }
-
-      notes.push(`Activated slot "${slot}" via ${activateDisplaySlot(slot)}.`);
-      if (reference && referenceModel) {
-        referenceModel.load?.();
-        notes.push(`Loaded reference "${reference}".`);
-      }
-
-      const screenshot = await captureScreenshot({ workingProject: context.project });
-      return {
-        content: [
-          { type: "text" as const, text: notes.join(" ") },
-          ...screenshot.content,
-        ],
-      };
-    },
-  }, displayToolDocs[2].status);
-
 }

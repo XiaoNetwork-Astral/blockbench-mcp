@@ -14,7 +14,7 @@ export const toolManifest: CategoryGroup[] = TOOL_CATEGORIES.map(
   })
 );
 
-// Prompt specs defined inline — server/prompts.ts uses macros that complicate direct import
+// Documentation includes optional prompts even when their runtime plugin is absent.
 export const promptDocs: PromptSpec[] = [
   {
     name: "model_creation_strategy",

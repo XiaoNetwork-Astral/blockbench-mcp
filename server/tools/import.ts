@@ -1,7 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import { createTool, type ToolSpec } from "@/lib/factories";
+import { defineTool, type ToolDefinition } from "@/lib/factories";
 import { captureScreenshot } from "@/lib/util";
 import { STATUS_STABLE } from "@/lib/constants";
 import {
@@ -17,11 +17,10 @@ export const fromGeoJsonParameters = z.object({
     ),
 });
 
-export const importToolDocs: ToolSpec[] = [
-  {
+export const importTools: ToolDefinition[] = [
+  defineTool({
     name: "import_bedrock_geometry",
-    description:
-      "Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the visible project. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.",
+    description: "Imports existing Bedrock geometry from serialized JSON. With no open project it creates a Bedrock Entity project first; otherwise it imports into the visible project. Accepts inline JSON, JSON data URLs, and local files only; remote HTTP(S) fetching is disabled.",
     project: "optional",
     annotations: {
       title: "Import Bedrock Geometry",
@@ -29,7 +28,54 @@ export const importToolDocs: ToolSpec[] = [
     },
     parameters: fromGeoJsonParameters,
     status: STATUS_STABLE,
-  },
+    async execute({ geojson }) {
+      const source = classifyGeometryJsonSource(geojson);
+      const jsonText = source.kind === "inline"
+        ? source.text
+        : await readLocalGeometryJson(source.path);
+      let document: unknown;
+      try {
+        document = JSON.parse(jsonText);
+      }
+      catch (error) {
+        throw new Error(`Invalid Bedrock geometry JSON: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      if (!document || typeof document !== "object") {
+        throw new Error("Bedrock geometry JSON must contain an object or array document.");
+      }
+      const path = source.kind === "local_file" ? source.path : "";
+      const load = () => {
+        const destination = loadBedrockGeometryDocument(Codecs.bedrock, document, path, Project);
+        const importedProject = Project && typeof Project === "object"
+          ? Project
+          : null;
+        return { destination, importedProject };
+      };
+      const { destination, importedProject } = load();
+      if (!importedProject) {
+        throw new Error("Blockbench did not create or select an imported project.");
+      }
+      const screenshot = await captureScreenshot({ workingProject: importedProject });
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              destination,
+              project: {
+                name: importedProject.name,
+                uuid: importedProject.uuid,
+                format: importedProject.format?.id ?? Format.id,
+              },
+              source: source.kind,
+              path: path || null,
+            }, null, 2),
+          },
+          ...screenshot.content,
+        ],
+      };
+    }
+  })
 ];
 
 interface BedrockGeometryCodec {
@@ -109,66 +155,4 @@ function readLocalGeometryJson(path: string): Promise<string> {
       reject(new Error(`Blockbench refused to read local geometry file "${path}".`));
     }
   });
-}
-
-export function registerImportTools() {
-  createTool(importToolDocs[0].name, {
-    ...importToolDocs[0],
-    async execute({ geojson }) {
-      const source = classifyGeometryJsonSource(geojson);
-      const jsonText = source.kind === "inline"
-        ? source.text
-        : await readLocalGeometryJson(source.path);
-
-      let document: unknown;
-      try {
-        document = JSON.parse(jsonText);
-      } catch (error) {
-        throw new Error(
-          `Invalid Bedrock geometry JSON: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
-      if (!document || typeof document !== "object") {
-        throw new Error("Bedrock geometry JSON must contain an object or array document.");
-      }
-      const path = source.kind === "local_file" ? source.path : "";
-      const load = () => {
-        const destination = loadBedrockGeometryDocument(
-          Codecs.bedrock,
-          document,
-          path,
-          Project
-        );
-        const importedProject =
-          Project && typeof Project === "object"
-            ? Project
-            : null;
-        return { destination, importedProject };
-      };
-      const { destination, importedProject } = load();
-      if (!importedProject) {
-        throw new Error("Blockbench did not create or select an imported project.");
-      }
-
-      const screenshot = await captureScreenshot({ workingProject: importedProject });
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({
-              destination,
-              project: {
-                name: importedProject.name,
-                uuid: importedProject.uuid,
-                format: importedProject.format?.id ?? Format.id,
-              },
-              source: source.kind,
-              path: path || null,
-            }, null, 2),
-          },
-          ...screenshot.content,
-        ],
-      };
-    },
-  }, importToolDocs[0].status);
 }

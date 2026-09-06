@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { IMCPTool, IMCPPrompt, IMCPResource, StatusType } from "@/types";
-import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ResourceTemplate, type McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { assertProjectMayBeMutated } from "@/lib/projectAccess";
 import { auditManager } from "@/lib/audit";
 import {
@@ -14,7 +14,7 @@ import { runMutation } from "@/src/runtime/mutationQueue";
  * Declarative tool spec for documentation and registration.
  * Contains everything except the `execute` implementation.
  */
-export interface ToolSpec {
+export interface ToolSpec<T extends z.ZodObject = z.ZodObject> {
   name: string;
   description: string;
   /** Whether the tool needs the visible Blockbench project. Defaults to required. */
@@ -28,8 +28,8 @@ export interface ToolSpec {
     readOnlyHint?: boolean;
     openWorldHint?: boolean;
   };
-  parameters: z.ZodType;
-  outputSchema?: z.AnyZodObject;
+  parameters: T;
+  outputSchema?: z.ZodObject;
   status: StatusType;
 }
 
@@ -70,56 +70,23 @@ export const prompts: Record<string, IMCPPrompt> = {};
 export const resources: Record<string, IMCPResource> = {};
 
 export interface ToolContext {
-  reportProgress: (progress: { progress: number; total: number }) => void;
   /** Project visible when this invocation began. */
   project: ModelProject | null;
 }
 
-interface TextContent {
-  type: "text";
-  text: string;
+type ToolResult = string | CallToolResult;
+
+/** One typed definition drives execution, discovery, and documentation. */
+export interface ToolDefinition extends ToolSpec {
+  execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult>;
 }
 
-interface ImageContent {
-  type: "image";
-  data: string;
-  mimeType: string;
-}
-
-type ToolContentItem = TextContent | ImageContent;
-
-type ToolResult = string | { content: ToolContentItem[]; structuredContent?: unknown };
-
-interface ToolDefinition {
-  title: string;
-  description: string;
-  parameters: z.ZodType;
-  inputSchema: Record<string, z.ZodType>;
-  outputSchema?: Record<string, z.ZodType> | z.ZodType;
-  execute: (args: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>;
-  project: "required" | "optional" | "none";
-  writableProject: boolean;
-  annotations?: {
-    title?: string;
-    destructiveHint?: boolean;
-    idempotentHint?: boolean;
-    openWorldHint?: boolean;
-    readOnlyHint?: boolean;
-  };
-}
-
-interface ToolRegistrar {
-  registerTool: (
-    toolName: string,
-    definition: {
-      title: string;
-      description: string;
-      inputSchema: Record<string, z.ZodType>;
-      outputSchema?: Record<string, z.ZodType>;
-      annotations?: ToolDefinition["annotations"];
-    },
-    callback: (args: unknown, extra: unknown) => Promise<unknown>
-  ) => void;
+export function defineTool<T extends z.ZodObject>(
+  definition: ToolSpec<T> & {
+    execute: (args: z.infer<T>, context: ToolContext) => Promise<ToolResult>;
+  }
+): ToolDefinition {
+  return definition;
 }
 
 /**
@@ -127,14 +94,7 @@ interface ToolRegistrar {
  */
 const toolDefinitions: Record<string, ToolDefinition> = {};
 
-export function parseToolArguments(
-  schema: z.ZodType,
-  rawArgs: Record<string, unknown>
-): Record<string, unknown> {
-  return schema.parse(rawArgs) as Record<string, unknown>;
-}
-
-function normalizeToolResult(result: ToolResult): unknown {
+function normalizeToolResult(result: ToolResult): CallToolResult {
   if (typeof result === "string") {
     return {
       content: [{ type: "text", text: result }],
@@ -146,23 +106,20 @@ function normalizeToolResult(result: ToolResult): unknown {
 async function invokeTool(
   name: string,
   toolDef: ToolDefinition,
-  rawArgs: Record<string, unknown>
-): Promise<unknown> {
-  // registerTool accepts a raw object shape, so schema-level refinements are
-  // not preserved by SDK registration. Parse the original schema once here.
-  const args = parseToolArguments(toolDef.parameters, rawArgs);
+  args: Record<string, unknown>
+): Promise<CallToolResult> {
   const readOnly = toolDef.annotations?.readOnlyHint === true;
   const operationName = name;
   const project = toolDef.project === "none" ? null : getVisibleProject();
-  if (toolDef.project === "required" && !project) {
+  if ((toolDef.project ?? "required") === "required" && !project) {
     throw new Error(`Tool "${operationName}" requires an open Blockbench project.`);
   }
 
-  const execute = async (): Promise<unknown> => {
+  const execute = async (): Promise<CallToolResult> => {
     if (project && getVisibleProject() !== project) {
       throw new Error(
         `The visible Blockbench tab changed before tool "${operationName}" could run. ` +
-          "No changes were made; call the tool again for the tab that is visible now."
+        "No changes were made; call the tool again for the tab that is visible now."
       );
     }
 
@@ -174,16 +131,14 @@ async function invokeTool(
       undoEditAtStart = readOnly ? undefined : captureUndoEditToken();
       handle = auditManager.beginMcpOperation({
         toolName: operationName,
-        title: toolDef.title,
+        title: toolDef.annotations?.title ?? toolDef.description,
         args,
         readOnly,
       });
-      const reportProgress: ToolContext["reportProgress"] = () => {};
       const context: ToolContext = {
-        reportProgress,
         project,
       };
-      if (!readOnly && toolDef.writableProject && project) {
+      if (!readOnly && toolDef.writableProject !== false && project) {
         assertProjectMayBeMutated(project, operationName);
       }
       const result = await toolDef.execute(args, context);
@@ -199,133 +154,49 @@ async function invokeTool(
   return readOnly ? execute() : runMutation(execute);
 }
 
-function registerToolDefinition(
-  server: unknown,
-  name: string,
+export function registerToolOnServer(
+  server: McpServer,
   toolDef: ToolDefinition
 ): void {
-  (server as ToolRegistrar).registerTool(
+  const { name } = toolDef;
+  server.registerTool(
     name,
     {
-      title: toolDef.title,
+      title: toolDef.annotations?.title ?? toolDef.description,
       description: toolDef.description,
-      inputSchema: toolDef.inputSchema,
-      outputSchema: toolDef.outputSchema
-        ? extractShape(toolDef.outputSchema as z.ZodType)
-        : undefined,
+      inputSchema: toolDef.parameters,
+      outputSchema: toolDef.outputSchema,
       annotations: toolDef.annotations,
     },
-    (args) => invokeTool(name, toolDef, args as Record<string, unknown>)
+    (args) => invokeTool(name, toolDef, args)
   );
 }
 
-/**
- * Extracts the shape from a Zod schema, unwrapping ZodEffects if necessary.
- * Uses _def.typeName for reliable type checking across different Zod instances.
- */
-function extractShape(schema: z.ZodType): Record<string, z.ZodType> {
-  const def = schema._def as { typeName?: string; schema?: z.ZodType; shape?: () => Record<string, z.ZodType> };
-
-  if (def.typeName === "ZodObject") {
-    return def.shape?.() ?? {};
-  }
-
-  if (def.typeName === "ZodEffects" && def.schema) {
-    return extractShape(def.schema);
-  }
-
-  return {};
-}
-
-/**
- * Creates a new MCP tool and registers it with the server using the official SDK.
- * @param name - The public tool name.
- * @param tool - The tool configuration.
- * @param tool.description - The description of the tool.
- * @param tool.annotations - Annotations for the tool (title, hints).
- * @param tool.parameters - Zod schema for input parameters (supports ZodObject or ZodEffects from .refine()).
- * @param tool.execute - The async function to execute when the tool is called.
- * @param status - The status of the tool (stable, experimental, deprecated).
- * @returns - The created tool metadata.
- * @throws - If a tool with the same name already exists.
- */
-export function createTool<T extends z.ZodType>(
-  name: string,
-  tool: {
-    description: string;
-    annotations?: {
-      title?: string;
-      destructiveHint?: boolean;
-      idempotentHint?: boolean;
-      openWorldHint?: boolean;
-      readOnlyHint?: boolean;
-    };
-    parameters: T;
-    project?: "required" | "optional" | "none";
-    writableProject?: boolean;
-    outputSchema?: z.AnyZodObject;
-    execute: (args: z.infer<T>, context: ToolContext) => Promise<ToolResult>;
-  },
-  status: IMCPTool["status"] = "stable"
-) {
+/** Store one catalog entry for registration on each stateless request server. */
+export function createTool(tool: ToolDefinition) {
+  const { name } = tool;
   if (tools[name] || toolDefinitions[name]) {
     throw new Error(`Tool with name "${name}" already exists.`);
   }
 
-  const inputSchema = extractShape(tool.parameters);
-
-  const toolDef: ToolDefinition = {
-    title: tool.annotations?.title ?? tool.description,
-    description: tool.description,
-    parameters: tool.parameters,
-    inputSchema,
-    outputSchema: tool.outputSchema,
-    execute: tool.execute,
-    project: tool.project ?? "required",
-    writableProject: tool.writableProject ?? true,
-    annotations: tool.annotations,
-  };
-
-  toolDefinitions[name] = toolDef;
+  toolDefinitions[name] = tool;
 
   tools[name] = {
     name,
-    description: toolDef.description,
+    description: tool.description,
     enabled: true,
-    status,
+    status: tool.status,
   };
 
   return tools[name];
 }
 
-/** Domain-module alias; all operations are direct tools. */
-export function createInternalTool<T extends z.ZodType>(
-  name: string,
-  tool: {
-    description: string;
-    annotations?: {
-      title?: string;
-      destructiveHint?: boolean;
-      idempotentHint?: boolean;
-      openWorldHint?: boolean;
-      readOnlyHint?: boolean;
-    };
-    parameters: T;
-    project?: "required" | "optional" | "none";
-    writableProject?: boolean;
-    execute: (args: z.infer<T>, context: ToolContext) => Promise<ToolResult>;
-  },
-  status: IMCPTool["status"] = "stable"
-): void {
-  createTool(name, tool, status);
-}
-
 /**
  * Registers the declarative tool catalog on one stateless request server.
  */
-export function registerToolsOnServer(server: unknown) {
-  for (const [name, toolDef] of Object.entries(toolDefinitions)) {
-    registerToolDefinition(server, name, toolDef);
+export function registerToolsOnServer(server: McpServer) {
+  for (const toolDef of Object.values(toolDefinitions)) {
+    registerToolOnServer(server, toolDef);
   }
 }
 
@@ -351,24 +222,12 @@ interface ResourceDefinition {
 
 const resourceDefinitions: Record<string, ResourceDefinition> = {};
 
-interface ResourceRegistrar {
-  registerResource: (
-    resourceName: string,
-    uriOrTemplate: ResourceTemplate,
-    metadata: ResourceDefinition["metadata"],
-    readCallback: (
-      uri: URL,
-      variables: Record<string, string | string[]>
-    ) => ReturnType<ResourceDefinition["readCallback"]>
-  ) => void;
-}
-
 function registerResourceDefinition(
-  server: unknown,
+  server: McpServer,
   name: string,
   definition: ResourceDefinition
 ): void {
-  (server as ResourceRegistrar).registerResource(
+  server.registerResource(
     name,
     new ResourceTemplate(definition.uriTemplate, { list: definition.listCallback }),
     definition.metadata,
@@ -440,7 +299,7 @@ export function createResource(
 /**
  * Registers the declarative resource catalog on one stateless request server.
  */
-export function registerResourcesOnServer(server: unknown) {
+export function registerResourcesOnServer(server: McpServer) {
   for (const [name, resourceDef] of Object.entries(resourceDefinitions)) {
     registerResourceDefinition(server, name, resourceDef);
   }
@@ -454,7 +313,7 @@ interface PromptMessage {
 interface PromptDefinition {
   title: string;
   description: string;
-  argsSchema: Record<string, z.ZodType>;
+  argsSchema: z.ZodObject;
   generate: (args: Record<string, unknown>) => Promise<{
     messages: PromptMessage[];
   }>;
@@ -462,20 +321,12 @@ interface PromptDefinition {
 
 const promptDefinitions: Record<string, PromptDefinition> = {};
 
-interface PromptRegistrar {
-  registerPrompt: (
-    promptName: string,
-    definition: Pick<PromptDefinition, "title" | "description" | "argsSchema">,
-    callback: PromptDefinition["generate"]
-  ) => void;
-}
-
 function registerPromptDefinition(
-  server: unknown,
+  server: McpServer,
   name: string,
   definition: PromptDefinition
 ): void {
-  (server as PromptRegistrar).registerPrompt(
+  server.registerPrompt(
     name,
     {
       title: definition.title,
@@ -505,7 +356,7 @@ export function createPrompt<T extends z.ZodRawShape>(
     throw new Error(`Prompt with name "${name}" already exists.`);
   }
 
-  const argsSchema = prompt.argsSchema.shape;
+  const argsSchema = prompt.argsSchema;
   const promptDef: PromptDefinition = {
     title: prompt.title ?? prompt.description,
     description: prompt.description,
@@ -517,7 +368,7 @@ export function createPrompt<T extends z.ZodRawShape>(
   prompts[name] = {
     name,
     description: prompt.description,
-    arguments: argsSchema,
+    arguments: argsSchema.shape,
     enabled: true,
     status,
   };
@@ -525,7 +376,7 @@ export function createPrompt<T extends z.ZodRawShape>(
 }
 
 /** Register all prompts on a newly-created request server. */
-export function registerPromptsOnServer(server: unknown) {
+export function registerPromptsOnServer(server: McpServer) {
   for (const [name, promptDef] of Object.entries(promptDefinitions)) {
     registerPromptDefinition(server, name, promptDef);
   }

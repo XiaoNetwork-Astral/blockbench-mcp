@@ -1,10 +1,7 @@
 /// <reference types="three" />
 /// <reference types="blockbench-types" />
 import { z } from "zod";
-import {
-  createInternalTool,
-  type ToolSpec,
-} from "@/lib/factories";
+import { defineTool, type ToolDefinition } from "@/lib/factories";
 import {
   captureScreenshot,
   captureAppScreenshot,
@@ -93,59 +90,49 @@ export const setCameraAngleParameters = z.object({
 
 export const getCameraStateParameters = z.object({}).strict();
 
-export const cameraToolDocs: ToolSpec[] = [
-  {
+export const cameraTools: ToolDefinition[] = [
+  defineTool({
     name: "capture_viewport",
-    description:
-      "Captures the visible project with optional one-shot camera, animation, and bone visibility settings.",
+    description: "Captures the visible project with optional one-shot camera, animation, and bone visibility settings.",
     annotations: {
       title: "Inspect Viewport",
       readOnlyHint: true,
     },
     parameters: captureScreenshotParameters,
     status: STATUS_STABLE,
-  },
-  {
-    name: "capture_blockbench_ui",
-    description: "Returns the image data of the Blockbench app.",
-    project: "none",
-    annotations: {
-      title: "Inspect Blockbench UI",
-      readOnlyHint: true,
-    },
-    parameters: captureAppScreenshotParameters,
-    status: STATUS_STABLE,
-  },
-  {
-    name: "get_camera_state",
-    description: "Returns the effective camera for the visible project with exact projection, FOV/zoom, viewport, and project identity.",
-    annotations: { title: "Get MCP Camera State", readOnlyHint: true },
-    parameters: getCameraStateParameters,
-    status: STATUS_EXPERIMENTAL,
-  },
-];
-
-export function registerCameraTools() {
-  createInternalTool(cameraToolDocs[0].name, {
-    ...cameraToolDocs[0],
     async execute({ settle_frames, width, height, camera: inputCamera, preview }, context) {
       const project = context.project!;
       const camera = inputCamera
         ? inputCamera.auto_fit
           ? fittedElementCamera(inputCamera)
           : {
-              position: [...inputCamera.position!] as [number, number, number],
-              target: inputCamera.target
-                ? [...inputCamera.target] as [number, number, number]
-                : undefined,
-              rotation: inputCamera.rotation
-                ? [...inputCamera.rotation] as [number, number, number]
-                : undefined,
-              projection: inputCamera.projection,
-              zoom: inputCamera.zoom,
-              fov: inputCamera.fov,
-              viewport: [width, height] as [number, number],
-            } satisfies McpCameraState
+            position: [...inputCamera.position!] as [
+              number,
+              number,
+              number
+            ],
+            target: inputCamera.target
+              ? [...inputCamera.target] as [
+                number,
+                number,
+                number
+              ]
+              : undefined,
+            rotation: inputCamera.rotation
+              ? [...inputCamera.rotation] as [
+                number,
+                number,
+                number
+              ]
+              : undefined,
+            projection: inputCamera.projection,
+            zoom: inputCamera.zoom,
+            fov: inputCamera.fov,
+            viewport: [width, height] as [
+              number,
+              number
+            ],
+          } satisfies McpCameraState
         : undefined;
       return captureScreenshot({
         settleFrames: settle_frames,
@@ -155,18 +142,28 @@ export function registerCameraTools() {
         camera,
         preview: resolvePreviewState(preview, project),
       });
+    }
+  }),
+  defineTool({
+    name: "capture_blockbench_ui",
+    description: "Returns the image data of the Blockbench app.",
+    project: "none",
+    annotations: {
+      title: "Inspect Blockbench UI",
+      readOnlyHint: true,
     },
-  }, cameraToolDocs[0].status);
-
-  createInternalTool(cameraToolDocs[1].name, {
-    ...cameraToolDocs[1],
+    parameters: captureAppScreenshotParameters,
+    status: STATUS_STABLE,
     async execute() {
       return captureAppScreenshot();
-    },
-  }, cameraToolDocs[1].status);
-
-  createInternalTool(cameraToolDocs[2].name, {
-    ...cameraToolDocs[2],
+    }
+  }),
+  defineTool({
+    name: "get_camera_state",
+    description: "Returns the effective camera for the visible project with exact projection, FOV/zoom, viewport, and project identity.",
+    annotations: { title: "Get MCP Camera State", readOnlyHint: true },
+    parameters: getCameraStateParameters,
+    status: STATUS_EXPERIMENTAL,
     async execute(_input, context) {
       const project = context.project!;
       return JSON.stringify({
@@ -174,9 +171,9 @@ export function registerCameraTools() {
         project: { uuid: project.uuid, name: project.name },
         camera: getEffectiveCameraState(project),
       }, null, 2);
-    },
-  }, cameraToolDocs[2].status);
-}
+    }
+  })
+];
 
 function fittedElementCamera(
   angle: z.infer<typeof setCameraAngleParameters>
@@ -201,11 +198,11 @@ function fittedElementCamera(
     : [800, 600] as [number, number];
   const distance = angle.projection === "perspective"
     ? fitBoundingSpherePerspectiveDistance(
-        radius,
-        fov,
-        viewport[0] / viewport[1],
-        fit.frame_occupancy
-      )
+      radius,
+      fov,
+      viewport[0] / viewport[1],
+      fit.frame_occupancy
+    )
     : radius * 3;
   const position = center.clone().addScaledVector(direction, distance);
   const largestExtent = Math.max(size.x, size.y, size.z, 0.001);

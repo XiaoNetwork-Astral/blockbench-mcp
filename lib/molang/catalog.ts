@@ -116,10 +116,6 @@ function semanticDiagnostic(
   };
 }
 
-export function getMolangCatalogMetadata(): GeneratedCatalog["generated_from"] {
-  return CATALOG.generated_from;
-}
-
 type CatalogSource = GeneratedCatalog["generated_from"]["stable"];
 
 export interface MolangCatalogProvenanceSummary {
