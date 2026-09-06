@@ -26,6 +26,7 @@ import { projectTools } from "@/server/tools/project";
 import { spatialTools } from "@/server/tools/spatial";
 import { textureTools } from "@/server/tools/texture";
 import { textureSettingsTools } from "@/server/tools/texture-settings";
+import { modelFileTools } from "@/server/tools/model-files";
 import { uvTools } from "@/server/tools/uv";
 import { validationTools } from "@/server/tools/validation";
 import {
@@ -66,7 +67,7 @@ export const CORE_TOOL_CATEGORIES: readonly ToolCategory[] = [
   { category: "Spatial analysis", tools: spatialTools },
   { category: "Validation", tools: validationTools },
   { category: "History", tools: historyTools },
-  { category: "Import", tools: importTools },
+  { category: "Import", tools: [...importTools, ...modelFileTools] },
   { category: "Export", tools: exportTools },
 ];
 
