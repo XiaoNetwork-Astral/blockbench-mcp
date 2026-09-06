@@ -60,7 +60,7 @@ body:
     id: plugin-version
     attributes:
       label: MCP Plugin Version
-      placeholder: "2.0.0-blockbench.1"
+      placeholder: "2.1.0"
     validations:
       required: true
 

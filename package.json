@@ -1,6 +1,6 @@
 {
   "name": "blockbench-mcp",
-  "version": "2.0.0-blockbench.1",
+  "version": "2.1.0",
   "description": "Local Blockbench MCP server with direct visible-tab modeling, audit history, and YSM/Hytale support",
   "keywords": [
     "Blockbench",

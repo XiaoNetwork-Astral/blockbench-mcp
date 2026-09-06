@@ -11,29 +11,29 @@
     <nav class="sidebar">
       <div class="sidebar-brand">
         <h1>Blockbench MCP</h1>
-        <p>v2.0.0-blockbench.1 — API Reference</p>
+        <p>v2.1.0 — API Reference</p>
       </div>
 
       <input id="search" type="text" placeholder="Search tools..." class="search-input" />
 
       <div class="nav-group">
         <p class="nav-heading">Overview</p>
-        <a href="#tools" class="nav-link">Tools <span class="count">(144)</span></a>
+        <a href="#tools" class="nav-link">Tools <span class="count">(162)</span></a>
         <a href="#prompts" class="nav-link">Prompts <span class="count">(4)</span></a>
         <a href="#resources" class="nav-link">Resources <span class="count">(12)</span></a>
       </div>
 
       <div class="nav-group">
         <p class="nav-heading">Categories</p>
-        <a href="#cat-projects" class="nav-link">Projects <span class="count">(10)</span></a>
-        <a href="#cat-elements" class="nav-link">Elements <span class="count">(13)</span></a>
+        <a href="#cat-projects" class="nav-link">Projects <span class="count">(11)</span></a>
+        <a href="#cat-elements" class="nav-link">Elements <span class="count">(19)</span></a>
         <a href="#cat-cubes" class="nav-link">Cubes <span class="count">(3)</span></a>
         <a href="#cat-meshes" class="nav-link">Meshes <span class="count">(12)</span></a>
         <a href="#cat-armatures" class="nav-link">Armatures <span class="count">(15)</span></a>
-        <a href="#cat-animation" class="nav-link">Animation <span class="count">(10)</span></a>
+        <a href="#cat-animation" class="nav-link">Animation <span class="count">(17)</span></a>
         <a href="#cat-display" class="nav-link">Display <span class="count">(3)</span></a>
         <a href="#cat-camera-and-capture" class="nav-link">Camera and capture <span class="count">(3)</span></a>
-        <a href="#cat-textures" class="nav-link">Textures <span class="count">(13)</span></a>
+        <a href="#cat-textures" class="nav-link">Textures <span class="count">(15)</span></a>
         <a href="#cat-exact-texture-editing" class="nav-link">Exact texture editing <span class="count">(1)</span></a>
         <a href="#cat-paint" class="nav-link">Paint <span class="count">(12)</span></a>
         <a href="#cat-material-instances" class="nav-link">Material instances <span class="count">(4)</span></a>
@@ -41,7 +41,7 @@
         <a href="#cat-spatial-analysis" class="nav-link">Spatial analysis <span class="count">(3)</span></a>
         <a href="#cat-validation" class="nav-link">Validation <span class="count">(6)</span></a>
         <a href="#cat-history" class="nav-link">History <span class="count">(4)</span></a>
-        <a href="#cat-import" class="nav-link">Import <span class="count">(1)</span></a>
+        <a href="#cat-import" class="nav-link">Import <span class="count">(3)</span></a>
         <a href="#cat-export" class="nav-link">Export <span class="count">(2)</span></a>
         <a href="#cat-ysm-workspace" class="nav-link">YSM workspace <span class="count">(5)</span></a>
         <a href="#cat-ysm-molang" class="nav-link">YSM Molang <span class="count">(9)</span></a>
@@ -52,9 +52,9 @@
     <main class="main">
       <header class="page-header">
         <h1>Blockbench MCP Plugin</h1>
-        <p class="subtitle">API Reference — v2.0.0-blockbench.1</p>
+        <p class="subtitle">API Reference — v2.1.0</p>
         <nav class="stats">
-          <a href="#tools"><strong>144</strong> tools (63 stable, 81 experimental)</a>
+          <a href="#tools"><strong>162</strong> tools (81 stable, 81 experimental)</a>
           <a href="#prompts"><strong>4</strong> prompts</a>
           <a href="#resources"><strong>12</strong> resources</a>
         </nav>
@@ -333,6 +333,35 @@
       <td class="col-type">string</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Name for the unsaved duplicate tab. Defaults to '&lt;source&gt; copy'. <span class="param-meta">[minLength: 1]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-inspect_capabilities" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">inspect_capabilities</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">Inspect Capabilities</p>
+      <p class="card-desc">Reports the running Blockbench version, installed model formats and their actual feature flags (meshes, splines, armatures, controllers, UV, materials and more), plus available editor modes. With a project open, current_format identifies the visible tab's capabilities.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">format_id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -857,6 +886,210 @@
     </table>
       </div>
     </div>
+<div id="tool-inspect_element_types" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">inspect_element_types</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">Inspect Element Types</p>
+      <p class="card-desc">Lists registered Blockbench element types, their format requirements, and editable native properties. Property names and enum values come from the installed Blockbench and plugins.</p>
+      <div class="overflow-x">
+        <p class="empty-params">No parameters</p>
+      </div>
+    </div>
+<div id="tool-create_element" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">create_element</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Create Element</p>
+      <p class="card-desc">Creates a registered element from its native properties, including locators, null objects, texture meshes, billboards, bounding boxes and splines. Use inspect_element_types for properties; use the dedicated cube, mesh and armature tools for their geometry and hierarchy. New elements default to the Outliner root.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">type</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">name</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">parent</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>&quot;root&quot;</code>) [minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">properties</td>
+      <td class="col-type">Record&lt;string, string | number | boolean | string | number | boolean[]&gt;</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>{}</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-edit_element_properties" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">edit_element_properties</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Edit Element Properties</p>
+      <p class="card-desc">Changes declared native properties on one element or group, with type and enum validation. Supports transforms and settings on locators, null objects, billboards, splines, meshes and other registered types. Use dedicated geometry, UV, reparenting and spline-point tools for structural changes.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">properties</td>
+      <td class="col-type">Record&lt;string, string | number | boolean | string | number | boolean[]&gt;</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-inspect_element" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">inspect_element</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">Inspect Element</p>
+      <p class="card-desc">Reads one element or group's native saved properties. Geometry is omitted by default; request it to read cube faces, bounding-box extents or spline control points. Large meshes should use the focused mesh resources.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">include_geometry</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>false</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-set_bounding_box" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">set_bounding_box</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Set Bounding Box</p>
+      <p class="card-desc">Sets the from/to extents of an existing bounding_box element in model coordinates. Create the element with create_element first. Each to component must be at least its from component.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">from</td>
+      <td class="col-type">number[]</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr><tr>
+      <td class="col-name">to</td>
+      <td class="col-type">number[]</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minItems: 3, maxItems: 3]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-set_spline_points" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">set_spline_points</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Set Spline Points</p>
+      <p class="card-desc">Replaces a spline's ordered Bezier handles and segments, preserving its texture and other properties. Points and control points use element-local coordinates; cyclic connects the last handle to the first. Returns native keys for readback.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">points</td>
+      <td class="col-type">object[]</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minItems: 2, maxItems: 256]</span></td>
+    </tr><tr>
+      <td class="col-name">cyclic</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>false</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
         </section>
 <section id="cat-cubes" class="category-section">
           <h3 class="category-title">Cubes</h3>
@@ -897,7 +1130,7 @@
       <td class="col-desc">Parent group/bone UUID or unique name. Defaults to the Outliner root. <span class="param-meta">(default: <code>&quot;root&quot;</code>) [minLength: 1]</span></td>
     </tr><tr>
       <td class="col-name">faces</td>
-      <td class="col-type">&quot;north&quot; | &quot;south&quot; | &quot;east&quot; | &quot;west&quot; | &quot;up&quot; | &quot;down&quot;[] | unknown | boolean | object[]</td>
+      <td class="col-type">&quot;north&quot; | &quot;south&quot; | &quot;east&quot; | &quot;west&quot; | &quot;up&quot; | &quot;down&quot;[] | boolean | object[]</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Faces to apply the texture to. Set to `true` to enable auto UV mapping. <span class="param-meta">(default: <code>true</code>)</span></td>
     </tr></tbody>
@@ -1208,7 +1441,7 @@
       <td class="col-desc">Selection mode.</td>
     </tr><tr>
       <td class="col-name">elements</td>
-      <td class="col-type">string,number[]</td>
+      <td class="col-type">string | number[]</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Specific elements to select. If not provided, selects all.</td>
     </tr><tr>
@@ -2509,6 +2742,259 @@
     </table>
       </div>
     </div>
+<div id="tool-inspect_animation_controllers" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">inspect_animation_controllers</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">Inspect Animation Controllers</p>
+      <p class="card-desc">Lists animation controllers in the visible project, or reads one controller's state graph, initial state, transitions, effects and blend settings.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-create_animation_controller" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">create_animation_controller</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Create Animation Controller</p>
+      <p class="card-desc">Creates an animation controller with an explicit graph of named states. Animation references must already exist; transitions resolve before any edit. Requires a format supporting animation controllers. Does not start playback or write files.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">name</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1, maxLength: 256]</span></td>
+    </tr><tr>
+      <td class="col-name">states</td>
+      <td class="col-type">object[]</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minItems: 1, maxItems: 128]</span></td>
+    </tr><tr>
+      <td class="col-name">initial_state</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-edit_animation_controller" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">edit_animation_controller</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Edit Animation Controller</p>
+      <p class="card-desc">Renames an animation controller, changes its initial state, or replaces its complete state graph. Providing states replaces omitted states too; omitting states preserves the graph. Existing state UUIDs are preserved by name. Changes stay in the project until explicitly exported.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">name</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1, maxLength: 256]</span></td>
+    </tr><tr>
+      <td class="col-name">states</td>
+      <td class="col-type">object[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">[minItems: 1, maxItems: 128]</span></td>
+    </tr><tr>
+      <td class="col-name">initial_state</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-remove_animation_controller" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">remove_animation_controller</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Remove Animation Controller</p>
+      <p class="card-desc">Removes one controller from the visible project with Undo support. Leaves any existing animation-controller file on disk intact.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-inspect_animation_codecs" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">inspect_animation_codecs</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">Inspect Animation Codecs</p>
+      <p class="card-desc">Lists the installed native AnimationCodec registry with import/compile support and the current format's default. Includes codecs contributed by other plugins.</p>
+      <div class="overflow-x">
+        <p class="empty-params">No parameters</p>
+      </div>
+    </div>
+<div id="tool-import_animations" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">import_animations</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Import Animations</p>
+      <p class="card-desc">Imports an animation file into the visible project through the current native AnimationCodec.loadFile API, with Undo. Accepts inline content or an absolute local file; optional names filter uses file animation IDs. Existing same-name animations/controllers are rejected for Bedrock JSON. Does not save or replace source files.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">codec_id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">content</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Inline file content. Provide content or path, not both. <span class="param-meta">[maxLength: 5242880]</span></td>
+    </tr><tr>
+      <td class="col-name">path</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Absolute local source path; remote URLs are not supported. <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">names</td>
+      <td class="col-type">string[]</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">[minItems: 1, maxItems: 512]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-export_animations" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">export_animations</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span><span class="badge badge-openworld">open-world</span>
+        </div>
+      </div>
+      <p class="card-title">Export Animations</p>
+      <p class="card-desc">Compiles named animations or controllers with the installed native AnimationCodec API. Returns content and optionally writes the exact output to an absolute path. Existing files require overwrite=true and are replaced in full; no implicit merge or save dialog. Controller export uses bedrock_animation_controller by default.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">kind</td>
+      <td class="col-type">&quot;animations&quot; | &quot;controllers&quot;</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>&quot;animations&quot;</code>)</span></td>
+    </tr><tr>
+      <td class="col-name">ids</td>
+      <td class="col-type">string[]</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minItems: 1, maxItems: 512]</span></td>
+    </tr><tr>
+      <td class="col-name">codec_id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">path</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">overwrite</td>
+      <td class="col-type">boolean</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>false</code>)</span></td>
+    </tr><tr>
+      <td class="col-name">max_content_length</td>
+      <td class="col-type">integer</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>100000</code>) [min: 0, max: 2000000]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
         </section>
 <section id="cat-display" class="category-section">
           <h3 class="category-title">Display</h3>
@@ -3229,6 +3715,84 @@
     </table>
       </div>
     </div>
+<div id="tool-configure_texture" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">configure_texture</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Configure Texture</p>
+      <p class="card-desc">Edits one texture's name, animated-frame timing/order/interpolation or wrapping with Undo. Uses the visible project's texture; no source file is saved. Texture animation settings require animated_textures and wrapping requires per_texture_wrap_mode in the current format.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">texture_id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">settings</td>
+      <td class="col-type">object</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
+<div id="tool-resize_texture" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">resize_texture</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Resize Texture</p>
+      <p class="card-desc">Resizes the complete texture bitmap, including layers, using nearest-neighbor scaling or a top-left canvas crop/expansion. Width and height refer to the full image including all animation frames. Logical UV dimensions and coordinates stay unchanged; use set_project_texture_resolution or UV tools when those also need changing. No linked source file is written.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">texture_id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">width</td>
+      <td class="col-type">integer</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[min: 1, max: 8192]</span></td>
+    </tr><tr>
+      <td class="col-name">height</td>
+      <td class="col-type">integer</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[min: 1, max: 8192]</span></td>
+    </tr><tr>
+      <td class="col-name">mode</td>
+      <td class="col-type">&quot;scale&quot; | &quot;canvas&quot;</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">(default: <code>&quot;scale&quot;</code>)</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
         </section>
 <section id="cat-exact-texture-editing" class="category-section">
           <h3 class="category-title">Exact texture editing</h3>
@@ -3868,7 +4432,7 @@
       <td class="col-name">radius</td>
       <td class="col-type">integer</td>
       <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Radius for expand or contract operations. <span class="param-meta">[min: 1]</span></td>
+      <td class="col-desc">Radius for expand or contract operations. <span class="param-meta">[min: 1, max: 9007199254740991]</span></td>
     </tr><tr>
       <td class="col-name">mode</td>
       <td class="col-type">&quot;create&quot; | &quot;add&quot; | &quot;subtract&quot; | &quot;intersect&quot;</td>
@@ -3927,7 +4491,7 @@
       <td class="col-name">target_index</td>
       <td class="col-type">integer</td>
       <td><span class="param-optional">optional</span></td>
-      <td class="col-desc">Target position for moving layers. <span class="param-meta">[min: 0]</span></td>
+      <td class="col-desc">Target position for moving layers. <span class="param-meta">[min: 0, max: 9007199254740991]</span></td>
     </tr></tbody>
     </table>
       </div>
@@ -4159,7 +4723,7 @@
       <td class="col-desc">ID or name of the mesh. If not provided, uses selected mesh.</td>
     </tr><tr>
       <td class="col-name">angle</td>
-      <td class="col-type">&quot;-90&quot; | &quot;90&quot; | &quot;180&quot;</td>
+      <td class="col-type">&quot;90&quot; | &quot;180&quot; | &quot;-90&quot;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Rotation angle in degrees. <span class="param-meta">(default: <code>&quot;90&quot;</code>)</span></td>
     </tr><tr>
@@ -4729,6 +5293,64 @@
     </table>
       </div>
     </div>
+<div id="tool-inspect_import_formats" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">inspect_import_formats</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-readonly">read-only</span>
+        </div>
+      </div>
+      <p class="card-title">Inspect Import Formats</p>
+      <p class="card-desc">Lists registered model codecs that expose a parser and a target format, along with their native file extensions and input encoding. Use open_bbmodel for native project files and import_model for other text/JSON model formats.</p>
+      <div class="overflow-x">
+        <p class="empty-params">No parameters</p>
+      </div>
+    </div>
+<div id="tool-import_model" class="card tool-card">
+      <div class="card-header">
+        <h3 class="card-name">import_model</h3>
+        <div class="card-badges">
+          <span class="badge badge-stable">stable</span>
+          <span class="badge badge-destructive">destructive</span>
+        </div>
+      </div>
+      <p class="card-title">Import Model</p>
+      <p class="card-desc">Parses an existing text/JSON model into a new visible project using a registered codec's native parser and target format. Accepts inline content or an absolute local source path. Does not merge into an existing tab or save source files; use open_bbmodel for native .bbmodel projects. Discover supported codecs with inspect_import_formats.</p>
+      <div class="overflow-x">
+        <table class="param-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+      <td class="col-name">codec_id</td>
+      <td class="col-type">string</td>
+      <td><span class="param-required">required</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1]</span></td>
+    </tr><tr>
+      <td class="col-name">name</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc"> <span class="param-meta">[minLength: 1, maxLength: 256]</span></td>
+    </tr><tr>
+      <td class="col-name">content</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Inline file content. Provide content or path, not both. <span class="param-meta">[maxLength: 5242880]</span></td>
+    </tr><tr>
+      <td class="col-name">path</td>
+      <td class="col-type">string</td>
+      <td><span class="param-optional">optional</span></td>
+      <td class="col-desc">Absolute local source path; remote URLs are not supported. <span class="param-meta">[minLength: 1]</span></td>
+    </tr></tbody>
+    </table>
+      </div>
+    </div>
         </section>
 <section id="cat-export" class="category-section">
           <h3 class="category-title">Export</h3>
@@ -5194,12 +5816,12 @@
       <td class="col-desc"> <span class="param-meta">(default: <code>&quot;stable_2_6_5&quot;</code>)</span></td>
     </tr><tr>
       <td class="col-name">bindings</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Runtime bindings as nested objects or flat dotted paths. A flat dotted entry overrides the equivalent nested value. <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
       <td class="col-name">function_results</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc"> <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr></tbody>
@@ -5243,27 +5865,27 @@
       <td class="col-desc"> <span class="param-meta">(default: <code>1831565813</code>) [min: 0, max: 4294967295]</span></td>
     </tr><tr>
       <td class="col-name">bindings</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Runtime bindings as nested objects or flat dotted paths. A flat dotted entry overrides the equivalent nested value. <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
       <td class="col-name">variables</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc"> <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
       <td class="col-name">temp</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc"> <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
       <td class="col-name">context</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc"> <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
       <td class="col-name">function_results</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc"> <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
@@ -5322,27 +5944,27 @@
       <td class="col-desc"> <span class="param-meta">(default: <code>1831565813</code>) [min: 0, max: 4294967295]</span></td>
     </tr><tr>
       <td class="col-name">bindings</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc">Runtime bindings as nested objects or flat dotted paths. A flat dotted entry overrides the equivalent nested value. <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
       <td class="col-name">variables</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc"> <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
       <td class="col-name">temp</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc"> <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
       <td class="col-name">context</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc"> <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
       <td class="col-name">function_results</td>
-      <td class="col-type">Record&lt;string, number | boolean | string | null | unknown[] | Record&lt;string, unknown&gt;&gt;</td>
+      <td class="col-type">Record&lt;string, unknown&gt;</td>
       <td><span class="param-optional">optional</span></td>
       <td class="col-desc"> <span class="param-meta">(default: <code>{}</code>)</span></td>
     </tr><tr>
@@ -6022,7 +6644,7 @@
       </section>
 
       <footer class="page-footer">
-        Generated 2026-08-30T17:35:29.560Z from Zod schemas
+        Generated 2026-09-06T07:29:39.707Z from Zod schemas
       </footer>
     </main>
   </div>

@@ -7,7 +7,8 @@ This repository is derived from Jason J. Gardner's `blockbench-mcp-plugin` and i
 ## Features
 
 - Modeling, texturing, UVs, animation, materials, projects, and import/export.
-- 118 core direct tools and 14 YSM tools; 12 additional experimental tools appear when the Hytale plugin is installed.
+- Native locators, null objects, billboards, bounding boxes and spline control points; animation controllers, animation codecs, layered texture resizing and format capability discovery. See the [operation coverage guide](docs/能力覆盖.md).
+- 136 core direct tools and 14 YSM tools; 12 additional experimental tools appear when the Hytale plugin is installed.
 - Every tool has an operation-specific schema. There are no grouped `command.action` envelopes.
 - Project tools act on the Blockbench tab visible when each call begins. `select_project` is the only way an MCP call chooses another open tab.
 - Experimental validation tools provide transformed contact analysis, typed UV checks, project-scoped in-memory snapshots (the latest eight per project), repeatable camera/debug passes, occluder evidence, and native-animation pose sweeps.
@@ -27,6 +28,8 @@ bun run build
 ```
 
 The installable file is `dist/blockbench_mcp.js`. Use `bun run dev` for a development build.
+
+Requires Blockbench 5.1 or later; runtime validation uses 5.1.6. The server uses MCP SDK 2 and supports both the 2026-07-28 protocol and stateless 2025 clients. Use `bun ./build/index.ts --outdir <absolute-debug-directory> --minify` to test without replacing an installed `dist` artifact.
 
 ## Installation
 
