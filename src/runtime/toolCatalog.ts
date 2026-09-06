@@ -5,6 +5,9 @@ import {
   animationTools,
 } from "@/server/tools/animation";
 import { armatureTools } from "@/server/tools/armature";
+import { capabilityTools } from "@/server/tools/capabilities";
+import { nativeElementTools } from "@/server/tools/native-elements";
+import { elementGeometryTools } from "@/server/tools/element-geometry";
 import { cameraTools } from "@/server/tools/camera";
 import { cubeTools } from "@/server/tools/cubes";
 import { displayTools } from "@/server/tools/display";
@@ -35,8 +38,8 @@ export interface ToolCategory {
 }
 
 export const CORE_TOOL_CATEGORIES: readonly ToolCategory[] = [
-  { category: "Projects", tools: projectTools },
-  { category: "Elements", tools: elementTools },
+  { category: "Projects", tools: [...projectTools, ...capabilityTools] },
+  { category: "Elements", tools: [...elementTools, ...nativeElementTools, ...elementGeometryTools] },
   { category: "Cubes", tools: cubeTools },
   { category: "Meshes", tools: meshTools },
   { category: "Armatures", tools: armatureTools },
