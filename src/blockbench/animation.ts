@@ -1,4 +1,5 @@
 import { resolveUniqueReference } from "@/lib/modelSafety";
+import { findElementOrThrow } from "@/lib/util";
 
 export function normalizeAnimationName(name: string): string {
   const normalized = name.trim();
@@ -10,29 +11,37 @@ export function normalizeAnimationName(name: string): string {
 
 export const KEYFRAME_TIME_EPSILON = 0.001;
 
-type RuntimeAnimator = GeneralAnimator & {
-  createKeyframe(
-    value: KeyframeOptions | null,
-    time: number,
-    channel: string,
-    undo?: boolean,
-    select?: boolean
-  ): _Keyframe;
+export type AnimatableNode = OutlinerNode & {
+  constructor: { animator: new (uuid: string, animation: _Animation, name?: string) => GeneralAnimator };
 };
+
+export function findAnimatableNodeOrThrow(reference: string): AnimatableNode {
+  const node = findElementOrThrow(reference) as unknown as AnimatableNode;
+  if (!node.constructor.animator) throw new Error(`Node "${reference}" does not support native animation.`);
+  return node;
+}
+
+export function assertAnimationChannel(node: AnimatableNode, channel: string): void {
+  if (!node.constructor.animator.prototype.channels[channel]) {
+    throw new Error(`Node "${node.name}" (${node.type}) does not support the ${channel} animation channel.`);
+  }
+}
+
+export function createNodeAnimator(animation: _Animation, node: AnimatableNode): GeneralAnimator {
+  return animation.animators[node.uuid] = new node.constructor.animator(node.uuid, animation, node.name);
+}
 
 export function createRuntimeKeyframe(
   animator: GeneralAnimator,
-  value: KeyframeOptions | null,
+  value: Partial<KeyframeOptions> | null,
   time: number,
   channel: string
 ): _Keyframe {
-  return (animator as RuntimeAnimator).createKeyframe(
-    value,
-    time,
-    channel,
-    false,
-    false
-  );
+  // Native createKeyframe snaps to the selected timeline and replaces neighbours.
+  // MCP callers supply exact times and validate collisions before editing.
+  const keyframe = animator.addKeyframe({ ...value, data_points: value?.data_points ?? [], time, channel });
+  if (!keyframe) throw new Error(`Animator "${animator.uuid}" does not support ${channel}.`);
+  return keyframe;
 }
 
 export function keyframeVector(value: unknown, fallback = 0): ArrayVector3 {

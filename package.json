@@ -1,6 +1,6 @@
 {
   "name": "blockbench-mcp",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Local Blockbench MCP server with direct visible-tab modeling, audit history, and YSM/Hytale support",
   "keywords": [
     "Blockbench",
@@ -26,9 +26,6 @@
     "dev": "bun run prompts:build && bun run ./build --clean --sourcemap",
     "dev:watch": "bun run dev --watch",
     "build": "bun run prompts:build && bun run ./build --clean --minify",
-    "docs:build": "bun run ./build/docs.ts",
-    "docs:serve": "bun run docs/index.html",
-    "docs": "bun run prompts:build && bun run docs:build",
     "inspect": "bunx @modelcontextprotocol/inspector"
   },
   "dependencies": {

@@ -7,6 +7,7 @@ import {
 import { armatureTools } from "@/server/tools/armature";
 import { animationControllerTools } from "@/server/tools/animation-controllers";
 import { animationFileTools } from "@/server/tools/animation-files";
+import { ikTools } from "@/server/tools/ik";
 import { capabilityTools } from "@/server/tools/capabilities";
 import { nativeElementTools } from "@/server/tools/native-elements";
 import { elementGeometryTools } from "@/server/tools/element-geometry";
@@ -55,6 +56,7 @@ export const CORE_TOOL_CATEGORIES: readonly ToolCategory[] = [
       ...animationTools,
       ...animationControllerTools,
       ...animationFileTools,
+      ...ikTools,
     ],
   },
   { category: "Display", tools: displayTools },

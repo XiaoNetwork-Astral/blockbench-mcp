@@ -750,8 +750,6 @@ export const elementTools: ToolDefinition[] = [
       const sceneObject = element.scene_object;
       sceneObject.updateMatrixWorld(true);
       const worldBefore = sceneObject.matrixWorld.clone();
-      const oldParent = element.parent;
-      const oldLocal = sceneObject.matrix.clone();
       Undo.initEdit({ ...state, outliner: true, collections: [] });
       try {
         element.addTo(target);
@@ -768,16 +766,13 @@ export const elementTools: ToolDefinition[] = [
           const parentChange = new Three.Matrix4()
             .copy(newSceneParent.matrixWorld)
             .invert();
-          if (oldParent instanceof OutlinerNode) {
-            oldParent.scene_object.updateMatrixWorld(true);
-            parentChange.multiply(oldParent.scene_object.matrixWorld);
-          }
-          const nextLocal = oldLocal.clone().premultiply(parentChange);
+          const nextLocal = worldBefore.clone().premultiply(parentChange);
           const position = new Three.Vector3();
           const quaternion = new Three.Quaternion();
           const scale = new Three.Vector3();
           nextLocal.decompose(position, quaternion, scale);
-          if (!vectorsNearlyEqual(scale.toArray(), [1, 1, 1], 1e-5)) {
+          const positionOnly = element.type === "null_object";
+          if (!positionOnly && !vectorsNearlyEqual(scale.toArray(), [1, 1, 1], 1e-5)) {
             throw new Error("Preserving this world transform would require unsupported node scaling.");
           }
           const absolutePosition = Boolean(Format.bone_rig &&
@@ -841,7 +836,12 @@ export const elementTools: ToolDefinition[] = [
           }
           element.preview_controller?.updateAll?.(element);
           sceneObject.updateMatrixWorld(true);
-          if (!vectorsNearlyEqual(sceneObject.matrixWorld.elements, worldBefore.elements, 1e-4)) {
+          // Null objects use camera-dependent sprite scaling and have no model
+          // rotation or scale. Their persistent transform is a position only.
+          const verified = positionOnly
+            ? vectorsNearlyEqual(new Three.Vector3().setFromMatrixPosition(sceneObject.matrixWorld).toArray(), new Three.Vector3().setFromMatrixPosition(worldBefore).toArray(), 1e-4)
+            : vectorsNearlyEqual(sceneObject.matrixWorld.elements, worldBefore.elements, 1e-4);
+          if (!verified) {
             throw new Error("World-transform verification failed after reparenting.");
           }
         }

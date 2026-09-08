@@ -7,7 +7,6 @@ The plugin is written in TypeScript and built with Bun. Keep changes focused and
 ```sh
 bun install
 bun run check
-bun run docs
 bun run dev
 bun run build
 ```
@@ -20,14 +19,14 @@ To preserve an installed artifact, build to a separate directory with `bun ./bui
 
 - `index.ts`: plugin entry and registration.
 - `server/`: MCP server, tools, resources, prompts, and HTTP transport.
-- `src/runtime/toolCatalog.ts`: the tool catalog used by both runtime registration and documentation.
+- `src/runtime/toolCatalog.ts`: the runtime tool catalog.
 - `src/blockbench/`: native painting, animation, controller and element adapters.
 - `src/features/validation/`: validation schemas, geometry checks, snapshots and view capture.
 - `ui/`: settings, history, project lock, and server controls.
 - `lib/`: domain logic, schemas, reference resolution, and Undo handling.
 - `prompts/`: bundled prompt sources.
 - `tests/`: Bun regression tests.
-- `build/`: prompt, documentation, and production builds.
+- `build/`: prompt and production builds.
 
 ## Tool changes
 
@@ -38,7 +37,7 @@ To preserve an installed artifact, build to a separate directory with `bun ./bui
 - Creation defaults to the Outliner root, duplication defaults to the original parent, and reparenting requires a destination. Resolve supplied names uniquely; use UUIDs only when names are ambiguous.
 - Mutations use bounded Undo edits. Avoid repeated defensive checks and full-project scans when one boundary validation is enough.
 - Arbitrary JavaScript execution and generic click, action, or dialog automation are out of scope.
-- Define metadata, a Zod object schema and the typed `execute` callback together with `defineTool`. Export the domain's tool array and include it in `src/runtime/toolCatalog.ts`; registration and documentation follow from that catalog. Do not add a second registration function or duplicate schema parsing.
+- Define metadata, a Zod object schema and the typed `execute` callback together with `defineTool`. Export the domain's tool array and include it in `src/runtime/toolCatalog.ts` for registration. Do not add a second registration function or duplicate schema parsing.
 - Use the official MCP server types for resources and prompts. For Blockbench 5.1 animation files, use `AnimationCodec` rather than deprecated `Animator.loadFile` or `Animator.buildFile` methods.
 
 Prompt text belongs in `prompts/*.md`. Run `bun run prompts:build` after changing it; prompts must remain local and must not be fetched from an upstream CDN.
@@ -46,7 +45,6 @@ Prompt text belongs in `prompts/*.md`. Run `bun run prompts:build` after changin
 ## Verification
 
 - Run `bun run check` for every code change; it runs TypeScript without emitting files and then the complete Bun test suite.
-- Run `bun run docs` after changing tools, resources, prompts, or public documentation sources.
 - Run `bun run build` when a fresh install artifact is needed.
 - Live-test behavior that depends on Blockbench, and check the affected model, Undo/Redo, audit entry, and relevant views.
 - Never commit bearer tokens or generated `dist/` files.

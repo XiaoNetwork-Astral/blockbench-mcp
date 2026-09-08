@@ -31,9 +31,6 @@ jobs:
       - name: Test
         run: bun run check
 
-      - name: Generate prompts and API docs
-        run: bun run docs
-
       - name: Build plugin artifact
         run: bun run build
 

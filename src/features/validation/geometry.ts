@@ -47,6 +47,12 @@ function resolveTexture(project: ModelProject, reference: string | false | null 
   return matches.length === 1 ? matches[0] : null;
 }
 
+export function effectiveUvSize(project: ModelProject, texture: Texture | null): [number, number] {
+  return project.format.per_texture_uv_size && texture
+    ? [texture.uv_width || project.texture_width, texture.uv_height || project.texture_height]
+    : [project.texture_width, project.texture_height];
+}
+
 function worldPolygonArea(node: InspectableGeometryNode, points: readonly number[][]): number | null {
   if (points.length < 3) return 0;
   const THREE_API = (globalThis as typeof globalThis & { THREE: typeof import("three") }).THREE;
@@ -106,9 +112,7 @@ export function uvRecordsForElements(
             texture_uuid: texture?.uuid ?? null,
             texture_name: texture?.name ?? null,
             texture_size: texture ? [texture.width, texture.height] : null,
-            uv_size: texture
-              ? [texture.uv_width || project.texture_width, texture.uv_height || project.texture_height]
-              : [project.texture_width, project.texture_height],
+            uv_size: effectiveUvSize(project, texture),
             uv_points: uvPoints,
             rotation: Number(face.rotation ?? 0),
             mirrored: Boolean(cube.mirror_uv || (uv.length >= 4 && (uv[0] > uv[2] || uv[1] > uv[3]))),
@@ -135,9 +139,7 @@ export function uvRecordsForElements(
             texture_uuid: texture?.uuid ?? null,
             texture_name: texture?.name ?? null,
             texture_size: texture ? [texture.width, texture.height] : null,
-            uv_size: texture
-              ? [texture.uv_width || project.texture_width, texture.uv_height || project.texture_height]
-              : [project.texture_width, project.texture_height],
+            uv_size: effectiveUvSize(project, texture),
             uv_points: uvPoints,
             rotation: Number(face.rotation ?? 0),
             mirrored: null,

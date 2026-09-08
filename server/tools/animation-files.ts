@@ -3,6 +3,7 @@ import { z } from "zod";
 import { defineTool, type ToolDefinition } from "@/lib/factories";
 import { codecInputFields, readCodecInput, writeCodecOutput } from "@/lib/codecFiles";
 import { findAnimationOrThrow } from "@/src/blockbench/animation";
+import { compileAnimationSelection } from "@/src/blockbench/animationExport";
 import { allControllers, findControllerOrThrow, resolveImportedControllerTransitions, type ImportedControllerStates } from "@/src/blockbench/animationControllers";
 
 function getCodec(id?: string): AnimationCodec {
@@ -79,26 +80,25 @@ export const animationFileTools: ToolDefinition[] = [
   }),
   defineTool({
     name: "export_animations",
-    description: "Compiles named animations or controllers with the installed native AnimationCodec API. Returns content and optionally writes the exact output to an absolute path. Existing files require overwrite=true and are replaced in full; no implicit merge or save dialog. Controller export uses bedrock_animation_controller by default.",
+    description: "Compiles named animations or controllers with the native AnimationCodec API, restoring the complete calling preview. Exact timestamps prevent silent sample collisions. Bedrock IK export accepts an explicit sample rate and reports sample/midpoint reproduction and loop-boundary errors. Returns content and optionally writes it to an absolute path; replacing a file requires overwrite=true. Controller export uses bedrock_animation_controller by default.",
     annotations: { title: "Export Animations", destructiveHint: true, openWorldHint: true },
     parameters: z.object({
       kind: z.enum(["animations", "controllers"]).default("animations"),
       ids: z.array(z.string().min(1)).min(1).max(512), codec_id: z.string().min(1).optional(),
       path: z.string().min(1).optional(), overwrite: z.boolean().default(false),
       max_content_length: z.number().int().min(0).max(2_000_000).default(100_000),
+      sample_rate: z.number().int().min(1).max(240).optional().describe("IK sampling frequency in Hz for Bedrock animations; defaults to the current animation_sample_rate setting, independent of animation snapping."),
+      time_strategy: z.enum(["exact", "animation_grid"]).default("exact").describe("Preserve exact times, or require every key and IK sample to fit the animation grid. Incompatible times are rejected, never silently rounded."),
     }).strict(), status: "stable",
-    async execute({ kind, ids, codec_id, path, overwrite, max_content_length }, context) {
+    async execute({ kind, ids, codec_id, path, overwrite, max_content_length, sample_rate, time_strategy }, context) {
       const items = kind === "controllers" ? ids.map(findControllerOrThrow) : ids.map(id => findAnimationOrThrow(id));
       if (new Set(items.map(item => item.name)).size !== items.length) throw new Error("Exported animation names must be unique; duplicate names would overwrite entries in the compiled file.");
       const codec = getCodec(codec_id ?? (kind === "controllers" ? "bedrock_animation_controller" : undefined));
-      let compiled: unknown;
-      if (codec.compileFile) compiled = await codec.compileFile(items);
-      else if (items.length === 1 && codec.compileAnimation) compiled = await codec.compileAnimation(items[0] as _Animation);
-      else throw new Error(`Codec "${codec.id}" cannot compile this selection as one file.`);
+      const { compiled, sampling } = await compileAnimationSelection(context.project!, codec, items, { kind, sample_rate, time_strategy });
       const text = typeof compiled === "string" ? compiled : JSON.stringify(compiled, null, 2);
       if (typeof text !== "string") throw new Error("Animation codec returned no content.");
       if (path) writeCodecOutput(path, text, context.project!, "export_animations", overwrite);
-      return JSON.stringify({ codec: codec.id, count: items.length, wrote_to_path: path ?? null, content: text.slice(0, max_content_length), truncated: text.length > max_content_length, character_count: text.length });
+      return JSON.stringify({ codec: codec.id, count: items.length, time_strategy, ik_sampling: sampling, wrote_to_path: path ?? null, content: text.slice(0, max_content_length), truncated: text.length > max_content_length, character_count: text.length });
     },
   }),
 ];

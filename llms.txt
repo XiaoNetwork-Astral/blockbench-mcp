@@ -3,18 +3,17 @@
 - Repository: https://github.com/XiaoNetwork-Astral/blockbench-mcp
 - Upstream: https://github.com/jasonjgardner/blockbench-mcp-plugin
 - License: GPL-3.0-only
-- Version: 2.0.0-blockbench.1
+- Version: 2.2.0
 - Artifact: `dist/blockbench_mcp.js`
 - Default MCP URL: `http://127.0.0.1:3000/bb-mcp`
 
 ## Interface
 
-- 118 core direct tools and 17 YSM tools, plus 12 Hytale tools when its plugin is installed.
+- 138 core direct tools and 14 YSM tools, plus 12 Hytale tools when its plugin is installed.
 - Validation tools provide transformed-contact, UV-integrity, snapshot/diff (the latest eight in-memory snapshots per project), repeatable view/debug-pass, visibility, and native-animation sweep operations.
 - YSM tools provide workspace synchronization, source-backed Molang discovery, parsing, semantic/runtime validation, deterministic simulation, clone-only preview, and targeted JSONC editing.
 - Every tool accepts its operation-specific input object directly.
 - Project-scoped calls use the Blockbench tab visible when execution begins; `select_project` visibly changes the tab.
-- API docs are generated with `bun run docs` at `docs/index.html` and `docs/api.json`.
 
 ## Modeling
 
@@ -28,7 +27,6 @@
 
 - Install: `bun install`
 - Test: `bun run check`
-- Generate docs: `bun run docs`
 - Build: `bun run build`
 - Contribution rules: `CONTRIBUTING.md`
 - Connection examples: `llms-install.md`

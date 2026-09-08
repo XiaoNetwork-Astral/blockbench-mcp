@@ -4,10 +4,12 @@ import { z } from "zod";
 import { defineTool, type ToolDefinition } from "@/lib/factories";
 import { findElementOrThrow, findGroupOrThrow } from "@/lib/util";
 import { STATUS_EXPERIMENTAL, STATUS_STABLE } from "@/lib/constants";
+import { resampleAnimationCurves } from "@/src/blockbench/animationSampling";
+import { configureNativeIK } from "@/src/blockbench/ik";
 import { applyKeyframeValues } from "@/lib/toolFixes";
 import { collectOutlinerSubtree, finishCreatedOutlinerEdit, resolveOutlinerParentOrThrow, rollbackCreatedOutlinerEdit } from "@/lib/modelSafety";
 import { vec3, animationIdOptionalSchema, animationChannelEnum, axisEnum, timeRangeSchema, boneNameSchema, loopModeEnum, keyframeDataSchema } from "@/lib/zodObjects";
-import { normalizeAnimationName, animationSummary, findAnimationOrThrow, assertKeyframeTimesAvailable, resolveUniqueKeyframeAtTime, createRuntimeKeyframe, setKeyframeVector, collectAnimationKeyframes, KEYFRAME_TIME_EPSILON, numericKeyframeVector, copyRuntimeKeyframeData, flipRuntimeKeyframe } from "@/src/blockbench/animation";
+import { normalizeAnimationName, animationSummary, findAnimationOrThrow, assertKeyframeTimesAvailable, resolveUniqueKeyframeAtTime, createRuntimeKeyframe, setKeyframeVector, collectAnimationKeyframes, KEYFRAME_TIME_EPSILON, numericKeyframeVector, copyRuntimeKeyframeData, flipRuntimeKeyframe, findAnimatableNodeOrThrow, assertAnimationChannel, createNodeAnimator } from "@/src/blockbench/animation";
 
 export const createAnimationParameters = z.object({
   name: z.string().describe("Name of the animation"),
@@ -17,20 +19,21 @@ export const createAnimationParameters = z.object({
     .describe("Whether the animation should loop"),
   animation_length: z
     .number()
+    .nonnegative()
     .optional()
     .describe("Length of the animation in seconds"),
   bones: z
     .record(
       z.string(), z.array(
         z.object({
-          time: z.number(),
+          time: z.number().nonnegative(),
           position: vec3().optional(),
           rotation: vec3().optional(),
           scale: z.union([vec3(), z.number()]).optional(),
         })
       )
     )
-    .describe("Keyframes for each bone"),
+    .describe("Native node-local keyframes keyed by UUID or unique name. Supports groups and animatable elements such as null objects; channels must be supported by the node."),
   particle_effects: z
     .record(z.string(), z.string().describe("Effect name"))
     .optional()
@@ -42,7 +45,7 @@ export const manageKeyframesParameters = z.object({
   action: z
     .enum(["create", "delete", "edit", "select"])
     .describe("Action to perform on keyframes."),
-  bone_name: boneNameSchema.describe("Name of the bone/group to manage keyframes for."),
+  bone_name: boneNameSchema.describe("UUID or unique name of the group or animatable element, including null objects."),
   channel: animationChannelEnum.describe("Animation channel to modify."),
   keyframes: z
     .array(keyframeDataSchema)
@@ -51,7 +54,7 @@ export const manageKeyframesParameters = z.object({
 
 export const animationGraphEditorParameters = z.object({
   animation_id: animationIdOptionalSchema,
-  bone_name: boneNameSchema.describe("Name of the bone/group to modify curves for."),
+  bone_name: boneNameSchema.describe("UUID or unique name of the group or animatable element whose curves should be modified."),
   channel: animationChannelEnum.describe("Animation channel to modify."),
   action: z
     .enum([
@@ -110,7 +113,7 @@ export const boneRiggingParameters = z
       .describe("Action to perform on the bone structure."),
     bone_data: z
       .object({
-        name: z.string().min(1).describe("UUID or unique name of the bone."),
+        name: z.string().min(1).describe("UUID or unique name of the bone; for set_ik, identify the native null object controller."),
         parent: z
           .string()
           .min(1)
@@ -132,11 +135,15 @@ export const boneRiggingParameters = z
         ik_enabled: z
           .boolean()
           .optional()
-          .describe("Enable inverse kinematics for this bone."),
+          .describe("Enable native IK on the null object controller. Disabling clears its native ik_target."),
+        ik_source: z.string().optional().describe("Root bone UUID or unique name of the IK chain. Empty uses the controller's parent as the exclusive chain root."),
         ik_target: z
           .string()
           .optional()
           .describe("Target bone UUID or unique name for the IK chain."),
+        lock_ik_target_rotation: z.boolean().optional().describe("Preserve the endpoint's world orientation during IK."),
+        target_position: vec3("Controller position; interpreted using position_space.").optional(),
+        position_space: z.enum(["native", "world"]).default("native").describe("Native stored position, or a world position converted through the controller's current parent."),
         mirror_axis: axisEnum.optional().describe("Axis to mirror the bone across."),
       })
       .describe("Bone configuration data."),
@@ -259,7 +266,8 @@ export const batchKeyframeOperationsParameters = z.object({
         .number()
         .positive()
         .optional()
-        .describe("Interval for baking keyframes."),
+        .describe("Interval in seconds for resampling selected transform curves; this does not bake IK into bone rotations."),
+      time_strategy: z.enum(["exact", "animation_grid"]).default("exact").describe("Keep exact sample times, or reject intervals that do not fit the animation grid. Never silently snap or overwrite samples."),
     })
     .optional()
     .describe("Operation-specific parameters."),
@@ -351,43 +359,59 @@ export const animationTools: ToolDefinition[] = [
     parameters: createAnimationParameters,
     status: STATUS_STABLE,
     async execute({ name, loop, animation_length, bones, particle_effects }) {
-      const animationData = {
-        loop,
-        ...(animation_length && { animation_length }),
-        bones: Object.fromEntries(Object.entries(bones).map(([boneName, keyframes]) => {
-          const boneData: Record<string, Record<string, number | number[]>> = keyframes.reduce((acc, keyframe) => {
-            const timeKey = keyframe.time.toString();
-            if (keyframe.position) {
-              (acc.position ??= {})[timeKey] = keyframe.position;
-            }
-            if (keyframe.rotation) {
-              (acc.rotation ??= {})[timeKey] = keyframe.rotation;
-            }
-            if (keyframe.scale) {
-              (acc.scale ??= {})[timeKey] = keyframe.scale;
-            }
-            return acc;
-          }, {} as Record<string, Record<string, number | number[]>>);
-          return [boneName, boneData];
-        })),
-        ...(particle_effects && { particle_effects }),
-      };
+      if (!Format.animation_mode) throw new Error(`Format "${Format.id}" does not support animation.`);
       const normalizedName = normalizeAnimationName(name);
-      const allAnimations = Animator.animations;
-      const animationsBefore = new Set(allAnimations);
-      Animator.loadFile({
-        content: JSON.stringify({
-          format_version: "1.8.0",
-          animations: {
-            [normalizedName]: animationData,
-          },
-        }),
-      });
-      const createdAnimations = Animator.animations.filter((animation) => !animationsBefore.has(animation));
-      if (createdAnimations.length !== 1) {
-        throw new Error(`Blockbench added ${createdAnimations.length} animations for one request; expected exactly one.`);
+      if (Animator.animations.some(animation => animation.name === normalizedName)) {
+        throw new Error(`Animation "${normalizedName}" already exists.`);
       }
-      const created = createdAnimations[0];
+      const blueprints: Record<string, { type: string; name?: string; keyframes: KeyframeOptions[] }> = {};
+      let lastTime = 0;
+      let keyframeCount = 0;
+      for (const [reference, frames] of Object.entries(bones)) {
+        const node = findAnimatableNodeOrThrow(reference);
+        if (blueprints[node.uuid]) throw new Error(`Node "${node.name}" was specified more than once.`);
+        const nativeType = (node.constructor.animator.prototype as GeneralAnimator & { type: string }).type;
+        const keyframes: KeyframeOptions[] = [];
+        for (const channel of ["position", "rotation", "scale"] as const) {
+          const channelFrames = frames.filter(frame => frame[channel] !== undefined);
+          if (!channelFrames.length) continue;
+          assertAnimationChannel(node, channel);
+          assertKeyframeTimesAvailable(undefined, channelFrames.map(frame => frame.time), `${node.name}.${channel}`);
+          for (const frame of channelFrames) {
+            const value = frame[channel]!;
+            const vector = typeof value === "number" ? [value, value, value] : value;
+            keyframes.push({ time: frame.time, channel, interpolation: "linear", data_points: [{ x: vector[0], y: vector[1], z: vector[2] }] });
+            lastTime = Math.max(lastTime, frame.time);
+          }
+        }
+        keyframeCount += keyframes.length;
+        blueprints[node.uuid] = { type: nativeType, name: node.name, keyframes };
+      }
+      if (particle_effects) {
+        const keyframes = Object.entries(particle_effects).map(([timeString, effect]) => {
+          const time = Number(timeString);
+          if (!Number.isFinite(time) || time < 0) throw new Error(`Invalid particle timestamp "${timeString}".`);
+          lastTime = Math.max(lastTime, time);
+          return { time, channel: "particle", data_points: [{ effect }] } as KeyframeOptions;
+        });
+        assertKeyframeTimesAvailable(undefined, keyframes.map(frame => frame.time!), "effects.particle");
+        blueprints.effects = { type: "effect", keyframes };
+        keyframeCount += keyframes.length;
+      }
+      if (keyframeCount > 100_000) throw new Error("Create at most 100,000 keyframes per call.");
+      const NativeAnimation = (globalThis as unknown as { Animation: new (data: Record<string, unknown>) => _Animation }).Animation;
+      const animations: _Animation[] = [];
+      Undo.initEdit({ animations });
+      let created: _Animation;
+      try {
+        created = new NativeAnimation({ name: normalizedName, loop: loop ? "loop" : "once", length: Math.max(animation_length ?? 0, lastTime), animators: blueprints });
+        animations.push(created);
+        created.add(false);
+        Undo.finishEdit("Create animation", { animations });
+      } catch (error) {
+        (Undo.cancelEdit as unknown as (revertChanges?: boolean) => void)(true);
+        throw error;
+      }
       created.select();
       Animator.preview();
       return JSON.stringify({
@@ -412,7 +436,8 @@ export const animationTools: ToolDefinition[] = [
       const animation = findAnimationOrThrow(animation_id);
       animation.select();
       // Find the bone
-      const group = findGroupOrThrow(bone_name);
+      const group = findAnimatableNodeOrThrow(bone_name);
+      assertAnimationChannel(group, channel);
       // Resolve the animator without mutating the animation. Only "create" may
       // add one, and it does so inside the Undo transaction below.
       let animator = animation.animators[group.uuid];
@@ -437,13 +462,11 @@ export const animationTools: ToolDefinition[] = [
       }
       const undoAspects = {
         animations: [animation],
-        keyframes: [],
       };
       Undo.initEdit(undoAspects);
       try {
         if (!animator) {
-          animator = new BoneAnimator(group.uuid, animation, bone_name);
-          animation.animators[group.uuid] = animator;
+          animator = createNodeAnimator(animation, group);
         }
         const activeAnimator = animator;
         switch (action) {
@@ -495,6 +518,7 @@ export const animationTools: ToolDefinition[] = [
             });
             break;
         }
+        animation.setLength();
         Undo.finishEdit(`${action} keyframes`);
       }
       catch (error) {
@@ -517,7 +541,8 @@ export const animationTools: ToolDefinition[] = [
     async execute({ animation_id, bone_name, channel, action, keyframe_range, custom_curve, }) {
       const animation = findAnimationOrThrow(animation_id);
       animation.select();
-      const group = findGroupOrThrow(bone_name);
+      const group = findAnimatableNodeOrThrow(bone_name);
+      assertAnimationChannel(group, channel);
       const animator = animation.animators[group.uuid];
       if (!animator || !animator[channel]) {
         throw new Error(`No keyframes found for ${bone_name}.${channel}`);
@@ -532,7 +557,6 @@ export const animationTools: ToolDefinition[] = [
       }
       Undo.initEdit({
         animations: [animation],
-        keyframes,
       });
       try {
         keyframes.forEach((kf, index) => {
@@ -595,14 +619,14 @@ export const animationTools: ToolDefinition[] = [
     async execute({ action, bone_data }) {
       switch (action) {
         case "create": {
+          if (bone_data.ik_enabled || bone_data.ik_target || bone_data.ik_source) {
+            throw new Error("Native IK belongs to a null_object controller. Create the bone normally, then configure the controller with set_ik.");
+          }
           const parent = resolveOutlinerParentOrThrow(bone_data.parent ?? "root", "group");
           const children: Array<OutlinerElement | Group> = [...new Map<string, OutlinerElement | Group>(((bone_data.children ?? []) as string[]).map((reference: string) => {
             const child = findElementOrThrow(reference);
             return [child.uuid, child] as const;
           })).values()];
-          const ikTarget = bone_data.ik_target
-            ? findGroupOrThrow(bone_data.ik_target)
-            : undefined;
           for (const child of children) {
             if (parent !== "root" &&
               (parent === child || parent.isChildOf(child, Number.POSITIVE_INFINITY))) {
@@ -628,9 +652,6 @@ export const animationTools: ToolDefinition[] = [
               .init();
             for (const child of children)
               child.addTo(group);
-            group.ik_enabled = bone_data.ik_enabled ?? false;
-            if (ikTarget)
-              group.ik_target = ikTarget.uuid;
           }
           catch (error) {
             if (group)
@@ -713,20 +734,7 @@ export const animationTools: ToolDefinition[] = [
           return `Set pivot point for "${bone.name}"`;
         }
         case "set_ik": {
-          const bone = findGroupOrThrow(bone_data.name);
-          const ikTarget = bone_data.ik_target
-            ? findGroupOrThrow(bone_data.ik_target)
-            : undefined;
-          Undo.initEdit({ groups: [bone], outliner: true, collections: [] });
-          bone.ik_enabled = bone_data.ik_enabled ?? false;
-          bone.ik_target = ikTarget?.uuid ?? "";
-          Undo.finishEdit(`Bone rigging: ${action}`, {
-            groups: [bone],
-            outliner: true,
-            collections: [],
-          });
-          Canvas.updateAll();
-          return `Updated IK settings for "${bone.name}"`;
+          return JSON.stringify(configureNativeIK(bone_data));
         }
         case "mirror": {
           const bone = findGroupOrThrow(bone_data.name);
@@ -841,7 +849,7 @@ export const animationTools: ToolDefinition[] = [
   }),
   defineTool({
     name: "batch_keyframe_operations",
-    description: "Performs batch operations on multiple keyframes at once.",
+    description: "Performs batch operations on keyframes. bake resamples only selected transform curves after evaluating the original data, using exact timestamps by default and one complete Undo transaction. Use bake_ik_animation to bake solved IK into bone rotations.",
     annotations: {
       title: "Batch Keyframe Operations",
       destructiveHint: true,
@@ -882,7 +890,10 @@ export const animationTools: ToolDefinition[] = [
       if (keyframes.length === 0) {
         throw new Error("No keyframes found matching selection criteria.");
       }
-      const undoAspects = { animations: [animation], keyframes: [...keyframes] };
+      if (operation === "bake") {
+        return JSON.stringify(resampleAnimationCurves(animation, keyframes, parameters.bake_interval ?? 1 / animation.snapping, parameters.time_strategy ?? "exact"));
+      }
+      const undoAspects = { animations: [animation] };
       Undo.initEdit(undoAspects);
       try {
         switch (operation) {
@@ -937,32 +948,6 @@ export const animationTools: ToolDefinition[] = [
               kf.interpolation = "catmullrom";
             });
             break;
-          case "bake":
-            const interval = parameters.bake_interval ?? 1 / animation.snapping;
-            const animators = new Set<GeneralAnimator>(keyframes.map((keyframe) => keyframe.animator));
-            animators.forEach((animator) => {
-              const channels = ["rotation", "position", "scale"] as const;
-              channels.forEach((channel) => {
-                const channelKfs = animator[channel] as _Keyframe[];
-                if (!channelKfs || channelKfs.length < 2)
-                  return;
-                const startTime = Math.min(...channelKfs.map((kf) => kf.time));
-                const endTime = Math.max(...channelKfs.map((kf) => kf.time));
-                for (let time = startTime; time <= endTime; time += interval) {
-                  if (!channelKfs.find((kf) => Math.abs(kf.time - time) < 0.001)) {
-                    Timeline.time = time;
-                    const keyframe = createRuntimeKeyframe(animator, { time, channel, data_points: [] }, time, channel);
-                    const values = animator.interpolate(channel, true);
-                    if (values === false) {
-                      throw new Error(`Could not interpolate ${channel} at ${time} seconds.`);
-                    }
-                    applyKeyframeValues(keyframe, numericKeyframeVector(values));
-                    undoAspects.keyframes.push(keyframe);
-                  }
-                }
-              });
-            });
-            break;
         }
         Undo.finishEdit(`Batch keyframe operation: ${operation}`, undoAspects);
       }
@@ -993,8 +978,8 @@ export const animationTools: ToolDefinition[] = [
       if (!sourceAnimation || !targetAnimation) {
         throw new Error("Select an animation or supply explicit source and target animations.");
       }
-      const sourceBone = findGroupOrThrow(source.bone);
-      const targetBone = findGroupOrThrow(target.bone);
+      const sourceBone = findAnimatableNodeOrThrow(source.bone);
+      const targetBone = findAnimatableNodeOrThrow(target.bone);
       const sourceAnimator = sourceAnimation.animators[sourceBone.uuid];
       if (!sourceAnimator) {
         throw new Error(`No animation data exists for bone "${source.bone}".`);
@@ -1016,13 +1001,13 @@ export const animationTools: ToolDefinition[] = [
           : target.mirror_axis === "z"
             ? 2
             : undefined;
-      const undoAspects = { animations: [targetAnimation], keyframes: [] };
+      for (const keyframeData of copied) assertAnimationChannel(targetBone, keyframeData.channel);
+      const undoAspects = { animations: [targetAnimation] };
       Undo.initEdit(undoAspects);
       try {
         let targetAnimator = targetAnimation.animators[targetBone.uuid];
         if (!targetAnimator) {
-          targetAnimator = new BoneAnimator(targetBone.uuid, targetAnimation, target.bone);
-          targetAnimation.animators[targetBone.uuid] = targetAnimator;
+          targetAnimator = createNodeAnimator(targetAnimation, targetBone);
         }
         for (const keyframeData of copied) {
           const time = keyframeData.time + target.time_offset;
@@ -1030,6 +1015,7 @@ export const animationTools: ToolDefinition[] = [
           if (axisIndex !== undefined)
             flipRuntimeKeyframe(keyframe, axisIndex);
         }
+        targetAnimation.setLength();
         Undo.finishEdit("Copy animation keyframes", undoAspects);
       }
       catch (error) {
